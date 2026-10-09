@@ -6,31 +6,32 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 4px 2px 8px;
-  border-radius: 6px;
+  gap: var(--sc-space-1);
+  padding: 2px var(--sc-space-1) 2px var(--sc-space-2);
+  border-radius: var(--sc-radius-md);
+  transition: background-color var(--sc-transition);
 }
 
 .row:hover,
 .row.menu-open {
-  background: #f0f0f0;
+  background: var(--sc-color-hover);
 }
 
 .room-name {
   flex: 1;
   min-width: 0;
-  padding: 4px 0;
+  padding: var(--sc-space-1) 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .menu-button {
-  padding: 2px 6px;
-  border: none;
-  border-radius: 4px;
+  padding: 2px var(--sc-space-2);
+  border-color: transparent;
+  border-radius: var(--sc-radius-sm);
   background: transparent;
-  cursor: pointer;
+  color: var(--sc-color-text-muted);
   opacity: 0;
 }
 
@@ -41,7 +42,8 @@
 }
 
 .menu-button:hover {
-  background: #e0e0e0;
+  background: var(--sc-color-active);
+  color: var(--sc-color-text);
 }
 
 @media (hover: none) {
@@ -53,49 +55,49 @@
 .menu {
   position: absolute;
   top: 100%;
-  right: 4px;
+  right: var(--sc-space-1);
   z-index: 2;
   display: flex;
   flex-direction: column;
   min-width: 160px;
-  padding: 4px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+  padding: var(--sc-space-1);
+  border: 1px solid var(--sc-color-border);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-surface-raised);
+  box-shadow: var(--sc-shadow-menu);
 }
 
 .menu button {
-  padding: 6px 8px;
-  border: none;
-  border-radius: 4px;
+  padding: var(--sc-space-1) var(--sc-space-2);
+  border-color: transparent;
+  border-radius: var(--sc-radius-sm);
   background: transparent;
+  color: var(--sc-color-text);
   text-align: left;
-  cursor: pointer;
 }
 
 .menu button:hover {
-  background: #f0f0f0;
+  background: var(--sc-color-hover);
 }
 
-.danger {
-  color: #b00020;
+.menu button.danger {
+  color: var(--sc-color-danger);
 }
 
 .rename-form {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 4px 0;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-1) 0;
 }
 
 .rename-buttons {
   display: flex;
-  gap: 6px;
+  gap: var(--sc-space-2);
 }
 
 .error {
   margin: 0;
-  color: #b00020;
+  color: var(--sc-color-danger);
   white-space: pre-line;
 }

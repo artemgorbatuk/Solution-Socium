@@ -12,7 +12,7 @@
       (keydown.escape)="cancelRename()"
     />
     <div class="rename-buttons">
-      <button type="submit" [disabled]="saving() || !draftName().trim()">Сохранить</button>
+      <button type="submit" class="primary" [disabled]="saving() || !draftName().trim()">Сохранить</button>
       <button type="button" (click)="cancelRename()" [disabled]="saving()">Отмена</button>
     </div>
     @if (error(); as message) {

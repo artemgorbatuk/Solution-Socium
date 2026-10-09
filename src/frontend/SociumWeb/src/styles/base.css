@@ -1,0 +1,84 @@
+/* Reset and base elements (rule-0005). Selectors are wrapped in :where() so component styles always win. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sc-font-family);
+  font-size: var(--sc-font-size-md);
+  line-height: 1.4;
+  color: var(--sc-color-text);
+  background: var(--sc-color-bg);
+}
+
+:where(button, input) {
+  font: inherit;
+  color: inherit;
+}
+
+:where(button) {
+  padding: var(--sc-space-1) var(--sc-space-3);
+  border: 1px solid var(--sc-color-border-strong);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-control);
+  cursor: pointer;
+  transition:
+    background-color var(--sc-transition),
+    border-color var(--sc-transition),
+    color var(--sc-transition);
+}
+
+:where(button:hover:not(:disabled)) {
+  background: var(--sc-color-hover);
+}
+
+:where(button:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+
+:where(button.primary) {
+  border-color: var(--sc-color-accent);
+  background: var(--sc-color-accent);
+  color: var(--sc-color-on-accent);
+}
+
+:where(button.primary:hover:not(:disabled)) {
+  border-color: var(--sc-color-accent-hover);
+  background: var(--sc-color-accent-hover);
+}
+
+:where(button.danger) {
+  border-color: var(--sc-color-danger);
+  background: var(--sc-color-danger);
+  color: var(--sc-color-on-danger);
+}
+
+:where(button.danger:hover:not(:disabled)) {
+  border-color: var(--sc-color-danger-hover);
+  background: var(--sc-color-danger-hover);
+}
+
+:where(input) {
+  padding: var(--sc-space-1) var(--sc-space-2);
+  border: 1px solid var(--sc-color-border-strong);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-control);
+}
+
+:where(input)::placeholder {
+  color: var(--sc-color-text-subtle);
+}
+
+:where(input:disabled) {
+  opacity: 0.6;
+}
+
+:where(:focus-visible) {
+  outline: 2px solid var(--sc-color-focus);
+  outline-offset: 1px;
+}

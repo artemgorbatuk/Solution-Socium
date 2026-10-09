@@ -29,7 +29,7 @@
           (keydown.escape)="cancelCreate()"
         />
         <div class="create-buttons">
-          <button type="submit" [disabled]="saving() || !newRoomName().trim()">Создать</button>
+          <button type="submit" class="primary" [disabled]="saving() || !newRoomName().trim()">Создать</button>
           <button type="button" (click)="cancelCreate()" [disabled]="saving()">Отмена</button>
         </div>
         @if (createError(); as error) {

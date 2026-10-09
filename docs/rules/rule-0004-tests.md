@@ -23,7 +23,7 @@
    | `E2Es/`         | Сквозной путь через настоящие UI, WebApi и БД (Playwright), п. 23–28          | Да  |
    | `Infrastructure/` | Общая тестовая инфраструктура (`PostgresTestHost`, `TestProcess`), не тесты | —   |
 
-4. Папки внутри слоя: по area или общей библиотеке — `Units/Socium/`, `Units/Shared/`, `Units/WebApi/`, `Integrations/Socium/`, `Integrations/Infrastructure/` (тесты тестовой инфраструктуры, которой нужна БД), `E2Es/Socium/`.
+4. Папки внутри слоя: по area или общей библиотеке — `Units/Socium/`, `Units/Shared/`, `Units/WebApi/`, `Integrations/Socium/`, `Integrations/Infrastructure/` (тесты тестовой инфраструктуры, которой нужна БД), `E2Es/Socium/`, `E2Es/Layout/` (общий каркас интерфейса: верхняя панель, тема).
 5. Именование: имя каждого теста — бекенда, фронтенда и E2E — строится по одному шаблону `{Объект}_{Действие}_{Условие}_{Результат}`, на английском, части в PascalCase через `_`; по имени без чтения кода понятно, что проверяется, чем, в каком случае и что ожидается.
    - Набор тестов: класс unit- и интеграционных тестов — `{ТестируемыйКласс}Tests`, тестов API — `{Entity}ApiTests`, E2E — `{Экран}E2eTests`; namespace повторяет путь папки (`Tests.Units.Socium`). Во фронтенде — `describe('{Класс}')`; вложенный `describe` — только для общей подготовки, называется по объекту (`describe('Width')`).
    - Объект — что проверяется: страница CRUD (`Create`, `List`, `Info`, `Update`, `Delete`) в тестах сервиса и API; тип, фабрика или результат в unit-тестах (`CreateRequest`, `Success`, `ListModel`); часть экрана во фронтенде и E2E (`List`, `CreateForm`, `Menu`, `RenameForm`, `Dialog`, `Width`, `Room`).

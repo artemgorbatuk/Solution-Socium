@@ -1,0 +1,19 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-color: transparent;
+  border-radius: var(--sc-radius-md);
+  background: transparent;
+  color: var(--sc-color-text-muted);
+  font-size: var(--sc-font-size-lg);
+  line-height: 1;
+}
+
+.toggle:hover {
+  background: var(--sc-color-hover);
+  color: var(--sc-color-text);
+}

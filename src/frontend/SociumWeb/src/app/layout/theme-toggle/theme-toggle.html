@@ -1,0 +1,3 @@
+<button type="button" class="toggle" [attr.aria-label]="label()" [title]="label()" (click)="toggle()">
+  <span aria-hidden="true">{{ dark() ? '☀' : '☾' }}</span>
+</button>

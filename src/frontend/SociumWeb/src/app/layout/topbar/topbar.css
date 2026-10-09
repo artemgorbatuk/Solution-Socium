@@ -1,0 +1,11 @@
+:host {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sc-space-2);
+  height: var(--sc-topbar-height);
+  padding: 0 var(--sc-space-3);
+  border-bottom: 1px solid var(--sc-color-border);
+  background: var(--sc-color-bg);
+}
