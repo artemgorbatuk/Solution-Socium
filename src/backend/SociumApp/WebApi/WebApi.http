@@ -1,0 +1,4 @@
+@WebApi_HostAddress = https://localhost:7026
+
+GET {{WebApi_HostAddress}}/api/room
+Accept: application/json
