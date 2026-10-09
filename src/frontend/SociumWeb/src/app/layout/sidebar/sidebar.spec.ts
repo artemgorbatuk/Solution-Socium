@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ApiSuccessResponse } from '../../shared/api/api-response';
 import { successBody } from '../../shared/api/api-response.testing';
+import { RoomExpansion } from '../../rooms/room-expansion';
 import { RoomListModel, RoomListPageResponse } from '../../rooms/room.models';
 import { Sidebar } from './sidebar';
 
@@ -51,7 +52,22 @@ describe('Sidebar', () => {
     render();
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    // Комнаты раскрыты по умолчанию и сами загружают чаты; чаты проверяются в спеках RoomListItem и RoomChats.
+    http.match((request) => request.url === '/api/chat').forEach((request) => request.flush(successBody({ rowExists: false, rowCount: 0, rows: [] })));
+    http.verify();
+  });
+
+  it('List_Load_WithCollapsedDeletedRoom_ShouldForgetDeletedRoom', () => {
+    const expansion = TestBed.inject(RoomExpansion);
+    expansion.toggle('1');
+    expansion.toggle('deleted');
+
+    http.expectOne('/api/room').flush(listBody(rooms));
+    render();
+
+    expect(localStorage.getItem('socium.sidebar.collapsedRooms')).toBe('["1"]');
+  });
 
   it('List_Load_WithRooms_ShouldShowRooms', () => {
     http.expectOne('/api/room').flush(listBody(rooms));

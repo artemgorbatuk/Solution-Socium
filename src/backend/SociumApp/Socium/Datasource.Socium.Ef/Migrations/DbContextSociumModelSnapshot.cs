@@ -22,6 +22,27 @@ namespace Datasource.Socium.Ef.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.Chat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "RoomId" }, "IX_Chats_RoomId");
+
+                    b.ToTable("Chats", (string)null);
+                });
+
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Room", b =>
                 {
                     b.Property<Guid>("Id")
@@ -39,6 +60,22 @@ namespace Datasource.Socium.Ef.Migrations
                         .IsUnique();
 
                     b.ToTable("Rooms", (string)null);
+                });
+
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.Chat", b =>
+                {
+                    b.HasOne("Datasource.Socium.Ef.Models.Room", "Room")
+                        .WithMany("Chats")
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.Room", b =>
+                {
+                    b.Navigation("Chats");
                 });
 #pragma warning restore 612, 618
         }

@@ -13,6 +13,7 @@ public static class ServiceRegistration
         services.AddScoped<IUnitOfWorkSocium, UnitOfWorkSocium>();
 
         services.AddScoped<IServiceRoom, ServiceRoom>();
+        services.AddScoped<IServiceChat, ServiceChat>();
 
         return services;
     }

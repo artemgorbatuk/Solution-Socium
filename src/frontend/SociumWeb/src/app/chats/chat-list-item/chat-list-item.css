@@ -1,0 +1,113 @@
+:host {
+  position: relative;
+  display: block;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-1);
+  padding: 0 var(--sc-space-1) 0 var(--sc-space-2);
+  border-radius: var(--sc-radius-md);
+  transition: background-color var(--sc-transition);
+}
+
+.row:hover,
+.row.menu-open {
+  background: var(--sc-color-hover);
+}
+
+.chat-icon {
+  color: var(--sc-color-text-subtle);
+}
+
+.chat-name {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sc-space-1) 0;
+  overflow: hidden;
+  color: var(--sc-color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row:hover .chat-name,
+.row.menu-open .chat-name {
+  color: var(--sc-color-text);
+}
+
+.menu-button {
+  padding: 0 var(--sc-space-2);
+  border-color: transparent;
+  border-radius: var(--sc-radius-sm);
+  background: transparent;
+  color: var(--sc-color-text-muted);
+  opacity: 0;
+}
+
+.row:hover .menu-button,
+.row.menu-open .menu-button,
+.menu-button:focus-visible {
+  opacity: 1;
+}
+
+.menu-button:hover {
+  background: var(--sc-color-active);
+  color: var(--sc-color-text);
+}
+
+@media (hover: none) {
+  .menu-button {
+    opacity: 1;
+  }
+}
+
+.menu {
+  position: absolute;
+  top: 100%;
+  right: var(--sc-space-1);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: var(--sc-space-1);
+  border: 1px solid var(--sc-color-border);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-surface-raised);
+  box-shadow: var(--sc-shadow-menu);
+}
+
+.menu button {
+  padding: var(--sc-space-1) var(--sc-space-2);
+  border-color: transparent;
+  border-radius: var(--sc-radius-sm);
+  background: transparent;
+  color: var(--sc-color-text);
+  text-align: left;
+}
+
+.menu button:hover {
+  background: var(--sc-color-hover);
+}
+
+.menu button.danger {
+  color: var(--sc-color-danger);
+}
+
+.rename-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-1) 0;
+}
+
+.rename-buttons {
+  display: flex;
+  gap: var(--sc-space-2);
+}
+
+.error {
+  margin: 0;
+  color: var(--sc-color-danger);
+  white-space: pre-line;
+}

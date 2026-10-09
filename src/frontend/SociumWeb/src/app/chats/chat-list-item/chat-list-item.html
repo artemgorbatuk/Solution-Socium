@@ -1,0 +1,43 @@
+@if (editing()) {
+  <form class="rename-form" (submit)="save($event)">
+    <input
+      #nameInput
+      type="text"
+      name="name"
+      aria-label="Новое название чата"
+      [attr.maxlength]="nameMaxLength"
+      [value]="draftName()"
+      [disabled]="saving()"
+      (input)="onDraftInput($event)"
+      (keydown.escape)="cancelRename()"
+    />
+    <div class="rename-buttons">
+      <button type="submit" class="primary" [disabled]="saving() || !draftName().trim()">Сохранить</button>
+      <button type="button" (click)="cancelRename()" [disabled]="saving()">Отмена</button>
+    </div>
+    @if (error(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+  </form>
+} @else {
+  <div class="row" [class.menu-open]="menuOpen()">
+    <span class="chat-icon" aria-hidden="true">#</span>
+    <span class="chat-name" [title]="chat().name">{{ chat().name }}</span>
+    <button
+      type="button"
+      class="menu-button"
+      aria-haspopup="menu"
+      [attr.aria-expanded]="menuOpen()"
+      [attr.aria-label]="'Действия с чатом ' + chat().name"
+      (click)="toggleMenu()"
+    >
+      …
+    </button>
+  </div>
+  @if (menuOpen()) {
+    <div class="menu" role="menu">
+      <button type="button" role="menuitem" (click)="startRename()">Переименовать</button>
+      <button type="button" role="menuitem" class="danger" (click)="requestDelete()">Удалить</button>
+    </div>
+  }
+}

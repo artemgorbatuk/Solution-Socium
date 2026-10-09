@@ -1,38 +1,20 @@
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.AspNetCore.Mvc;
 using Services.Shared.Enums;
 using Services.Socium.Models;
 using Services.Socium.Texts;
-using WebApi.Controllers.Shared;
+using static Tests.Infrastructure.ApiAssert;
 
 namespace Tests.Integrations.Socium;
 
-[Collection(RoomApiCollection.Name)]
-public sealed class RoomApiTests(RoomApiFixture fixture)
+[Collection(SociumApiCollection.Name)]
+public sealed class RoomApiTests(SociumApiFixture fixture)
 {
     private const string BaseUrl = "/api/room";
 
     private HttpClient Client => fixture.Client;
 
     private static string UniqueName() => $"Room {Guid.NewGuid():N}";
-
-    private static async Task<ApiSuccessResponse<T>> ReadSuccessAsync<T>(HttpResponseMessage response) where T : class
-    {
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<ApiSuccessResponse<T>>(TestContext.Current.CancellationToken);
-        Assert.NotNull(body);
-        return body;
-    }
-
-    private static async Task<ProblemDetails> ReadProblemAsync(HttpResponseMessage response, HttpStatusCode expectedStatus)
-    {
-        Assert.Equal(expectedStatus, response.StatusCode);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(TestContext.Current.CancellationToken);
-        Assert.NotNull(problem);
-        Assert.Equal((int)expectedStatus, problem.Status);
-        return problem;
-    }
 
     private async Task<Guid> CreateRoomAsync(string name)
     {
@@ -224,6 +206,19 @@ public sealed class RoomApiTests(RoomApiFixture fixture)
 
         Assert.Equal(id, body.Response!.Id);
         Assert.Equal(name, body.Response.Name);
+        Assert.Equal(0, body.Response.ChatCount);
+    }
+
+    [Fact]
+    public async Task Delete_GET_WithRoomChats_ShouldReturn200WithChatCount()
+    {
+        var id = await CreateRoomAsync(UniqueName());
+        await Client.PostAsJsonAsync("/api/chat", new ChatCreateRequest { RoomId = id, Name = "Chat A" }, TestContext.Current.CancellationToken);
+        await Client.PostAsJsonAsync("/api/chat", new ChatCreateRequest { RoomId = id, Name = "Chat B" }, TestContext.Current.CancellationToken);
+
+        var body = await ReadSuccessAsync<RoomDeletePageResponse>(await Client.GetAsync($"{BaseUrl}/delete?id={id}", TestContext.Current.CancellationToken));
+
+        Assert.Equal(2, body.Response!.ChatCount);
     }
 
     [Fact]

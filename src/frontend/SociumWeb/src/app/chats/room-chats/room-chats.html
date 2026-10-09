@@ -1,0 +1,43 @@
+@if (creating()) {
+  <form class="create-form" (submit)="createChat($event)">
+    <input
+      #nameInput
+      type="text"
+      name="name"
+      placeholder="Название чата"
+      [attr.aria-label]="'Название нового чата в комнате ' + roomName()"
+      [attr.maxlength]="nameMaxLength"
+      [value]="newChatName()"
+      [disabled]="saving()"
+      (input)="onNewChatNameInput($event)"
+      (keydown.escape)="cancelCreate()"
+    />
+    <div class="create-buttons">
+      <button type="submit" class="primary" [disabled]="saving() || !newChatName().trim()">Создать</button>
+      <button type="button" (click)="cancelCreate()" [disabled]="saving()">Отмена</button>
+    </div>
+    @if (createError(); as error) {
+      <p class="error" role="alert">{{ error }}</p>
+    }
+  </form>
+}
+
+@if (loading() && !chats().length) {
+  <p class="hint">Загрузка…</p>
+} @else if (loadError(); as error) {
+  <p class="error" role="alert">{{ error }}</p>
+} @else {
+  <ul [attr.aria-label]="'Чаты комнаты ' + roomName()">
+    @for (chat of chats(); track chat.id) {
+      <li>
+        <app-chat-list-item [chat]="chat" (changed)="loadChats()" (deleteRequested)="chatToDelete.set($event)" />
+      </li>
+    } @empty {
+      <li class="hint">Чатов пока нет</li>
+    }
+  </ul>
+}
+
+@if (chatToDelete(); as chat) {
+  <app-chat-delete-dialog [chatId]="chat.id" (deleted)="onChatDeleted()" (closed)="chatToDelete.set(null)" />
+}

@@ -1,18 +1,23 @@
 using Services.Shared.Enums;
+using Services.Shared.Models;
+using Services.Socium.Api;
 using Services.Socium.Models;
 using Services.Socium.Texts;
 
 namespace Tests.Integrations.Socium;
 
-[Collection(RoomServiceCollection.Name)]
-public sealed class ServiceRoomTests(RoomServiceFixture fixture)
+[Collection(SociumServiceCollection.Name)]
+public sealed class ServiceRoomTests(SociumServiceFixture fixture)
 {
     private static string UniqueName() => $"Room {Guid.NewGuid():N}";
+
+    private Task<ResponseInfo<T>> RunAsync<T>(Func<IServiceRoom, Task<ResponseInfo<T>>> action) where T : class
+        => fixture.RunAsync(action);
 
     [Fact]
     public async Task Create_Load_WithNoParameters_ShouldReturnLoadedWithEmptyName()
     {
-        var result = await fixture.RunAsync(service => service.DisplayCreatePageAsync(new RoomCreatePageRequest()));
+        var result = await RunAsync(service => service.DisplayCreatePageAsync(new RoomCreatePageRequest()));
 
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
         Assert.Equal(string.Empty, result.Response!.Name);
@@ -23,12 +28,12 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     {
         var name = UniqueName();
 
-        var result = await fixture.RunAsync(service => service.CreateAsync(new RoomCreateRequest { Name = $"  {name}  " }));
+        var result = await RunAsync(service => service.CreateAsync(new RoomCreateRequest { Name = $"  {name}  " }));
 
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
         Assert.Equal(RoomCrudTexts.Messages.Success.CreateCompleted, result.MessageInfo.MessageText);
 
-        var list = await fixture.RunAsync(service => service.DisplayListPageAsync(new RoomListPageRequest()));
+        var list = await RunAsync(service => service.DisplayListPageAsync(new RoomListPageRequest()));
         var row = Assert.Single(list.Response!.Rows, room => room.Name == name);
         Assert.Equal(7, row.Id.Version);
     }
@@ -39,7 +44,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
         var name = UniqueName();
         await fixture.CreateRoomAsync(name);
 
-        var result = await fixture.RunAsync(service => service.CreateAsync(new RoomCreateRequest { Name = $" {name} " }));
+        var result = await RunAsync(service => service.CreateAsync(new RoomCreateRequest { Name = $" {name} " }));
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.NameAlreadyExists, result.MessageInfo.MessageText);
@@ -48,7 +53,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     [Fact]
     public async Task Create_Submit_WithEmptyName_ShouldReturnInvalid()
     {
-        var result = await fixture.RunAsync(service => service.CreateAsync(new RoomCreateRequest { Name = "   " }));
+        var result = await RunAsync(service => service.CreateAsync(new RoomCreateRequest { Name = "   " }));
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.NameNotEmpty, result.MessageInfo.MessageText);
@@ -57,7 +62,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     [Fact]
     public async Task Create_Submit_WithNullRequest_ShouldReturnBadRequest()
     {
-        var result = await fixture.RunAsync(service => service.CreateAsync(null!));
+        var result = await RunAsync(service => service.CreateAsync(null!));
 
         Assert.Equal(MessageType.BAD_REQUEST, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.RequestCannotBeNull, result.MessageInfo.MessageText);
@@ -70,7 +75,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
         await fixture.CreateRoomAsync($"B {suffix}");
         await fixture.CreateRoomAsync($"A {suffix}");
 
-        var result = await fixture.RunAsync(service => service.DisplayListPageAsync(new RoomListPageRequest()));
+        var result = await RunAsync(service => service.DisplayListPageAsync(new RoomListPageRequest()));
 
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
         Assert.True(result.Response!.RowExists);
@@ -85,7 +90,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
         var name = UniqueName();
         var id = await fixture.CreateRoomAsync(name);
 
-        var result = await fixture.RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = id }));
+        var result = await RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = id }));
 
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
         Assert.Equal(id, result.Response!.Id);
@@ -95,7 +100,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     [Fact]
     public async Task Info_Load_WithUnknownId_ShouldReturnNotFound()
     {
-        var result = await fixture.RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = Guid.CreateVersion7() }));
+        var result = await RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = Guid.CreateVersion7() }));
 
         Assert.Equal(MessageType.NOT_FOUND, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.RoomNotFoundById, result.MessageInfo.MessageText);
@@ -104,7 +109,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     [Fact]
     public async Task Info_Load_WithEmptyId_ShouldReturnBadRequest()
     {
-        var result = await fixture.RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = Guid.Empty }));
+        var result = await RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = Guid.Empty }));
 
         Assert.Equal(MessageType.BAD_REQUEST, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.IdCannotBeEmpty, result.MessageInfo.MessageText);
@@ -116,7 +121,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
         var name = UniqueName();
         var id = await fixture.CreateRoomAsync(name);
 
-        var result = await fixture.RunAsync(service => service.DisplayUpdatePageAsync(new RoomUpdatePageRequest { Id = id }));
+        var result = await RunAsync(service => service.DisplayUpdatePageAsync(new RoomUpdatePageRequest { Id = id }));
 
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
         Assert.Equal(id, result.Response!.Id);
@@ -126,7 +131,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     [Fact]
     public async Task Update_Load_WithUnknownId_ShouldReturnNotFound()
     {
-        var result = await fixture.RunAsync(service => service.DisplayUpdatePageAsync(new RoomUpdatePageRequest { Id = Guid.CreateVersion7() }));
+        var result = await RunAsync(service => service.DisplayUpdatePageAsync(new RoomUpdatePageRequest { Id = Guid.CreateVersion7() }));
 
         Assert.Equal(MessageType.NOT_FOUND, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.RoomNotFoundById, result.MessageInfo.MessageText);
@@ -135,7 +140,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     [Fact]
     public async Task Update_Load_WithEmptyId_ShouldReturnBadRequest()
     {
-        var result = await fixture.RunAsync(service => service.DisplayUpdatePageAsync(new RoomUpdatePageRequest { Id = Guid.Empty }));
+        var result = await RunAsync(service => service.DisplayUpdatePageAsync(new RoomUpdatePageRequest { Id = Guid.Empty }));
 
         Assert.Equal(MessageType.BAD_REQUEST, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.IdCannotBeEmpty, result.MessageInfo.MessageText);
@@ -144,7 +149,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     [Fact]
     public async Task Update_Submit_WithEmptyId_ShouldReturnBadRequest()
     {
-        var result = await fixture.RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = Guid.Empty, Name = UniqueName() }));
+        var result = await RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = Guid.Empty, Name = UniqueName() }));
 
         Assert.Equal(MessageType.BAD_REQUEST, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.IdCannotBeEmpty, result.MessageInfo.MessageText);
@@ -156,11 +161,11 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
         var name = UniqueName();
         var id = await fixture.CreateRoomAsync(name);
 
-        var result = await fixture.RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = id, Name = new string('a', 129) }));
+        var result = await RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = id, Name = new string('a', 129) }));
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.NameMaximumLength(128), result.MessageInfo.MessageText);
-        var info = await fixture.RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = id }));
+        var info = await RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = id }));
         Assert.Equal(name, info.Response!.Name);
     }
 
@@ -170,10 +175,10 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
         var id = await fixture.CreateRoomAsync(UniqueName());
         var newName = UniqueName();
 
-        var result = await fixture.RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = id, Name = $"  {newName} " }));
+        var result = await RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = id, Name = $"  {newName} " }));
 
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
-        var info = await fixture.RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = id }));
+        var info = await RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = id }));
         Assert.Equal(newName, info.Response!.Name);
     }
 
@@ -183,7 +188,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
         var name = UniqueName();
         var id = await fixture.CreateRoomAsync(name);
 
-        var result = await fixture.RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = id, Name = name }));
+        var result = await RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = id, Name = name }));
 
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
     }
@@ -195,7 +200,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
         await fixture.CreateRoomAsync(otherName);
         var id = await fixture.CreateRoomAsync(UniqueName());
 
-        var result = await fixture.RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = id, Name = otherName }));
+        var result = await RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = id, Name = otherName }));
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.NameAlreadyExists, result.MessageInfo.MessageText);
@@ -204,7 +209,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     [Fact]
     public async Task Update_Submit_WithUnknownId_ShouldReturnNotFound()
     {
-        var result = await fixture.RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = Guid.CreateVersion7(), Name = UniqueName() }));
+        var result = await RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = Guid.CreateVersion7(), Name = UniqueName() }));
 
         Assert.Equal(MessageType.NOT_FOUND, result.MessageInfo.MessageType);
     }
@@ -212,7 +217,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     [Fact]
     public async Task Update_Submit_WithUnknownIdAndEmptyName_ShouldReturnNotFoundBeforeInvalid()
     {
-        var result = await fixture.RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = Guid.CreateVersion7(), Name = "" }));
+        var result = await RunAsync(service => service.UpdateAsync(new RoomUpdateRequest { Id = Guid.CreateVersion7(), Name = "" }));
 
         Assert.Equal(MessageType.NOT_FOUND, result.MessageInfo.MessageType);
     }
@@ -223,17 +228,33 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
         var name = UniqueName();
         var id = await fixture.CreateRoomAsync(name);
 
-        var result = await fixture.RunAsync(service => service.DisplayDeletePageAsync(new RoomDeletePageRequest { Id = id }));
+        var result = await RunAsync(service => service.DisplayDeletePageAsync(new RoomDeletePageRequest { Id = id }));
 
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
         Assert.Equal(id, result.Response!.Id);
         Assert.Equal(name, result.Response.Name);
+        Assert.Equal(0, result.Response.ChatCount);
+    }
+
+    [Fact]
+    public async Task Delete_Load_WithRoomChats_ShouldReturnChatCountOfThisRoomOnly()
+    {
+        var id = await fixture.CreateRoomAsync(UniqueName());
+        var otherId = await fixture.CreateRoomAsync(UniqueName());
+        await fixture.CreateChatAsync(id, "Chat A");
+        await fixture.CreateChatAsync(id, "Chat B");
+        await fixture.CreateChatAsync(otherId, "Chat C");
+
+        var result = await RunAsync(service => service.DisplayDeletePageAsync(new RoomDeletePageRequest { Id = id }));
+
+        Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
+        Assert.Equal(2, result.Response!.ChatCount);
     }
 
     [Fact]
     public async Task Delete_Load_WithUnknownId_ShouldReturnNotFound()
     {
-        var result = await fixture.RunAsync(service => service.DisplayDeletePageAsync(new RoomDeletePageRequest { Id = Guid.CreateVersion7() }));
+        var result = await RunAsync(service => service.DisplayDeletePageAsync(new RoomDeletePageRequest { Id = Guid.CreateVersion7() }));
 
         Assert.Equal(MessageType.NOT_FOUND, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.RoomNotFoundById, result.MessageInfo.MessageText);
@@ -242,7 +263,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     [Fact]
     public async Task Delete_Load_WithEmptyId_ShouldReturnBadRequest()
     {
-        var result = await fixture.RunAsync(service => service.DisplayDeletePageAsync(new RoomDeletePageRequest { Id = Guid.Empty }));
+        var result = await RunAsync(service => service.DisplayDeletePageAsync(new RoomDeletePageRequest { Id = Guid.Empty }));
 
         Assert.Equal(MessageType.BAD_REQUEST, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.IdCannotBeEmpty, result.MessageInfo.MessageText);
@@ -251,7 +272,7 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     [Fact]
     public async Task Delete_Submit_WithEmptyId_ShouldReturnBadRequest()
     {
-        var result = await fixture.RunAsync(service => service.DeleteAsync(new RoomDeleteRequest { Id = Guid.Empty }));
+        var result = await RunAsync(service => service.DeleteAsync(new RoomDeleteRequest { Id = Guid.Empty }));
 
         Assert.Equal(MessageType.BAD_REQUEST, result.MessageInfo.MessageType);
         Assert.Contains(RoomCrudTexts.Messages.Validation.IdCannotBeEmpty, result.MessageInfo.MessageText);
@@ -262,18 +283,35 @@ public sealed class ServiceRoomTests(RoomServiceFixture fixture)
     {
         var id = await fixture.CreateRoomAsync(UniqueName());
 
-        var result = await fixture.RunAsync(service => service.DeleteAsync(new RoomDeleteRequest { Id = id }));
+        var result = await RunAsync(service => service.DeleteAsync(new RoomDeleteRequest { Id = id }));
 
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
         Assert.True(result.Response!.IsDeleted);
-        var info = await fixture.RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = id }));
+        var info = await RunAsync(service => service.DisplayInfoPageAsync(new RoomInfoPageRequest { Id = id }));
         Assert.Equal(MessageType.NOT_FOUND, info.MessageInfo.MessageType);
+    }
+
+    [Fact]
+    public async Task Delete_Submit_WithRoomChats_ShouldDeleteChatsCascade()
+    {
+        var id = await fixture.CreateRoomAsync(UniqueName());
+        var otherId = await fixture.CreateRoomAsync(UniqueName());
+        var chatId = await fixture.CreateChatAsync(id, "Chat A");
+        var otherChatId = await fixture.CreateChatAsync(otherId, "Chat B");
+
+        var result = await RunAsync(service => service.DeleteAsync(new RoomDeleteRequest { Id = id }));
+
+        Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
+        var chat = await fixture.RunAsync((IServiceChat service) => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = chatId }));
+        Assert.Equal(MessageType.NOT_FOUND, chat.MessageInfo.MessageType);
+        var otherChat = await fixture.RunAsync((IServiceChat service) => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = otherChatId }));
+        Assert.Equal(MessageType.LOADED, otherChat.MessageInfo.MessageType);
     }
 
     [Fact]
     public async Task Delete_Submit_WithUnknownId_ShouldReturnNotFound()
     {
-        var result = await fixture.RunAsync(service => service.DeleteAsync(new RoomDeleteRequest { Id = Guid.CreateVersion7() }));
+        var result = await RunAsync(service => service.DeleteAsync(new RoomDeleteRequest { Id = Guid.CreateVersion7() }));
 
         Assert.Equal(MessageType.NOT_FOUND, result.MessageInfo.MessageType);
     }

@@ -6,6 +6,7 @@ namespace Repositories.Socium.Ef.Api;
 public interface IUnitOfWorkSocium
 {
     IRepositoryRoom Rooms { get; }
+    IRepositoryChat Chats { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
@@ -22,9 +23,11 @@ public class UnitOfWorkSocium : IUnitOfWorkSocium
     {
         this.context = context;
         Rooms = new RepositoryRoom(context);
+        Chats = new RepositoryChat(context);
     }
 
     public IRepositoryRoom Rooms { get; }
+    public IRepositoryChat Chats { get; }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

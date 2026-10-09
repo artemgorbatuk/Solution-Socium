@@ -3,6 +3,7 @@ import { problemDetail } from '../../shared/api/api-response';
 import { ResizeHandle } from '../../shared/resize/resize-handle';
 import { RoomApi } from '../../rooms/room-api';
 import { RoomDeleteDialog } from '../../rooms/room-delete-dialog/room-delete-dialog';
+import { RoomExpansion } from '../../rooms/room-expansion';
 import { RoomListItem } from '../../rooms/room-list-item/room-list-item';
 import { RoomListModel, roomNameMaxLength } from '../../rooms/room.models';
 
@@ -21,6 +22,7 @@ const widthStorageKey = 'socium.sidebar.width';
 })
 export class Sidebar {
   private readonly roomApi = inject(RoomApi);
+  private readonly roomExpansion = inject(RoomExpansion);
 
   protected readonly nameMaxLength = roomNameMaxLength;
 
@@ -129,7 +131,9 @@ export class Sidebar {
     this.loadError.set(null);
     this.roomApi.getList().subscribe({
       next: (body) => {
-        this.rooms.set(body.response?.rows ?? []);
+        const rooms = body.response?.rows ?? [];
+        this.rooms.set(rooms);
+        this.roomExpansion.retain(rooms.map((room) => room.id));
         this.loading.set(false);
       },
       error: (error: unknown) => {

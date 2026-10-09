@@ -1,13 +1,16 @@
 :host {
-  position: relative;
   display: block;
+}
+
+.head {
+  position: relative;
 }
 
 .row {
   display: flex;
   align-items: center;
   gap: var(--sc-space-1);
-  padding: 2px var(--sc-space-1) 2px var(--sc-space-2);
+  padding: 2px var(--sc-space-1);
   border-radius: var(--sc-radius-md);
   transition: background-color var(--sc-transition);
 }
@@ -15,6 +18,23 @@
 .row:hover,
 .row.menu-open {
   background: var(--sc-color-hover);
+}
+
+.toggle {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-color: transparent;
+  border-radius: var(--sc-radius-sm);
+  background: transparent;
+  color: var(--sc-color-text-muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.toggle:hover {
+  background: var(--sc-color-active);
+  color: var(--sc-color-text);
 }
 
 .room-name {

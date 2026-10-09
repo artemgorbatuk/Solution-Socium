@@ -1,10 +1,13 @@
-import { Component, ElementRef, Injector, afterNextRender, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { RoomChats } from '../../chats/room-chats/room-chats';
 import { problemDetail } from '../../shared/api/api-response';
 import { RoomApi } from '../room-api';
+import { RoomExpansion } from '../room-expansion';
 import { RoomListModel, roomNameMaxLength } from '../room.models';
 
 @Component({
   selector: 'app-room-list-item',
+  imports: [RoomChats],
   templateUrl: './room-list-item.html',
   styleUrl: './room-list-item.css',
   host: {
@@ -14,7 +17,7 @@ import { RoomListModel, roomNameMaxLength } from '../room.models';
 })
 export class RoomListItem {
   private readonly roomApi = inject(RoomApi);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly expansion = inject(RoomExpansion);
   private readonly injector = inject(Injector);
 
   readonly room = input.required<RoomListModel>();
@@ -28,8 +31,12 @@ export class RoomListItem {
   protected readonly draftName = signal('');
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly expanded = computed(() => this.expansion.isExpanded(this.room().id));
+  protected readonly creatingChat = signal(false);
 
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
+  /** Строка комнаты с меню — без вложенных чатов, у которых свои меню. */
+  private readonly head = viewChild.required<ElementRef<HTMLElement>>('head');
 
   protected toggleMenu(): void {
     this.menuOpen.update((value) => !value);
@@ -40,9 +47,19 @@ export class RoomListItem {
   }
 
   protected onDocumentClick(event: MouseEvent): void {
-    if (this.menuOpen() && !this.host.nativeElement.contains(event.target as Node)) {
+    if (this.menuOpen() && !this.head().nativeElement.contains(event.target as Node)) {
       this.menuOpen.set(false);
     }
+  }
+
+  protected toggleExpanded(): void {
+    this.expansion.toggle(this.room().id);
+  }
+
+  protected startCreateChat(): void {
+    this.menuOpen.set(false);
+    this.expansion.expand(this.room().id);
+    this.creatingChat.set(true);
   }
 
   protected startRename(): void {

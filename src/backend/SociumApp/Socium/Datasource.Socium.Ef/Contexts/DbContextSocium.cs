@@ -9,6 +9,7 @@ public class DbContextSocium : DbContext
     public DbContextSocium(DbContextOptions<DbContextSocium> options) : base(options) { }
 
     public virtual DbSet<Room> Rooms { get; set; }
+    public virtual DbSet<Chat> Chats { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

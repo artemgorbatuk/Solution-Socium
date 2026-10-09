@@ -261,7 +261,12 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.NotFound<RoomDeletePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var response = RoomMapper.ToDeletePageResponse(model!);
+            var chatOptions = new ChatQueryOptions
+            {
+                RoomId = model!.Id,
+            };
+            var chatCount = await unitOfWork.Chats.CountAsync(chatOptions, cancellationToken);
+            var response = RoomMapper.ToDeletePageResponse(model, chatCount);
             logger.LogInformation(RoomCrudTexts.Messages.Success.DisplayDeleteCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, RoomCrudTexts.Messages.Success.DisplayDeleteCompleted);
         }

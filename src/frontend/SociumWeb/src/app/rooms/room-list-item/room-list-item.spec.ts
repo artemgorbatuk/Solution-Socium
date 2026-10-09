@@ -42,7 +42,12 @@ describe('RoomListItem', () => {
     render();
   }
 
+  function expectChatList() {
+    return http.expectOne((request) => request.method === 'GET' && request.url === '/api/chat' && request.params.get('roomId') === '1');
+  }
+
   beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       imports: [RoomListItem],
       providers: [provideHttpClient(), provideHttpClientTesting()],
@@ -55,6 +60,8 @@ describe('RoomListItem', () => {
     fixture.componentInstance.changed.subscribe(() => changed++);
     fixture.componentInstance.deleteRequested.subscribe((value) => deleteRequested.push(value));
     element = fixture.nativeElement;
+    render();
+    expectChatList().flush(successBody({ rowExists: true, rowCount: 1, rows: [{ id: 'c1', name: 'Общий' }] }));
     render();
   });
 
@@ -134,6 +141,47 @@ describe('RoomListItem', () => {
     startRename('   ');
 
     expect(button('Сохранить').disabled).toBe(true);
+  });
+
+  it('Toggle_Render_WithNoSavedState_ShouldShowRoomExpandedWithChats', () => {
+    const toggle = element.querySelector<HTMLButtonElement>('.toggle')!;
+
+    expect(toggle.getAttribute('aria-label')).toBe('Чаты комнаты Кухня');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(element.querySelector('app-room-chats')!.textContent).toContain('Общий');
+  });
+
+  it('Toggle_Click_WithExpandedRoom_ShouldHideChatsAndRememberThenReloadOnExpand', () => {
+    const toggle = element.querySelector<HTMLButtonElement>('.toggle')!;
+
+    toggle.click();
+    render();
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(element.querySelector('app-room-chats')).toBeNull();
+    expect(localStorage.getItem('socium.sidebar.collapsedRooms')).toBe('["1"]');
+
+    toggle.click();
+    render();
+    expectChatList().flush(successBody({ rowExists: false, rowCount: 0, rows: [] }));
+    render();
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(localStorage.getItem('socium.sidebar.collapsedRooms')).toBeNull();
+  });
+
+  it('Menu_NewChat_WithCollapsedRoom_ShouldExpandAndOpenCreateForm', () => {
+    element.querySelector<HTMLButtonElement>('.toggle')!.click();
+    render();
+    openMenu();
+    button('Новый чат').click();
+    render();
+    expectChatList().flush(successBody({ rowExists: false, rowCount: 0, rows: [] }));
+    render();
+
+    expect(element.querySelector('[role=menu]')).toBeNull();
+    expect(element.querySelector('.toggle')!.getAttribute('aria-expanded')).toBe('true');
+    expect(element.querySelector('app-room-chats .create-form')).not.toBeNull();
   });
 
   it('Menu_Delete_WithExistingRoom_ShouldEmitDeleteRequested', () => {

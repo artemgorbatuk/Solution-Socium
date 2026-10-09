@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Services.Shared.Enums;
+using Services.Shared.Models;
 using Services.Socium.Api;
 using Services.Socium.Models;
 using Tests.Infrastructure;
@@ -13,14 +14,14 @@ namespace Tests.Integrations.Socium;
 /// <summary>
 /// Временная БД с миграциями и DI как в WebApi. Каждый вызов сервиса — в новом scope (как отдельный HTTP-запрос).
 /// </summary>
-public sealed class RoomServiceFixture : IAsyncLifetime
+public sealed class SociumServiceFixture : IAsyncLifetime
 {
     private PostgresTestHost? postgres;
     private ServiceProvider? provider;
 
     public async ValueTask InitializeAsync()
     {
-        postgres = await PostgresTestHost.StartAsync("socium_room_service");
+        postgres = await PostgresTestHost.StartAsync("socium_service");
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -40,23 +41,37 @@ public sealed class RoomServiceFixture : IAsyncLifetime
         await db.Database.MigrateAsync();
     }
 
-    public async Task<T> RunAsync<T>(Func<IServiceRoom, Task<T>> action)
+    public async Task<T> RunAsync<TService, T>(Func<TService, Task<T>> action) where TService : notnull
     {
         await using var scope = provider!.CreateAsyncScope();
-        var service = scope.ServiceProvider.GetRequiredService<IServiceRoom>();
+        var service = scope.ServiceProvider.GetRequiredService<TService>();
         return await action(service);
     }
 
     public async Task<Guid> CreateRoomAsync(string name)
     {
-        var created = await RunAsync(service => service.CreateAsync(new RoomCreateRequest { Name = name }));
+        var created = await RunAsync((IServiceRoom service) => service.CreateAsync(new RoomCreateRequest { Name = name }));
+        EnsureSaved(created, $"комнату «{name}»");
+
+        var list = await RunAsync((IServiceRoom service) => service.DisplayListPageAsync(new RoomListPageRequest()));
+        return list.Response!.Rows.Single(row => row.Name == name.Trim()).Id;
+    }
+
+    public async Task<Guid> CreateChatAsync(Guid roomId, string name)
+    {
+        var created = await RunAsync((IServiceChat service) => service.CreateAsync(new ChatCreateRequest { RoomId = roomId, Name = name }));
+        EnsureSaved(created, $"чат «{name}»");
+
+        var list = await RunAsync((IServiceChat service) => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }));
+        return list.Response!.Rows.Single(row => row.Name == name.Trim()).Id;
+    }
+
+    private static void EnsureSaved<T>(ResponseInfo<T> created, string subject) where T : class
+    {
         if (created.MessageInfo.MessageType != MessageType.SAVED)
         {
-            throw new InvalidOperationException($"Не удалось создать комнату «{name}»: {created.MessageInfo.MessageText}");
+            throw new InvalidOperationException($"Не удалось создать {subject}: {created.MessageInfo.MessageText}");
         }
-
-        var list = await RunAsync(service => service.DisplayListPageAsync(new RoomListPageRequest()));
-        return list.Response!.Rows.Single(row => row.Name == name.Trim()).Id;
     }
 
     public async ValueTask DisposeAsync()
@@ -74,7 +89,7 @@ public sealed class RoomServiceFixture : IAsyncLifetime
 }
 
 [CollectionDefinition(Name)]
-public sealed class RoomServiceCollection : ICollectionFixture<RoomServiceFixture>
+public sealed class SociumServiceCollection : ICollectionFixture<SociumServiceFixture>
 {
-    public const string Name = "Socium.RoomService";
+    public const string Name = "Socium.Services";
 }

@@ -45,12 +45,13 @@ public static class RoomMapper
         };
     }
 
-    public static RoomDeletePageResponse ToDeletePageResponse(Room model)
+    public static RoomDeletePageResponse ToDeletePageResponse(Room model, int chatCount)
     {
         return new RoomDeletePageResponse
         {
             Id = model.Id,
             Name = model.Name,
+            ChatCount = chatCount,
         };
     }
 }

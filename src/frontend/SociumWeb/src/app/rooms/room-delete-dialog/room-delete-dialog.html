@@ -6,6 +6,9 @@
     <p>Загрузка…</p>
   } @else if (room(); as room) {
     <p>Комната «<strong>{{ room.name }}</strong>» будет удалена без возможности восстановления.</p>
+    @if (room.chatCount > 0) {
+      <p class="warning">Вместе с комнатой будут удалены чаты: {{ room.chatCount }}</p>
+    }
   }
 
   @if (error(); as message) {

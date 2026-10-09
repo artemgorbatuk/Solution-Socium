@@ -1,0 +1,19 @@
+<div class="backdrop" (click)="close()"></div>
+<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="chat-delete-title">
+  <h2 id="chat-delete-title">Удалить чат?</h2>
+
+  @if (loading()) {
+    <p>Загрузка…</p>
+  } @else if (chat(); as chat) {
+    <p>Чат «<strong>{{ chat.name }}</strong>» будет удалён без возможности восстановления.</p>
+  }
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  <div class="buttons">
+    <button #cancelButton type="button" (click)="close()" [disabled]="deleting()">Отмена</button>
+    <button type="button" class="danger" (click)="confirm()" [disabled]="!chat() || deleting()">Удалить</button>
+  </div>
+</div>

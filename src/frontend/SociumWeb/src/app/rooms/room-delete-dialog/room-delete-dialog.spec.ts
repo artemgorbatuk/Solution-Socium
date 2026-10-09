@@ -44,15 +44,23 @@ describe('RoomDeleteDialog', () => {
   it('Dialog_Load_WithExistingRoom_ShouldShowNameAndEnableDelete', () => {
     expect(deleteButton().disabled).toBe(true);
 
-    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня' }));
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
     render();
 
     expect(element.querySelector('[role=dialog]')!.textContent).toContain('Кухня');
+    expect(element.querySelector('.warning')).toBeNull();
     expect(deleteButton().disabled).toBe(false);
   });
 
+  it('Dialog_Load_WithRoomChats_ShouldWarnAboutChatCount', () => {
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 3 }));
+    render();
+
+    expect(element.querySelector('.warning')!.textContent).toContain('Вместе с комнатой будут удалены чаты: 3');
+  });
+
   it('Dialog_Confirm_WithExistingRoom_ShouldDeleteAndEmitDeleted', () => {
-    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня' }));
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
     render();
 
     deleteButton().click();
@@ -75,7 +83,7 @@ describe('RoomDeleteDialog', () => {
   });
 
   it('Dialog_Confirm_WithServerError_ShouldShowProblemAndAllowRetry', () => {
-    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня' }));
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
     render();
 
     deleteButton().click();
@@ -90,7 +98,7 @@ describe('RoomDeleteDialog', () => {
   });
 
   it('Dialog_Close_WithCancelEscapeOrBackdrop_ShouldEmitClosedWithoutDelete', () => {
-    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня' }));
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
     render();
 
     Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes('Отмена'))!.click();

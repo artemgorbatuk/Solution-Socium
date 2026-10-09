@@ -56,14 +56,15 @@ public sealed class RoomMapperTests
     }
 
     [Fact]
-    public void DeletePageResponse_Map_WithExistingRoom_ShouldCopyIdAndName()
+    public void DeletePageResponse_Map_WithExistingRoom_ShouldCopyIdNameAndChatCount()
     {
         var room = CreateRoom();
 
-        var response = RoomMapper.ToDeletePageResponse(room);
+        var response = RoomMapper.ToDeletePageResponse(room, 3);
 
         Assert.Equal(room.Id, response.Id);
         Assert.Equal(room.Name, response.Name);
+        Assert.Equal(3, response.ChatCount);
     }
 
     [Fact]

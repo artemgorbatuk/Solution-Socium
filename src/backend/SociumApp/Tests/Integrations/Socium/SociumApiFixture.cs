@@ -10,7 +10,7 @@ namespace Tests.Integrations.Socium;
 /// <summary>
 /// WebApi в памяти (окружение Testing) поверх временной БД с миграциями.
 /// </summary>
-public sealed class RoomApiFixture : IAsyncLifetime
+public sealed class SociumApiFixture : IAsyncLifetime
 {
     private PostgresTestHost? postgres;
     private WebApplicationFactory<Program>? factory;
@@ -19,7 +19,7 @@ public sealed class RoomApiFixture : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        postgres = await PostgresTestHost.StartAsync("socium_room_api");
+        postgres = await PostgresTestHost.StartAsync("socium_api");
         var connectionString = postgres.ConnectionString;
 
         factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -58,7 +58,7 @@ public sealed class RoomApiFixture : IAsyncLifetime
 }
 
 [CollectionDefinition(Name)]
-public sealed class RoomApiCollection : ICollectionFixture<RoomApiFixture>
+public sealed class SociumApiCollection : ICollectionFixture<SociumApiFixture>
 {
-    public const string Name = "Socium.RoomApi";
+    public const string Name = "Socium.Api";
 }

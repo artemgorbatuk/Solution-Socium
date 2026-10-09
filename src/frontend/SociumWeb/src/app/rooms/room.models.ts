@@ -24,6 +24,7 @@ export interface RoomUpdateRequest {
 export interface RoomDeletePageResponse {
   id: string;
   name: string;
+  chatCount: number;
 }
 
 export interface RoomDeleteResponse {

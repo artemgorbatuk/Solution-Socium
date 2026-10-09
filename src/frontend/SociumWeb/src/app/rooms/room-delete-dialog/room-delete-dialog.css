@@ -32,6 +32,10 @@ p {
   overflow-wrap: anywhere;
 }
 
+.warning {
+  font-weight: 500;
+}
+
 .error {
   color: var(--sc-color-danger);
   white-space: pre-line;

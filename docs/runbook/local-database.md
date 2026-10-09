@@ -62,4 +62,4 @@ Design-time factory берёт строку подключения из пере
 docker exec socium-dev-postgres psql -U postgres -d Socium -c "\dt"
 ```
 
-В списке должны быть таблицы `Rooms` и `__EFMigrationsHistory_Socium`.
+В списке должны быть таблицы `Rooms`, `Chats` и `__EFMigrationsHistory_Socium`.

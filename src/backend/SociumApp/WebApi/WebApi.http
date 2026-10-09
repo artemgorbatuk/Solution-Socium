@@ -1,5 +1,6 @@
 @WebApi_HostAddress = https://localhost:7026
 @RoomId = 00000000-0000-0000-0000-000000000000
+@ChatId = 00000000-0000-0000-0000-000000000000
 
 ### Список комнат
 GET {{WebApi_HostAddress}}/api/room
@@ -40,4 +41,46 @@ Accept: application/json
 
 ### Удаление комнаты
 DELETE {{WebApi_HostAddress}}/api/room?id={{RoomId}}
+Accept: application/json
+
+### Список чатов комнаты
+GET {{WebApi_HostAddress}}/api/chat?roomId={{RoomId}}
+Accept: application/json
+
+### Карточка чата
+GET {{WebApi_HostAddress}}/api/chat/info?id={{ChatId}}
+Accept: application/json
+
+### Данные формы создания чата
+GET {{WebApi_HostAddress}}/api/chat/create?roomId={{RoomId}}
+Accept: application/json
+
+### Создание чата
+POST {{WebApi_HostAddress}}/api/chat
+Content-Type: application/json
+
+{
+  "roomId": "{{RoomId}}",
+  "name": "Общий"
+}
+
+### Данные формы изменения чата
+GET {{WebApi_HostAddress}}/api/chat/update?id={{ChatId}}
+Accept: application/json
+
+### Изменение чата
+PUT {{WebApi_HostAddress}}/api/chat
+Content-Type: application/json
+
+{
+  "id": "{{ChatId}}",
+  "name": "Объявления"
+}
+
+### Данные подтверждения удаления чата
+GET {{WebApi_HostAddress}}/api/chat/delete?id={{ChatId}}
+Accept: application/json
+
+### Удаление чата
+DELETE {{WebApi_HostAddress}}/api/chat?id={{ChatId}}
 Accept: application/json
