@@ -372,6 +372,20 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
     }
 
     [Fact]
+    public async Task Delete_Submit_WithChatMessages_ShouldDeleteMessagesCascade()
+    {
+        var roomId = await CreateRoomAsync();
+        var id = await fixture.CreateChatAsync(roomId, UniqueName());
+        var messageId = await fixture.CreateMessageAsync(id, "Привет");
+
+        var result = await RunAsync(service => service.DeleteAsync(new ChatDeleteRequest { Id = id }));
+
+        Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
+        var message = await fixture.RunAsync((IServiceMessage service) => service.DisplayInfoPageAsync(new MessageInfoPageRequest { Id = messageId }));
+        Assert.Equal(MessageType.NOT_FOUND, message.MessageInfo.MessageType);
+    }
+
+    [Fact]
     public async Task Delete_Submit_WithEmptyId_ShouldReturnBadRequest()
     {
         var result = await RunAsync(service => service.DeleteAsync(new ChatDeleteRequest { Id = Guid.Empty }));

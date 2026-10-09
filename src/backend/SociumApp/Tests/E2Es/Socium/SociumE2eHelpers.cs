@@ -39,6 +39,23 @@ internal static class SociumE2eHelpers
         return body!.Response!;
     }
 
+    /// <summary>Создаёт сообщение; текст должен быть уникальным в чате, чтобы вернуть его Id.</summary>
+    public static async Task<Guid> CreateMessageAsync(this HttpClient api, Guid chatId, string text)
+    {
+        var request = new MessageCreateRequest { ChatId = chatId, Text = text };
+        var response = await api.PostAsJsonAsync("/api/message", request, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var list = await api.GetMessageListAsync(chatId);
+        return list.Rows.Single(row => row.Text == text).Id;
+    }
+
+    public static async Task<MessageListPageResponse> GetMessageListAsync(this HttpClient api, Guid chatId)
+    {
+        var body = await api.GetFromJsonAsync<ApiSuccessResponse<MessageListPageResponse>>($"/api/message?chatId={chatId}", TestContext.Current.CancellationToken);
+        return body!.Response!;
+    }
+
     public static Task OpenRoomMenuAsync(this IPage page, string roomName) =>
         page.GetByRole(AriaRole.Button, new() { Name = $"Действия с комнатой {roomName}", Exact = true }).ClickAsync();
 }

@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, effect, inject, input, signal, untracked } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TopbarTitle } from '../../layout/topbar/topbar-title';
+import { ChatMessages } from '../../messages/chat-messages/chat-messages';
 import { problemDetail } from '../../shared/api/api-response';
 import { ChatApi } from '../chat-api';
 import { ChatChanges } from '../chat-changes';
@@ -9,7 +10,7 @@ import { ChatInfoPageResponse } from '../chat.models';
 
 @Component({
   selector: 'app-chat-page',
-  imports: [RouterLink],
+  imports: [RouterLink, ChatMessages],
   templateUrl: './chat-page.html',
   styleUrl: './chat-page.css',
 })
@@ -26,7 +27,6 @@ export class ChatPage {
   protected readonly loading = signal(true);
   protected readonly notFound = signal(false);
   protected readonly loadError = signal<string | null>(null);
-  protected readonly draft = signal('');
 
   constructor() {
     effect((onCleanup) => {
@@ -38,16 +38,11 @@ export class ChatPage {
     inject(DestroyRef).onDestroy(() => this.topbarTitle.text.set(null));
   }
 
-  protected onDraftInput(event: Event): void {
-    this.draft.set((event.target as HTMLTextAreaElement).value);
-  }
-
   /** Загружает чат; возвращает отмену запроса. */
   private load(id: string): () => void {
     const isReload = this.chat()?.id === id;
     if (!isReload) {
       this.chat.set(null);
-      this.draft.set('');
     }
     this.loading.set(true);
     this.notFound.set(false);

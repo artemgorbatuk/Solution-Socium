@@ -4,59 +4,6 @@
   height: 100%;
 }
 
-.messages {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-.composer {
-  padding: 0 var(--sc-space-4) var(--sc-space-4);
-}
-
-.composer-box {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--sc-space-2);
-  max-width: 768px;
-  margin: 0 auto;
-  padding: var(--sc-space-2) var(--sc-space-2) var(--sc-space-2) var(--sc-space-4);
-  border: 1px solid var(--sc-color-border-strong);
-  border-radius: var(--sc-radius-lg);
-  background: var(--sc-color-control);
-  box-shadow: var(--sc-shadow-menu);
-  transition: border-color var(--sc-transition);
-}
-
-.composer-box:focus-within {
-  border-color: var(--sc-color-focus);
-}
-
-textarea {
-  flex: 1;
-  min-height: 32px;
-  max-height: 200px;
-  padding: 6px 0;
-  border: none;
-  background: transparent;
-  resize: none;
-  field-sizing: content;
-}
-
-textarea:focus-visible {
-  outline: none;
-}
-
-.send {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border-radius: 50%;
-  font-size: 16px;
-  line-height: 1;
-}
-
 .state {
   display: flex;
   flex-direction: column;

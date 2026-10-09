@@ -29,10 +29,12 @@ public sealed class ChatPageE2eTests(E2eAppFixture fixture)
         await Assertions.Expect(page).ToHaveURLAsync(new Regex($"/chat/{chatId}$"));
         await Assertions.Expect(link).ToHaveAttributeAsync("aria-current", "page");
         await Assertions.Expect(TopbarTitle(page, chatName)).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByText("Сообщений пока нет", new() { Exact = true })).ToBeVisibleAsync();
         var message = page.GetByRole(AriaRole.Textbox, new() { Name = $"Сообщение в чат {chatName}", Exact = true });
+        var send = page.GetByRole(AriaRole.Button, new() { Name = "Отправить" });
+        await Assertions.Expect(send).ToBeDisabledAsync();
         await message.FillAsync("Привет");
-        await Assertions.Expect(message).ToHaveValueAsync("Привет");
-        await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Отправить" })).ToBeDisabledAsync();
+        await Assertions.Expect(send).ToBeEnabledAsync();
 
         await page.ReloadAsync();
         await Assertions.Expect(TopbarTitle(page, chatName)).ToBeVisibleAsync();

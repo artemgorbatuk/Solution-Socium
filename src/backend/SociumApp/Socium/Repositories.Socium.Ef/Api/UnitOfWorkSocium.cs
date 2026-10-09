@@ -7,6 +7,7 @@ public interface IUnitOfWorkSocium
 {
     IRepositoryRoom Rooms { get; }
     IRepositoryChat Chats { get; }
+    IRepositoryMessage Messages { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
@@ -24,10 +25,12 @@ public class UnitOfWorkSocium : IUnitOfWorkSocium
         this.context = context;
         Rooms = new RepositoryRoom(context);
         Chats = new RepositoryChat(context);
+        Messages = new RepositoryMessage(context);
     }
 
     public IRepositoryRoom Rooms { get; }
     public IRepositoryChat Chats { get; }
+    public IRepositoryMessage Messages { get; }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

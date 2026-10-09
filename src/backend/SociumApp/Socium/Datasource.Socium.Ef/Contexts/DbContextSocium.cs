@@ -10,6 +10,7 @@ public class DbContextSocium : DbContext
 
     public virtual DbSet<Room> Rooms { get; set; }
     public virtual DbSet<Chat> Chats { get; set; }
+    public virtual DbSet<Message> Messages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

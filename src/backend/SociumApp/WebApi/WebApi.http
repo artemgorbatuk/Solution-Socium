@@ -1,6 +1,7 @@
 @WebApi_HostAddress = https://localhost:7026
 @RoomId = 00000000-0000-0000-0000-000000000000
 @ChatId = 00000000-0000-0000-0000-000000000000
+@MessageId = 00000000-0000-0000-0000-000000000000
 
 ### Список комнат
 GET {{WebApi_HostAddress}}/api/room
@@ -83,4 +84,46 @@ Accept: application/json
 
 ### Удаление чата
 DELETE {{WebApi_HostAddress}}/api/chat?id={{ChatId}}
+Accept: application/json
+
+### Список сообщений чата
+GET {{WebApi_HostAddress}}/api/message?chatId={{ChatId}}
+Accept: application/json
+
+### Карточка сообщения
+GET {{WebApi_HostAddress}}/api/message/info?id={{MessageId}}
+Accept: application/json
+
+### Данные формы создания сообщения
+GET {{WebApi_HostAddress}}/api/message/create?chatId={{ChatId}}
+Accept: application/json
+
+### Отправка сообщения
+POST {{WebApi_HostAddress}}/api/message
+Content-Type: application/json
+
+{
+  "chatId": "{{ChatId}}",
+  "text": "Привет!\nВторая строка."
+}
+
+### Данные формы изменения сообщения
+GET {{WebApi_HostAddress}}/api/message/update?id={{MessageId}}
+Accept: application/json
+
+### Изменение сообщения
+PUT {{WebApi_HostAddress}}/api/message
+Content-Type: application/json
+
+{
+  "id": "{{MessageId}}",
+  "text": "Исправленный текст"
+}
+
+### Данные подтверждения удаления сообщения
+GET {{WebApi_HostAddress}}/api/message/delete?id={{MessageId}}
+Accept: application/json
+
+### Удаление сообщения
+DELETE {{WebApi_HostAddress}}/api/message?id={{MessageId}}
 Accept: application/json

@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpRequest, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -20,8 +20,18 @@ describe('ChatPage', () => {
     return http.expectOne((request) => request.method === 'GET' && request.url === '/api/chat/info' && request.params.get('id') === id);
   }
 
+  function isMessageList(chatId: string) {
+    return (request: HttpRequest<unknown>) =>
+      request.method === 'GET' && request.url === '/api/message' && request.params.get('chatId') === chatId;
+  }
+
   function flushChat(id: string, name: string): void {
     expectInfo(id).flush(successBody({ id, roomId: 'r1', name }));
+    render();
+  }
+
+  function flushMessages(chatId: string): void {
+    http.expectOne(isMessageList(chatId)).flush(successBody({ rowExists: false, rowCount: 0, rows: [] }));
     render();
   }
 
@@ -52,26 +62,17 @@ describe('ChatPage', () => {
 
   afterEach(() => http.verify());
 
-  it('Chat_Load_WithExistingChat_ShouldSetTopbarTitleAndShowComposer', () => {
+  it('Chat_Load_WithExistingChat_ShouldSetTopbarTitleAndShowMessagesWithComposer', () => {
     open('c1');
     expect(element.textContent).toContain('Загрузка…');
 
     flushChat('c1', 'Общий');
+    flushMessages('c1');
 
     expect(TestBed.inject(TopbarTitle).text()).toBe('Общий');
+    expect(element.textContent).toContain('Сообщений пока нет');
     expect(textarea().getAttribute('aria-label')).toBe('Сообщение в чат Общий');
     expect(textarea().placeholder).toBe('Напишите сообщение…');
-    expect(element.querySelector<HTMLButtonElement>('button[aria-label="Отправить"]')!.disabled).toBe(true);
-  });
-
-  it('Composer_Input_WithText_ShouldKeepTextAndKeepSendDisabled', () => {
-    open('c1');
-    flushChat('c1', 'Общий');
-
-    type('Привет');
-
-    expect(textarea().value).toBe('Привет');
-    expect(element.querySelector<HTMLButtonElement>('button[aria-label="Отправить"]')!.disabled).toBe(true);
   });
 
   it('Chat_Load_WithUnknownChat_ShouldShowNotFoundWithHomeLink', () => {
@@ -95,36 +96,42 @@ describe('ChatPage', () => {
     expect(element.querySelector('[role=alert]')!.textContent).toContain('База недоступна.');
   });
 
-  it('Chat_Switch_WithTypedText_ShouldClearTextAndLoadOtherChat', () => {
+  it('Chat_Switch_WithTypedText_ShouldClearTextAndLoadOtherChatMessages', () => {
     open('c1');
     flushChat('c1', 'Общий');
+    flushMessages('c1');
     type('Черновик');
 
     open('c2');
     expect(element.textContent).toContain('Загрузка…');
     flushChat('c2', 'Арт');
+    flushMessages('c2');
 
     expect(textarea().value).toBe('');
     expect(TestBed.inject(TopbarTitle).text()).toBe('Арт');
   });
 
-  it('Changes_Notify_WithRenamedChat_ShouldUpdateTitleAndKeepText', () => {
+  it('Changes_Notify_WithRenamedChat_ShouldUpdateTitleAndKeepTextWithoutReloadingMessages', () => {
     open('c1');
     flushChat('c1', 'Общий');
+    flushMessages('c1');
     type('Черновик');
 
     TestBed.inject(ChatChanges).notify();
     render();
     flushChat('c1', 'Объявления');
 
+    http.expectNone(isMessageList('c1'));
     expect(TestBed.inject(TopbarTitle).text()).toBe('Объявления');
     expect(textarea().value).toBe('Черновик');
+    expect(textarea().getAttribute('aria-label')).toBe('Сообщение в чат Объявления');
   });
 
   it('Changes_Notify_WithDeletedChat_ShouldNavigateHome', () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
     open('c1');
     flushChat('c1', 'Общий');
+    flushMessages('c1');
 
     TestBed.inject(ChatChanges).notify();
     render();
@@ -137,6 +144,7 @@ describe('ChatPage', () => {
   it('Page_Destroy_WithLoadedChat_ShouldClearTopbarTitle', () => {
     open('c1');
     flushChat('c1', 'Общий');
+    flushMessages('c1');
 
     fixture.destroy();
 

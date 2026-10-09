@@ -1,0 +1,45 @@
+@if (editing()) {
+  <form class="edit-form" (submit)="save($event)">
+    <textarea
+      #editInput
+      name="text"
+      rows="1"
+      aria-label="Новый текст сообщения"
+      [value]="draftText()"
+      [readOnly]="saving()"
+      (input)="onDraftInput($event)"
+      (keydown)="onEditKeydown($event)"
+      (keydown.escape)="cancelEdit()"
+    ></textarea>
+    <div class="edit-buttons">
+      <button type="submit" class="primary" [disabled]="saving() || !draftText().trim()">Сохранить</button>
+      <button type="button" (click)="cancelEdit()" [disabled]="saving()">Отмена</button>
+    </div>
+    @if (error(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+  </form>
+} @else {
+  <div class="row" [class.menu-open]="menuOpen()">
+    <button
+      type="button"
+      class="menu-button"
+      aria-haspopup="menu"
+      aria-label="Действия с сообщением"
+      [attr.aria-expanded]="menuOpen()"
+      (click)="toggleMenu()"
+    >
+      …
+    </button>
+    <div class="bubble">
+      <p class="text">{{ message().text }}</p>
+      <time class="time" [attr.datetime]="message().createdAt" [title]="fullTime()">{{ time() }}</time>
+    </div>
+  </div>
+  @if (menuOpen()) {
+    <div class="menu" role="menu">
+      <button type="button" role="menuitem" (click)="startEdit()">Изменить</button>
+      <button type="button" role="menuitem" class="danger" (click)="requestDelete()">Удалить</button>
+    </div>
+  }
+}

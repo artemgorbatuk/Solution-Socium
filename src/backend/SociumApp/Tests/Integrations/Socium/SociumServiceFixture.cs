@@ -66,6 +66,16 @@ public sealed class SociumServiceFixture : IAsyncLifetime
         return list.Response!.Rows.Single(row => row.Name == name.Trim()).Id;
     }
 
+    /// <summary>Создаёт сообщение; текст должен быть уникальным в чате, чтобы вернуть его Id.</summary>
+    public async Task<Guid> CreateMessageAsync(Guid chatId, string text)
+    {
+        var created = await RunAsync((IServiceMessage service) => service.CreateAsync(new MessageCreateRequest { ChatId = chatId, Text = text }));
+        EnsureSaved(created, $"сообщение «{text}»");
+
+        var list = await RunAsync((IServiceMessage service) => service.DisplayListPageAsync(new MessageListPageRequest { ChatId = chatId }));
+        return list.Response!.Rows.Single(row => row.Text == text.Trim()).Id;
+    }
+
     private static void EnsureSaved<T>(ResponseInfo<T> created, string subject) where T : class
     {
         if (created.MessageInfo.MessageType != MessageType.SAVED)

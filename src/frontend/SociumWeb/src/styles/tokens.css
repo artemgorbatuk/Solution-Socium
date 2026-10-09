@@ -23,6 +23,9 @@
   --sc-color-on-danger: #ffffff;
   --sc-color-backdrop: rgb(0 0 0 / 40%);
 
+  --sc-message-sender-bg: #e9edfc;
+  --sc-message-sender-border: #d3dbf8;
+
   --sc-shadow-menu: 0 4px 12px rgb(0 0 0 / 12%);
   --sc-shadow-dialog: 0 8px 24px rgb(0 0 0 / 20%);
 
@@ -67,6 +70,9 @@
   --sc-color-danger-hover: #ff8a8a;
   --sc-color-on-danger: #2a0b0b;
   --sc-color-backdrop: rgb(0 0 0 / 60%);
+
+  --sc-message-sender-bg: #2b3156;
+  --sc-message-sender-border: #3a4275;
 
   --sc-shadow-menu: 0 4px 16px rgb(0 0 0 / 50%);
   --sc-shadow-dialog: 0 8px 32px rgb(0 0 0 / 60%);

@@ -1,0 +1,127 @@
+:host {
+  position: relative;
+  display: block;
+}
+
+/* Сообщения отправителя — справа; пока нет пользователей, все сообщения считаются своими. */
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: var(--sc-space-1);
+}
+
+/* Всегда 55% колонки (~50 символов в строке при 768 px), независимо от длины текста. */
+.bubble {
+  width: 55%;
+  min-width: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: 1px solid var(--sc-message-sender-border);
+  border-radius: var(--sc-radius-lg) var(--sc-radius-lg) var(--sc-radius-sm) var(--sc-radius-lg);
+  background: var(--sc-message-sender-bg);
+}
+
+.text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.time {
+  display: block;
+  margin-top: var(--sc-space-1);
+  color: var(--sc-color-text-muted);
+  font-size: var(--sc-font-size-sm);
+  text-align: right;
+}
+
+.menu-button {
+  flex-shrink: 0;
+  padding: 0 var(--sc-space-2);
+  border-color: transparent;
+  border-radius: var(--sc-radius-sm);
+  background: transparent;
+  color: var(--sc-color-text-muted);
+  opacity: 0;
+}
+
+.row:hover .menu-button,
+.row.menu-open .menu-button,
+.menu-button:focus-visible {
+  opacity: 1;
+}
+
+.menu-button:hover {
+  background: var(--sc-color-active);
+  color: var(--sc-color-text);
+}
+
+@media (hover: none) {
+  .menu-button {
+    opacity: 1;
+  }
+}
+
+.menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: var(--sc-space-1);
+  border: 1px solid var(--sc-color-border);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-surface-raised);
+  box-shadow: var(--sc-shadow-menu);
+}
+
+.menu button {
+  padding: var(--sc-space-1) var(--sc-space-2);
+  border-color: transparent;
+  border-radius: var(--sc-radius-sm);
+  background: transparent;
+  color: var(--sc-color-text);
+  text-align: left;
+}
+
+.menu button:hover {
+  background: var(--sc-color-hover);
+}
+
+.menu button.danger {
+  color: var(--sc-color-danger);
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sc-space-2);
+  width: 55%;
+  margin-left: auto;
+}
+
+.edit-form textarea {
+  align-self: stretch;
+  min-height: 64px;
+  max-height: 320px;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: 1px solid var(--sc-color-border-strong);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-color-control);
+  resize: none;
+  field-sizing: content;
+}
+
+.edit-buttons {
+  display: flex;
+  gap: var(--sc-space-2);
+}
+
+.error {
+  margin: 0;
+  color: var(--sc-color-danger);
+  white-space: pre-line;
+}
