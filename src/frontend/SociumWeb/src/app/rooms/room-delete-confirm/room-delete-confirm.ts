@@ -4,22 +4,26 @@ import { RoomApi } from '../room-api';
 import { RoomDeletePageResponse } from '../room.models';
 
 @Component({
-  selector: 'app-room-delete-dialog',
-  templateUrl: './room-delete-dialog.html',
-  styleUrl: './room-delete-dialog.css',
+  selector: 'app-room-delete-confirm',
+  templateUrl: './room-delete-confirm.html',
+  styleUrl: './room-delete-confirm.css',
   host: {
-    '(document:keydown.escape)': 'close()',
+    role: 'group',
+    'aria-label': 'Удалить комнату?',
+    '(keydown.escape)': 'cancel()',
   },
 })
-export class RoomDeleteDialog implements OnInit {
+export class RoomDeleteConfirm implements OnInit {
   private readonly roomApi = inject(RoomApi);
 
   readonly roomId = input.required<string>();
+  /** Название из списка — вопрос виден сразу, до ответа сервера. */
+  readonly roomName = input.required<string>();
   readonly deleted = output<void>();
-  readonly closed = output<void>();
+  readonly cancelled = output<void>();
 
+  /** Данные с сервера; пока их нет, удалить нельзя. */
   protected readonly room = signal<RoomDeletePageResponse | null>(null);
-  protected readonly loading = signal(true);
   protected readonly deleting = signal(false);
   protected readonly error = signal<string | null>(null);
 
@@ -31,14 +35,8 @@ export class RoomDeleteDialog implements OnInit {
 
   ngOnInit(): void {
     this.roomApi.getDeletePage(this.roomId()).subscribe({
-      next: (body) => {
-        this.room.set(body.response);
-        this.loading.set(false);
-      },
-      error: (error: unknown) => {
-        this.error.set(problemDetail(error, 'Не удалось загрузить комнату'));
-        this.loading.set(false);
-      },
+      next: (body) => this.room.set(body.response),
+      error: (error: unknown) => this.error.set(problemDetail(error, 'Не удалось загрузить комнату')),
     });
   }
 
@@ -59,9 +57,9 @@ export class RoomDeleteDialog implements OnInit {
     });
   }
 
-  protected close(): void {
+  protected cancel(): void {
     if (!this.deleting()) {
-      this.closed.emit();
+      this.cancelled.emit();
     }
   }
 }

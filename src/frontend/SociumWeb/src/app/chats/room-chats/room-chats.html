@@ -13,8 +13,8 @@
       (keydown.escape)="cancelCreate()"
     />
     <div class="create-buttons">
-      <button type="submit" class="primary" [disabled]="saving() || !newChatName().trim()">Создать</button>
       <button type="button" (click)="cancelCreate()" [disabled]="saving()">Отмена</button>
+      <button type="submit" class="primary" [disabled]="saving() || !newChatName().trim()">Создать</button>
     </div>
     @if (createError(); as error) {
       <p class="error" role="alert">{{ error }}</p>
@@ -30,14 +30,10 @@
   <ul [attr.aria-label]="'Чаты комнаты ' + roomName()">
     @for (chat of chats(); track chat.id) {
       <li>
-        <app-chat-list-item [chat]="chat" (changed)="onChatRenamed()" (deleteRequested)="chatToDelete.set($event)" />
+        <app-chat-list-item [chat]="chat" (changed)="onChatRenamed()" (deleted)="onChatDeleted()" />
       </li>
     } @empty {
       <li class="hint">Чатов пока нет</li>
     }
   </ul>
-}
-
-@if (chatToDelete(); as chat) {
-  <app-chat-delete-dialog [chatId]="chat.id" (deleted)="onChatDeleted()" (closed)="chatToDelete.set(null)" />
 }

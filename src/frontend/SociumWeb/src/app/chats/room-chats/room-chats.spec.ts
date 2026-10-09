@@ -146,9 +146,7 @@ describe('RoomChats', () => {
     expectList().flush(listBody([{ id: 'c1', name: 'Общий' }]));
     render();
 
-    element.querySelector<HTMLButtonElement>('.menu-button')!.click();
-    render();
-    button('Переименовать').click();
+    element.querySelector<HTMLButtonElement>('[aria-label="Переименовать чат Общий"]')!.click();
     render();
     const field = element.querySelector<HTMLInputElement>('.rename-form input')!;
     field.value = 'Объявления';
@@ -167,20 +165,18 @@ describe('RoomChats', () => {
     expectList().flush(listBody([{ id: 'c1', name: 'Общий' }]));
     render();
 
-    element.querySelector<HTMLButtonElement>('.menu-button')!.click();
-    render();
-    button('Удалить').click();
+    element.querySelector<HTMLButtonElement>('[aria-label="Удалить чат Общий"]')!.click();
     render();
     http
       .expectOne((request) => request.method === 'GET' && request.url === '/api/chat/delete')
       .flush(successBody({ id: 'c1', roomId: '1', name: 'Общий' }));
     render();
-    element.querySelector<HTMLButtonElement>('[role=dialog] .danger')!.click();
+    element.querySelector<HTMLButtonElement>('[role=group] .danger')!.click();
     http.expectOne({ method: 'DELETE', url: '/api/chat?id=c1' }).flush(successBody({ isDeleted: true }, 2));
     expectList().flush(listBody([]));
     render();
 
-    expect(element.querySelector('[role=dialog]')).toBeNull();
+    expect(element.querySelector('[role=group]')).toBeNull();
     expect(TestBed.inject(ChatChanges).version()).toBe(1);
     expect(element.textContent).toContain('Чатов пока нет');
   });

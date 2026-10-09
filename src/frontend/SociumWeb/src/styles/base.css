@@ -63,6 +63,30 @@ body {
   background: var(--sc-color-danger-hover);
 }
 
+/* Кнопка-иконка; идёт после danger, чтобы `icon danger` оставалась прозрачной и краснела только при наведении. */
+:where(button.icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-color: transparent;
+  border-radius: var(--sc-radius-sm);
+  background: transparent;
+  color: var(--sc-color-text-muted);
+}
+
+:where(button.icon:hover:not(:disabled)) {
+  border-color: transparent;
+  background: var(--sc-color-active);
+  color: var(--sc-color-text);
+}
+
+:where(button.icon.danger:hover:not(:disabled)) {
+  color: var(--sc-color-danger);
+}
+
 :where(input) {
   padding: var(--sc-space-1) var(--sc-space-2);
   border: 1px solid var(--sc-color-border-strong);

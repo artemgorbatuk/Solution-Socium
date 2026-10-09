@@ -1,0 +1,23 @@
+/* Под пузырём, по его правому краю. */
+:host {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sc-space-2);
+  margin-top: var(--sc-space-2);
+}
+
+p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.error {
+  color: var(--sc-color-danger);
+  white-space: pre-line;
+}
+
+.buttons {
+  display: flex;
+  gap: var(--sc-space-2);
+}

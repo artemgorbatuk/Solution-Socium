@@ -58,10 +58,10 @@ public sealed class ChatPageE2eTests(E2eAppFixture fixture)
         await page.GotoAsync($"/chat/{chatId}");
         await Assertions.Expect(TopbarTitle(page, chatName)).ToBeVisibleAsync();
 
-        await page.GetByRole(AriaRole.Button, new() { Name = $"Действия с чатом {chatName}", Exact = true }).ClickAsync();
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Удалить" }).ClickAsync();
-        var dialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Удалить чат?" });
-        await dialog.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
+        await Assertions.Expect(page.RowAction($"Удалить чат {chatName}").Locator("..")).ToHaveCSSAsync("opacity", "1");
+        await page.ClickRowActionAsync($"Удалить чат {chatName}");
+        var confirm = page.GetByRole(AriaRole.Group, new() { Name = "Удалить чат?" });
+        await confirm.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
 
         await Assertions.Expect(page).ToHaveURLAsync(new Regex("/$"));
         await Assertions.Expect(HomeWordmark(page)).ToBeVisibleAsync();

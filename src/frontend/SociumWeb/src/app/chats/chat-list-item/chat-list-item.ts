@@ -1,54 +1,37 @@
 import { Component, ElementRef, Injector, afterNextRender, inject, input, output, signal, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { problemDetail } from '../../shared/api/api-response';
+import { Icon } from '../../shared/icon/icon';
 import { ChatApi } from '../chat-api';
+import { ChatDeleteConfirm } from '../chat-delete-confirm/chat-delete-confirm';
 import { ChatListModel, chatNameMaxLength } from '../chat.models';
 
 @Component({
   selector: 'app-chat-list-item',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, ChatDeleteConfirm, Icon],
   templateUrl: './chat-list-item.html',
   styleUrl: './chat-list-item.css',
-  host: {
-    '(document:click)': 'onDocumentClick($event)',
-    '(keydown.escape)': 'closeMenu()',
-  },
 })
 export class ChatListItem {
   private readonly chatApi = inject(ChatApi);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
   readonly chat = input.required<ChatListModel>();
   /** Чат переименован — владелец перезагружает список. */
   readonly changed = output<void>();
-  readonly deleteRequested = output<ChatListModel>();
+  /** Чат удалён — владелец перезагружает список. */
+  readonly deleted = output<void>();
 
   protected readonly nameMaxLength = chatNameMaxLength;
-  protected readonly menuOpen = signal(false);
   protected readonly editing = signal(false);
+  protected readonly confirmingDelete = signal(false);
   protected readonly draftName = signal('');
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
 
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
 
-  protected toggleMenu(): void {
-    this.menuOpen.update((value) => !value);
-  }
-
-  protected closeMenu(): void {
-    this.menuOpen.set(false);
-  }
-
-  protected onDocumentClick(event: MouseEvent): void {
-    if (this.menuOpen() && !this.host.nativeElement.contains(event.target as Node)) {
-      this.menuOpen.set(false);
-    }
-  }
-
   protected startRename(): void {
-    this.menuOpen.set(false);
     this.draftName.set(this.chat().name);
     this.error.set(null);
     this.editing.set(true);
@@ -91,7 +74,6 @@ export class ChatListItem {
   }
 
   protected requestDelete(): void {
-    this.menuOpen.set(false);
-    this.deleteRequested.emit(this.chat());
+    this.confirmingDelete.set(true);
   }
 }

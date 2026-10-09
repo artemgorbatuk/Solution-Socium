@@ -2,16 +2,16 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { successBody } from '../../shared/api/api-response.testing';
-import { MessageDeleteDialog } from './message-delete-dialog';
+import { MessageDeleteConfirm } from './message-delete-confirm';
 
-describe('MessageDeleteDialog', () => {
+describe('MessageDeleteConfirm', () => {
   const page = { id: 'm1', chatId: 'c1', text: 'Привет\nмир', createdAt: '2026-10-09T12:02:00Z' };
 
-  let fixture: ComponentFixture<MessageDeleteDialog>;
+  let fixture: ComponentFixture<MessageDeleteConfirm>;
   let http: HttpTestingController;
   let element: HTMLElement;
   let deleted: number;
-  let closed: number;
+  let cancelled: number;
 
   function render(): void {
     fixture.detectChanges();
@@ -21,47 +21,44 @@ describe('MessageDeleteDialog', () => {
     return element.querySelector<HTMLButtonElement>('.danger')!;
   }
 
+  function cancelButton(): HTMLButtonElement {
+    return Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes('Отмена'))!;
+  }
+
   function expectDeletePage() {
     return http.expectOne((request) => request.method === 'GET' && request.url === '/api/message/delete' && request.params.get('id') === 'm1');
   }
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [MessageDeleteDialog],
+      imports: [MessageDeleteConfirm],
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     http = TestBed.inject(HttpTestingController);
-    fixture = TestBed.createComponent(MessageDeleteDialog);
+    fixture = TestBed.createComponent(MessageDeleteConfirm);
     fixture.componentRef.setInput('messageId', 'm1');
     deleted = 0;
-    closed = 0;
+    cancelled = 0;
     fixture.componentInstance.deleted.subscribe(() => deleted++);
-    fixture.componentInstance.closed.subscribe(() => closed++);
+    fixture.componentInstance.cancelled.subscribe(() => cancelled++);
     element = fixture.nativeElement;
     render();
   });
 
   afterEach(() => http.verify());
 
-  it('Dialog_Load_WithExistingMessage_ShouldShowTextAndEnableDelete', () => {
+  it('Confirm_Load_WithExistingMessage_ShouldAskAndEnableDeleteAfterResponse', () => {
+    expect(element.getAttribute('role')).toBe('group');
+    expect(element.querySelector('p')!.textContent).toBe('Удалить сообщение?');
     expect(deleteButton().disabled).toBe(true);
 
     expectDeletePage().flush(successBody(page));
     render();
 
-    expect(element.querySelector('h2')!.textContent).toBe('Удалить сообщение?');
-    expect(element.querySelector('.preview')!.textContent).toBe('Привет\nмир');
     expect(deleteButton().disabled).toBe(false);
   });
 
-  it('Dialog_Load_WithLongText_ShouldShowBeginningWithEllipsis', () => {
-    expectDeletePage().flush(successBody({ ...page, text: 'я'.repeat(1000) }));
-    render();
-
-    expect(element.querySelector('.preview')!.textContent).toBe(`${'я'.repeat(300)}…`);
-  });
-
-  it('Dialog_Confirm_WithExistingMessage_ShouldDeleteAndEmitDeleted', () => {
+  it('Confirm_Delete_WithExistingMessage_ShouldDeleteAndEmitDeleted', () => {
     expectDeletePage().flush(successBody(page));
     render();
 
@@ -73,7 +70,7 @@ describe('MessageDeleteDialog', () => {
     expect(deleted).toBe(1);
   });
 
-  it('Dialog_Load_WithUnknownId_ShouldShowProblemAndKeepDeleteDisabled', () => {
+  it('Confirm_Load_WithUnknownId_ShouldShowProblemAndKeepDeleteDisabled', () => {
     expectDeletePage().flush({ detail: 'Сообщение не найдено по указанному идентификатору.' }, { status: 404, statusText: 'Not Found' });
     render();
 
@@ -81,15 +78,21 @@ describe('MessageDeleteDialog', () => {
     expect(deleteButton().disabled).toBe(true);
   });
 
-  it('Dialog_Close_WithCancelEscapeOrBackdrop_ShouldEmitClosedWithoutDelete', () => {
+  it('Confirm_Render_WithAnyMessage_ShouldFocusCancel', async () => {
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(cancelButton());
+    expectDeletePage().flush(successBody(page));
+  });
+
+  it('Confirm_Cancel_WithButtonOrEscape_ShouldEmitCancelledWithoutDelete', () => {
     expectDeletePage().flush(successBody(page));
     render();
 
-    Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes('Отмена'))!.click();
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    element.querySelector<HTMLElement>('.backdrop')!.click();
+    cancelButton().click();
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 
-    expect(closed).toBe(3);
+    expect(cancelled).toBe(2);
     expect(deleted).toBe(0);
   });
 });

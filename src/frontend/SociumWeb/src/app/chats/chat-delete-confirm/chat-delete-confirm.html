@@ -1,0 +1,10 @@
+<p>Удалить чат «<strong>{{ chatName() }}</strong>»?</p>
+
+@if (error(); as message) {
+  <p class="error" role="alert">{{ message }}</p>
+}
+
+<div class="buttons">
+  <button #cancelButton type="button" (click)="cancel()" [disabled]="deleting()">Отмена</button>
+  <button type="button" class="danger" (click)="confirm()" [disabled]="!chat() || deleting()">Удалить</button>
+</div>

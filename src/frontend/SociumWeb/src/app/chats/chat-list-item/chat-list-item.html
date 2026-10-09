@@ -12,15 +12,17 @@
       (keydown.escape)="cancelRename()"
     />
     <div class="rename-buttons">
-      <button type="submit" class="primary" [disabled]="saving() || !draftName().trim()">Сохранить</button>
       <button type="button" (click)="cancelRename()" [disabled]="saving()">Отмена</button>
+      <button type="submit" class="primary" [disabled]="saving() || !draftName().trim()">Сохранить</button>
     </div>
     @if (error(); as message) {
       <p class="error" role="alert">{{ message }}</p>
     }
   </form>
+} @else if (confirmingDelete()) {
+  <app-chat-delete-confirm [chatId]="chat().id" [chatName]="chat().name" (deleted)="deleted.emit()" (cancelled)="confirmingDelete.set(false)" />
 } @else {
-  <div class="row" [class.menu-open]="menuOpen()">
+  <div class="row">
     <a
       class="chat-link"
       [routerLink]="['/chat', chat().id]"
@@ -31,21 +33,25 @@
       <span class="chat-icon" aria-hidden="true">#</span>
       <span class="chat-name">{{ chat().name }}</span>
     </a>
-    <button
-      type="button"
-      class="menu-button"
-      aria-haspopup="menu"
-      [attr.aria-expanded]="menuOpen()"
-      [attr.aria-label]="'Действия с чатом ' + chat().name"
-      (click)="toggleMenu()"
-    >
-      …
-    </button>
-  </div>
-  @if (menuOpen()) {
-    <div class="menu" role="menu">
-      <button type="button" role="menuitem" (click)="startRename()">Переименовать</button>
-      <button type="button" role="menuitem" class="danger" (click)="requestDelete()">Удалить</button>
+    <div class="actions">
+      <button
+        type="button"
+        class="icon"
+        title="Переименовать"
+        [attr.aria-label]="'Переименовать чат ' + chat().name"
+        (click)="startRename()"
+      >
+        <app-icon name="pencil" />
+      </button>
+      <button
+        type="button"
+        class="icon danger"
+        title="Удалить"
+        [attr.aria-label]="'Удалить чат ' + chat().name"
+        (click)="requestDelete()"
+      >
+        <app-icon name="trash" />
+      </button>
     </div>
-  }
+  </div>
 }

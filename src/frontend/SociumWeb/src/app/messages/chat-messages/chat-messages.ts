@@ -15,14 +15,13 @@ import {
 import { Subscription } from 'rxjs';
 import { problemDetail } from '../../shared/api/api-response';
 import { MessageApi } from '../message-api';
-import { MessageDeleteDialog } from '../message-delete-dialog/message-delete-dialog';
 import { MessageItem } from '../message-item/message-item';
 import { MessageListModel } from '../message.models';
 import { isSubmitKey } from '../submit-key';
 
 @Component({
   selector: 'app-chat-messages',
-  imports: [MessageItem, MessageDeleteDialog],
+  imports: [MessageItem],
   templateUrl: './chat-messages.html',
   styleUrl: './chat-messages.css',
 })
@@ -41,8 +40,6 @@ export class ChatMessages {
   protected readonly sending = signal(false);
   protected readonly sendError = signal<string | null>(null);
   protected readonly canSend = computed(() => !!this.draft().trim() && !this.sending());
-
-  protected readonly messageToDelete = signal<MessageListModel | null>(null);
 
   private readonly feed = viewChild<ElementRef<HTMLElement>>('feed');
   private loadSubscription?: Subscription;
@@ -95,7 +92,6 @@ export class ChatMessages {
   }
 
   protected onMessageDeleted(): void {
-    this.messageToDelete.set(null);
     this.load(false);
   }
 
@@ -103,7 +99,6 @@ export class ChatMessages {
     this.messages.set([]);
     this.draft.set('');
     this.sendError.set(null);
-    this.messageToDelete.set(null);
     this.load(true);
   }
 

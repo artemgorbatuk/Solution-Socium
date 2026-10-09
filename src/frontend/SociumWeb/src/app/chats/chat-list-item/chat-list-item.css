@@ -1,5 +1,4 @@
 :host {
-  position: relative;
   display: block;
 }
 
@@ -12,8 +11,7 @@
   transition: background-color var(--sc-transition);
 }
 
-.row:hover,
-.row.menu-open {
+.row:hover {
   background: var(--sc-color-hover);
 }
 
@@ -33,7 +31,6 @@
 }
 
 .row:hover .chat-link,
-.row.menu-open .chat-link,
 .chat-link.active {
   color: var(--sc-color-text);
 }
@@ -55,62 +52,24 @@
   white-space: nowrap;
 }
 
-.menu-button {
-  padding: 0 var(--sc-space-2);
-  border-color: transparent;
-  border-radius: var(--sc-radius-sm);
-  background: transparent;
-  color: var(--sc-color-text-muted);
+/* Скрыты прозрачностью, а не display: none, чтобы до кнопок можно было дойти по Tab. */
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
   opacity: 0;
 }
 
-.row:hover .menu-button,
-.row.menu-open .menu-button,
-.menu-button:focus-visible {
+.row:hover .actions,
+.row:focus-within .actions,
+.row:has(.chat-link.active) .actions {
   opacity: 1;
 }
 
-.menu-button:hover {
-  background: var(--sc-color-active);
-  color: var(--sc-color-text);
-}
-
 @media (hover: none) {
-  .menu-button {
+  .actions {
     opacity: 1;
   }
-}
-
-.menu {
-  position: absolute;
-  top: 100%;
-  right: var(--sc-space-1);
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  min-width: 160px;
-  padding: var(--sc-space-1);
-  border: 1px solid var(--sc-color-border);
-  border-radius: var(--sc-radius-md);
-  background: var(--sc-color-surface-raised);
-  box-shadow: var(--sc-shadow-menu);
-}
-
-.menu button {
-  padding: var(--sc-space-1) var(--sc-space-2);
-  border-color: transparent;
-  border-radius: var(--sc-radius-sm);
-  background: transparent;
-  color: var(--sc-color-text);
-  text-align: left;
-}
-
-.menu button:hover {
-  background: var(--sc-color-hover);
-}
-
-.menu button.danger {
-  color: var(--sc-color-danger);
 }
 
 .rename-form {

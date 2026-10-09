@@ -1,56 +1,40 @@
 import { Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { problemDetail } from '../../shared/api/api-response';
+import { Icon } from '../../shared/icon/icon';
 import { MessageApi } from '../message-api';
+import { MessageDeleteConfirm } from '../message-delete-confirm/message-delete-confirm';
 import { messageFullTime, messageTime } from '../message-time';
 import { MessageListModel } from '../message.models';
 import { isSubmitKey } from '../submit-key';
 
 @Component({
   selector: 'app-message-item',
+  imports: [MessageDeleteConfirm, Icon],
   templateUrl: './message-item.html',
   styleUrl: './message-item.css',
-  host: {
-    '(document:click)': 'onDocumentClick($event)',
-    '(keydown.escape)': 'closeMenu()',
-  },
 })
 export class MessageItem {
   private readonly messageApi = inject(MessageApi);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
   readonly message = input.required<MessageListModel>();
   /** Текст изменён — владелец перезагружает ленту. */
   readonly changed = output<void>();
-  readonly deleteRequested = output<MessageListModel>();
+  /** Сообщение удалено — владелец перезагружает ленту. */
+  readonly deleted = output<void>();
 
   protected readonly time = computed(() => messageTime(this.message().createdAt));
   protected readonly fullTime = computed(() => messageFullTime(this.message().createdAt));
 
-  protected readonly menuOpen = signal(false);
   protected readonly editing = signal(false);
   protected readonly draftText = signal('');
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly confirmingDelete = signal(false);
 
   private readonly editInput = viewChild<ElementRef<HTMLTextAreaElement>>('editInput');
 
-  protected toggleMenu(): void {
-    this.menuOpen.update((value) => !value);
-  }
-
-  protected closeMenu(): void {
-    this.menuOpen.set(false);
-  }
-
-  protected onDocumentClick(event: MouseEvent): void {
-    if (this.menuOpen() && !this.host.nativeElement.contains(event.target as Node)) {
-      this.menuOpen.set(false);
-    }
-  }
-
   protected startEdit(): void {
-    this.menuOpen.set(false);
     this.draftText.set(this.message().text);
     this.error.set(null);
     this.editing.set(true);
@@ -108,7 +92,6 @@ export class MessageItem {
   }
 
   protected requestDelete(): void {
-    this.menuOpen.set(false);
-    this.deleteRequested.emit(this.message());
+    this.confirmingDelete.set(true);
   }
 }

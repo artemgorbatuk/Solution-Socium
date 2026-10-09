@@ -36,7 +36,7 @@ public sealed class ChatMessagesE2eTests(E2eAppFixture fixture)
     }
 
     [Fact]
-    public async Task Message_Edit_WithMenuAndEnter_ShouldChangeText()
+    public async Task Message_Edit_WithPencilAndEnter_ShouldChangeText()
     {
         var (chatId, chatName) = await CreateChatAsync();
         await fixture.Api.CreateMessageAsync(chatId, "Исходный текст");
@@ -46,8 +46,7 @@ public sealed class ChatMessagesE2eTests(E2eAppFixture fixture)
         await page.GotoAsync($"/chat/{chatId}");
         var item = Messages(page, chatName).GetByRole(AriaRole.Listitem);
         await item.HoverAsync();
-        await item.GetByRole(AriaRole.Button, new() { Name = "Действия с сообщением" }).ClickAsync();
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Изменить" }).ClickAsync();
+        await item.GetByRole(AriaRole.Button, new() { Name = "Изменить сообщение" }).ClickAsync();
         var field = page.GetByRole(AriaRole.Textbox, new() { Name = "Новый текст сообщения" });
         await Assertions.Expect(field).ToHaveValueAsync("Исходный текст");
         await field.FillAsync("Изменённый текст");
@@ -70,13 +69,13 @@ public sealed class ChatMessagesE2eTests(E2eAppFixture fixture)
         await page.GotoAsync($"/chat/{chatId}");
         var item = Messages(page, chatName).GetByRole(AriaRole.Listitem);
         await item.HoverAsync();
-        await item.GetByRole(AriaRole.Button, new() { Name = "Действия с сообщением" }).ClickAsync();
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Удалить" }).ClickAsync();
-        var dialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Удалить сообщение?" });
-        await Assertions.Expect(dialog).ToContainTextAsync("Удаляемое сообщение");
-        await dialog.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
+        await item.GetByRole(AriaRole.Button, new() { Name = "Удалить сообщение" }).ClickAsync();
+        var confirm = item.GetByRole(AriaRole.Group, new() { Name = "Удалить сообщение?" });
+        await Assertions.Expect(confirm).ToBeVisibleAsync();
+        await Assertions.Expect(item).ToContainTextAsync("Удаляемое сообщение");
+        await confirm.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
 
-        await Assertions.Expect(dialog).ToHaveCountAsync(0);
+        await Assertions.Expect(confirm).ToHaveCountAsync(0);
         await Assertions.Expect(page.GetByText("Сообщений пока нет", new() { Exact = true })).ToBeVisibleAsync();
         Assert.Empty((await fixture.Api.GetMessageListAsync(chatId)).Rows);
     }

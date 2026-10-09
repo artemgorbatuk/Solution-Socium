@@ -2,14 +2,14 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { successBody } from '../../shared/api/api-response.testing';
-import { RoomDeleteDialog } from './room-delete-dialog';
+import { RoomDeleteConfirm } from './room-delete-confirm';
 
-describe('RoomDeleteDialog', () => {
-  let fixture: ComponentFixture<RoomDeleteDialog>;
+describe('RoomDeleteConfirm', () => {
+  let fixture: ComponentFixture<RoomDeleteConfirm>;
   let http: HttpTestingController;
   let element: HTMLElement;
   let deleted: number;
-  let closed: number;
+  let cancelled: number;
 
   function render(): void {
     fixture.detectChanges();
@@ -19,47 +19,58 @@ describe('RoomDeleteDialog', () => {
     return element.querySelector<HTMLButtonElement>('.danger')!;
   }
 
+  function cancelButton(): HTMLButtonElement {
+    return Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes('Отмена'))!;
+  }
+
   function expectDeletePage() {
     return http.expectOne((request) => request.method === 'GET' && request.url === '/api/room/delete' && request.params.get('id') === '1');
   }
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [RoomDeleteDialog],
+      imports: [RoomDeleteConfirm],
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     http = TestBed.inject(HttpTestingController);
-    fixture = TestBed.createComponent(RoomDeleteDialog);
+    fixture = TestBed.createComponent(RoomDeleteConfirm);
     fixture.componentRef.setInput('roomId', '1');
+    fixture.componentRef.setInput('roomName', 'Кухня');
     deleted = 0;
-    closed = 0;
+    cancelled = 0;
     fixture.componentInstance.deleted.subscribe(() => deleted++);
-    fixture.componentInstance.closed.subscribe(() => closed++);
+    fixture.componentInstance.cancelled.subscribe(() => cancelled++);
     element = fixture.nativeElement;
     render();
   });
 
   afterEach(() => http.verify());
 
-  it('Dialog_Load_WithExistingRoom_ShouldShowNameAndEnableDelete', () => {
+  it('Confirm_Render_BeforeServerResponse_ShouldAskWithNameAndDisableDelete', () => {
+    expect(element.getAttribute('role')).toBe('group');
+    expect(element.textContent).toContain('Удалить комнату «Кухня»?');
+    expect(Array.from(element.querySelectorAll('.buttons button')).map((item) => item.textContent!.trim())).toEqual(['Отмена', 'Удалить']);
     expect(deleteButton().disabled).toBe(true);
 
     expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
+  });
+
+  it('Confirm_Load_WithExistingRoom_ShouldEnableDeleteWithoutWarning', () => {
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
     render();
 
-    expect(element.querySelector('[role=dialog]')!.textContent).toContain('Кухня');
     expect(element.querySelector('.warning')).toBeNull();
     expect(deleteButton().disabled).toBe(false);
   });
 
-  it('Dialog_Load_WithRoomChats_ShouldWarnAboutChatCount', () => {
+  it('Confirm_Load_WithRoomChats_ShouldWarnAboutChatCount', () => {
     expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 3 }));
     render();
 
     expect(element.querySelector('.warning')!.textContent).toContain('Вместе с комнатой будут удалены чаты: 3');
   });
 
-  it('Dialog_Confirm_WithExistingRoom_ShouldDeleteAndEmitDeleted', () => {
+  it('Confirm_Delete_WithExistingRoom_ShouldDeleteAndEmitDeleted', () => {
     expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
     render();
 
@@ -71,7 +82,7 @@ describe('RoomDeleteDialog', () => {
     expect(deleted).toBe(1);
   });
 
-  it('Dialog_Load_WithUnknownId_ShouldShowProblemAndKeepDeleteDisabled', () => {
+  it('Confirm_Load_WithUnknownId_ShouldShowProblemAndKeepDeleteDisabled', () => {
     expectDeletePage().flush(
       { detail: 'Комната не найдена по указанному идентификатору.' },
       { status: 404, statusText: 'Not Found' },
@@ -82,7 +93,7 @@ describe('RoomDeleteDialog', () => {
     expect(deleteButton().disabled).toBe(true);
   });
 
-  it('Dialog_Confirm_WithServerError_ShouldShowProblemAndAllowRetry', () => {
+  it('Confirm_Delete_WithServerError_ShouldShowProblemAndAllowRetry', () => {
     expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
     render();
 
@@ -97,15 +108,21 @@ describe('RoomDeleteDialog', () => {
     expect(deleteButton().disabled).toBe(false);
   });
 
-  it('Dialog_Close_WithCancelEscapeOrBackdrop_ShouldEmitClosedWithoutDelete', () => {
+  it('Confirm_Render_WithAnyRoom_ShouldFocusCancel', async () => {
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(cancelButton());
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
+  });
+
+  it('Confirm_Cancel_WithButtonOrEscape_ShouldEmitCancelledWithoutDelete', () => {
     expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
     render();
 
-    Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes('Отмена'))!.click();
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    element.querySelector<HTMLElement>('.backdrop')!.click();
+    cancelButton().click();
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 
-    expect(closed).toBe(3);
+    expect(cancelled).toBe(2);
     expect(deleted).toBe(0);
   });
 });

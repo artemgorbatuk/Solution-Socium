@@ -1,19 +1,17 @@
 import { Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { RoomChats } from '../../chats/room-chats/room-chats';
 import { problemDetail } from '../../shared/api/api-response';
+import { Icon } from '../../shared/icon/icon';
 import { RoomApi } from '../room-api';
+import { RoomDeleteConfirm } from '../room-delete-confirm/room-delete-confirm';
 import { RoomExpansion } from '../room-expansion';
 import { RoomListModel, roomNameMaxLength } from '../room.models';
 
 @Component({
   selector: 'app-room-list-item',
-  imports: [RoomChats],
+  imports: [RoomChats, RoomDeleteConfirm, Icon],
   templateUrl: './room-list-item.html',
   styleUrl: './room-list-item.css',
-  host: {
-    '(document:click)': 'onDocumentClick($event)',
-    '(keydown.escape)': 'closeMenu()',
-  },
 })
 export class RoomListItem {
   private readonly roomApi = inject(RoomApi);
@@ -23,11 +21,12 @@ export class RoomListItem {
   readonly room = input.required<RoomListModel>();
   /** Комната переименована — владелец перезагружает список. */
   readonly changed = output<void>();
-  readonly deleteRequested = output<RoomListModel>();
+  /** Комната удалена — владелец перезагружает список. */
+  readonly deleted = output<void>();
 
   protected readonly nameMaxLength = roomNameMaxLength;
-  protected readonly menuOpen = signal(false);
   protected readonly editing = signal(false);
+  protected readonly confirmingDelete = signal(false);
   protected readonly draftName = signal('');
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -35,35 +34,17 @@ export class RoomListItem {
   protected readonly creatingChat = signal(false);
 
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
-  /** Строка комнаты с меню — без вложенных чатов, у которых свои меню. */
-  private readonly head = viewChild.required<ElementRef<HTMLElement>>('head');
-
-  protected toggleMenu(): void {
-    this.menuOpen.update((value) => !value);
-  }
-
-  protected closeMenu(): void {
-    this.menuOpen.set(false);
-  }
-
-  protected onDocumentClick(event: MouseEvent): void {
-    if (this.menuOpen() && !this.head().nativeElement.contains(event.target as Node)) {
-      this.menuOpen.set(false);
-    }
-  }
 
   protected toggleExpanded(): void {
     this.expansion.toggle(this.room().id);
   }
 
   protected startCreateChat(): void {
-    this.menuOpen.set(false);
     this.expansion.expand(this.room().id);
     this.creatingChat.set(true);
   }
 
   protected startRename(): void {
-    this.menuOpen.set(false);
     this.draftName.set(this.room().name);
     this.error.set(null);
     this.editing.set(true);
@@ -106,7 +87,6 @@ export class RoomListItem {
   }
 
   protected requestDelete(): void {
-    this.menuOpen.set(false);
-    this.deleteRequested.emit(this.room());
+    this.confirmingDelete.set(true);
   }
 }

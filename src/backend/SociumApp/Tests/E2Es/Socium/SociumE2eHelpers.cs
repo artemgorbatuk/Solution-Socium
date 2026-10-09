@@ -56,6 +56,9 @@ internal static class SociumE2eHelpers
         return body!.Response!;
     }
 
-    public static Task OpenRoomMenuAsync(this IPage page, string roomName) =>
-        page.GetByRole(AriaRole.Button, new() { Name = $"Действия с комнатой {roomName}", Exact = true }).ClickAsync();
+    /// <summary>Кнопка действия строки панели по её aria-label, например «Удалить комнату X»; видна при наведении на строку.</summary>
+    public static ILocator RowAction(this IPage page, string label) =>
+        page.GetByRole(AriaRole.Button, new() { Name = label, Exact = true });
+
+    public static Task ClickRowActionAsync(this IPage page, string label) => page.RowAction(label).ClickAsync();
 }

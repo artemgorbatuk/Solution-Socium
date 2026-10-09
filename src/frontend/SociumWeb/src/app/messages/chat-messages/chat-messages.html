@@ -9,7 +9,7 @@
     <ol class="list" [attr.aria-label]="'Сообщения чата ' + chatName()">
       @for (message of messages(); track message.id) {
         <li>
-          <app-message-item [message]="message" (changed)="onMessageChanged()" (deleteRequested)="messageToDelete.set($event)" />
+          <app-message-item [message]="message" (changed)="onMessageChanged()" (deleted)="onMessageDeleted()" />
         </li>
       }
     </ol>
@@ -34,7 +34,3 @@
     <button type="submit" class="primary send" aria-label="Отправить" title="Отправить (Enter)" [disabled]="!canSend()">↑</button>
   </div>
 </form>
-
-@if (messageToDelete(); as message) {
-  <app-message-delete-dialog [messageId]="message.id" (deleted)="onMessageDeleted()" (closed)="messageToDelete.set(null)" />
-}

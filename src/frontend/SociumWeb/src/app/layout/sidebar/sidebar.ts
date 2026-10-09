@@ -3,7 +3,6 @@ import { ChatChanges } from '../../chats/chat-changes';
 import { problemDetail } from '../../shared/api/api-response';
 import { ResizeHandle } from '../../shared/resize/resize-handle';
 import { RoomApi } from '../../rooms/room-api';
-import { RoomDeleteDialog } from '../../rooms/room-delete-dialog/room-delete-dialog';
 import { RoomExpansion } from '../../rooms/room-expansion';
 import { RoomListItem } from '../../rooms/room-list-item/room-list-item';
 import { RoomListModel, roomNameMaxLength } from '../../rooms/room.models';
@@ -12,7 +11,7 @@ const widthStorageKey = 'socium.sidebar.width';
 
 @Component({
   selector: 'app-sidebar',
-  imports: [ResizeHandle, RoomListItem, RoomDeleteDialog],
+  imports: [ResizeHandle, RoomListItem],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.css',
   host: {
@@ -53,8 +52,6 @@ export class Sidebar {
   protected readonly newRoomName = signal('');
   protected readonly saving = signal(false);
   protected readonly createError = signal<string | null>(null);
-
-  protected readonly roomToDelete = signal<RoomListModel | null>(null);
 
   constructor() {
     this.loadRooms();
@@ -124,7 +121,6 @@ export class Sidebar {
   }
 
   protected onRoomDeleted(): void {
-    this.roomToDelete.set(null);
     this.chatChanges.notify();
     this.loadRooms();
   }

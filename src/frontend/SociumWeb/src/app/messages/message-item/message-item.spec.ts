@@ -12,7 +12,7 @@ describe('MessageItem', () => {
   let http: HttpTestingController;
   let element: HTMLElement;
   let changed: number;
-  let deleteRequested: MessageListModel[];
+  let deleted: number;
 
   function render(): void {
     fixture.detectChanges();
@@ -26,14 +26,12 @@ describe('MessageItem', () => {
     return element.querySelector<HTMLTextAreaElement>('.edit-form textarea')!;
   }
 
-  function openMenu(): void {
-    element.querySelector<HTMLButtonElement>('.menu-button')!.click();
-    render();
+  function action(label: string): HTMLButtonElement {
+    return element.querySelector<HTMLButtonElement>(`.actions button[aria-label="${label}"]`)!;
   }
 
   function startEdit(value: string): void {
-    openMenu();
-    button('Изменить').click();
+    action('Изменить сообщение').click();
     render();
     field().value = value;
     field().dispatchEvent(new Event('input'));
@@ -56,9 +54,9 @@ describe('MessageItem', () => {
     fixture = TestBed.createComponent(MessageItem);
     fixture.componentRef.setInput('message', message);
     changed = 0;
-    deleteRequested = [];
+    deleted = 0;
     fixture.componentInstance.changed.subscribe(() => changed++);
-    fixture.componentInstance.deleteRequested.subscribe((value) => deleteRequested.push(value));
+    fixture.componentInstance.deleted.subscribe(() => deleted++);
     element = fixture.nativeElement;
     render();
   });
@@ -72,17 +70,23 @@ describe('MessageItem', () => {
     expect(time.getAttribute('datetime')).toBe(message.createdAt);
     expect(time.textContent).toContain('15.01.2020');
     expect(time.title).toContain('января 2020');
-    expect(element.querySelector('.menu-button')!.getAttribute('aria-label')).toBe('Действия с сообщением');
   });
 
-  it('Menu_Click_WithOutsideClickAfterOpen_ShouldOpenThenClose', () => {
-    openMenu();
-    expect(element.querySelector('[role=menu]')).not.toBeNull();
+  it('Message_Render_WithExistingMessage_ShouldShowActionButtonsAfterBubble', () => {
+    const buttons = Array.from(element.querySelectorAll<HTMLButtonElement>('.actions button'));
 
-    document.body.click();
-    render();
-
+    expect(buttons.map((item) => item.getAttribute('aria-label'))).toEqual(['Изменить сообщение', 'Удалить сообщение']);
+    expect(buttons.map((item) => item.title)).toEqual(['Изменить', 'Удалить']);
+    expect(buttons.map((item) => item.querySelector('app-icon svg')!.getAttribute('data-icon'))).toEqual(['pencil', 'trash']);
+    expect(buttons[1].classList).toContain('danger');
+    expect(element.querySelector('.row')!.lastElementChild!.classList).toContain('actions');
     expect(element.querySelector('[role=menu]')).toBeNull();
+  });
+
+  it('Message_Render_WithEditForm_ShouldHideActionButtons', () => {
+    startEdit('Новый текст');
+
+    expect(element.querySelector('.actions')).toBeNull();
   });
 
   it('EditForm_Enter_WithPaddedText_ShouldSendTrimmedTextAndEmitChanged', () => {
@@ -145,12 +149,43 @@ describe('MessageItem', () => {
     expect(element.querySelector('.text')!.textContent).toBe('Привет\nмир');
   });
 
-  it('Menu_Delete_WithExistingMessage_ShouldEmitDeleteRequested', () => {
-    openMenu();
+  function startDelete(): void {
+    action('Удалить сообщение').click();
+    render();
+    http
+      .expectOne((request) => request.method === 'GET' && request.url === '/api/message/delete' && request.params.get('id') === 'm1')
+      .flush(successBody({ ...message, chatId: 'c1' }));
+    render();
+  }
+
+  it('Actions_Delete_WithExistingMessage_ShouldKeepBubbleAndShowConfirmBelow', () => {
+    startDelete();
+
+    expect(element.querySelector('.text')!.textContent).toBe('Привет\nмир');
+    expect(element.querySelector('.actions')).toBeNull();
+    expect(element.querySelector('.row')!.nextElementSibling!.tagName).toBe('APP-MESSAGE-DELETE-CONFIRM');
+    expect(element.querySelector('app-message-delete-confirm')!.textContent).toContain('Удалить сообщение?');
+  });
+
+  it('DeleteConfirm_Delete_WithExistingMessage_ShouldEmitDeleted', () => {
+    startDelete();
+
     button('Удалить').click();
+    http
+      .expectOne((request) => request.method === 'DELETE' && request.url === '/api/message' && request.params.get('id') === 'm1')
+      .flush(successBody({ isDeleted: true }, 2));
+
+    expect(deleted).toBe(1);
+  });
+
+  it('DeleteConfirm_Cancel_WithOpenConfirm_ShouldRestoreActionButtonsWithoutDelete', () => {
+    startDelete();
+
+    button('Отмена').click();
     render();
 
-    expect(deleteRequested).toEqual([message]);
-    expect(element.querySelector('[role=menu]')).toBeNull();
+    expect(element.querySelector('app-message-delete-confirm')).toBeNull();
+    expect(action('Удалить сообщение')).not.toBeNull();
+    expect(deleted).toBe(0);
   });
 });

@@ -29,8 +29,8 @@
           (keydown.escape)="cancelCreate()"
         />
         <div class="create-buttons">
-          <button type="submit" class="primary" [disabled]="saving() || !newRoomName().trim()">Создать</button>
           <button type="button" (click)="cancelCreate()" [disabled]="saving()">Отмена</button>
+          <button type="submit" class="primary" [disabled]="saving() || !newRoomName().trim()">Создать</button>
         </div>
         @if (createError(); as error) {
           <p class="error" role="alert">{{ error }}</p>
@@ -60,7 +60,7 @@
       <ul>
         @for (room of filteredRooms(); track room.id) {
           <li>
-            <app-room-list-item [room]="room" (changed)="loadRooms()" (deleteRequested)="roomToDelete.set($event)" />
+            <app-room-list-item [room]="room" (changed)="loadRooms()" (deleted)="onRoomDeleted()" />
           </li>
         } @empty {
           <li class="hint">{{ search().trim() ? 'Ничего не найдено' : 'Комнат пока нет' }}</li>
@@ -85,8 +85,4 @@
     (resizeEnd)="saveWidth($event)"
     (dblclick)="resetWidth()"
   ></div>
-}
-
-@if (roomToDelete(); as room) {
-  <app-room-delete-dialog [roomId]="room.id" (deleted)="onRoomDeleted()" (closed)="roomToDelete.set(null)" />
 }

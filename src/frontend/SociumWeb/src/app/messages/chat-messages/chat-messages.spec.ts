@@ -150,21 +150,19 @@ describe('ChatMessages', () => {
     expect(textarea().value).toBe('Привет');
   });
 
-  it('Message_Delete_WithConfirm_ShouldCloseDialogAndReloadFeed', () => {
+  it('Message_Delete_WithConfirm_ShouldReloadFeed', () => {
     flushList('c1', [first]);
-    element.querySelector<HTMLButtonElement>('.menu-button')!.click();
-    render();
-    element.querySelector<HTMLButtonElement>('[role=menuitem].danger')!.click();
+    element.querySelector<HTMLButtonElement>('[aria-label="Удалить сообщение"]')!.click();
     render();
 
     http.expectOne({ method: 'GET', url: '/api/message/delete?id=m1' }).flush(successBody({ ...first, chatId: 'c1' }));
     render();
-    element.querySelector<HTMLButtonElement>('[role=dialog] .danger')!.click();
+    element.querySelector<HTMLButtonElement>('[role=group] .danger')!.click();
     http.expectOne({ method: 'DELETE', url: '/api/message?id=m1' }).flush(successBody({ isDeleted: true }, 2));
     render();
     flushList('c1', []);
 
-    expect(element.querySelector('[role=dialog]')).toBeNull();
+    expect(element.querySelector('[role=group]')).toBeNull();
     expect(element.textContent).toContain('Сообщений пока нет');
   });
 

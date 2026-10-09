@@ -1,0 +1,10 @@
+<p>Удалить сообщение?</p>
+
+@if (error(); as text) {
+  <p class="error" role="alert">{{ text }}</p>
+}
+
+<div class="buttons">
+  <button #cancelButton type="button" (click)="cancel()" [disabled]="deleting()">Отмена</button>
+  <button type="button" class="danger" (click)="confirm()" [disabled]="!message() || deleting()">Удалить</button>
+</div>

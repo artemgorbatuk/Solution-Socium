@@ -1,0 +1,25 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-1) 0;
+}
+
+p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.warning {
+  font-weight: 500;
+}
+
+.error {
+  color: var(--sc-color-danger);
+  white-space: pre-line;
+}
+
+.buttons {
+  display: flex;
+  gap: var(--sc-space-2);
+}

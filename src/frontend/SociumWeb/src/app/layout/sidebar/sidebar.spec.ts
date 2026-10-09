@@ -157,9 +157,7 @@ describe('Sidebar', () => {
     http.expectOne('/api/room').flush(listBody(rooms));
     render();
 
-    element.querySelector<HTMLButtonElement>('[aria-label="Действия с комнатой Кухня"]')!.click();
-    render();
-    button('Переименовать').click();
+    element.querySelector<HTMLButtonElement>('[aria-label="Переименовать комнату Кухня"]')!.click();
     render();
     input('.rename-form input', 'Столовая');
     element.querySelector<HTMLFormElement>('.rename-form')!.dispatchEvent(new Event('submit'));
@@ -171,29 +169,27 @@ describe('Sidebar', () => {
     expect(roomNames()).toEqual(['Гостиная', 'Столовая']);
   });
 
-  it('DeleteDialog_Confirm_WithExistingRoom_ShouldDeleteNotifyChatChangesAndReloadList', () => {
+  it('DeleteConfirm_Delete_WithExistingRoom_ShouldDeleteNotifyChatChangesAndReloadList', () => {
     http.expectOne('/api/room').flush(listBody(rooms));
     render();
 
-    element.querySelector<HTMLButtonElement>('[aria-label="Действия с комнатой Кухня"]')!.click();
-    render();
-    button('Удалить').click();
+    element.querySelector<HTMLButtonElement>('[aria-label="Удалить комнату Кухня"]')!.click();
     render();
 
     http
       .expectOne((request) => request.url === '/api/room/delete' && request.params.get('id') === '1')
       .flush(successBody({ id: '1', name: 'Кухня' }));
     render();
-    expect(element.querySelector('[role=dialog]')!.textContent).toContain('Кухня');
+    expect(element.querySelector('[role=group]')!.textContent).toContain('Кухня');
 
-    element.querySelector<HTMLButtonElement>('[role=dialog] .danger')!.click();
+    element.querySelector<HTMLButtonElement>('[role=group] .danger')!.click();
     http
       .expectOne((request) => request.method === 'DELETE' && request.params.get('id') === '1')
       .flush(successBody({ isDeleted: true }, 2));
     http.expectOne({ method: 'GET', url: '/api/room' }).flush(listBody([rooms[1]]));
     render();
 
-    expect(element.querySelector('[role=dialog]')).toBeNull();
+    expect(element.querySelector('[role=group]')).toBeNull();
     expect(TestBed.inject(ChatChanges).version()).toBe(1);
     expect(roomNames()).toEqual(['Гостиная']);
   });

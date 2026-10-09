@@ -2,13 +2,12 @@ import { Component, ElementRef, OnInit, effect, inject, input, model, signal, vi
 import { problemDetail } from '../../shared/api/api-response';
 import { ChatApi } from '../chat-api';
 import { ChatChanges } from '../chat-changes';
-import { ChatDeleteDialog } from '../chat-delete-dialog/chat-delete-dialog';
 import { ChatListItem } from '../chat-list-item/chat-list-item';
 import { ChatListModel, chatNameMaxLength } from '../chat.models';
 
 @Component({
   selector: 'app-room-chats',
-  imports: [ChatListItem, ChatDeleteDialog],
+  imports: [ChatListItem],
   templateUrl: './room-chats.html',
   styleUrl: './room-chats.css',
 })
@@ -30,8 +29,6 @@ export class RoomChats implements OnInit {
   protected readonly newChatName = signal('');
   protected readonly saving = signal(false);
   protected readonly createError = signal<string | null>(null);
-
-  protected readonly chatToDelete = signal<ChatListModel | null>(null);
 
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
 
@@ -81,7 +78,6 @@ export class RoomChats implements OnInit {
   }
 
   protected onChatDeleted(): void {
-    this.chatToDelete.set(null);
     this.chatChanges.notify();
     this.loadChats();
   }

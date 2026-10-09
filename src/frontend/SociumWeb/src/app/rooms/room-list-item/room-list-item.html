@@ -1,57 +1,69 @@
-<div #head class="head">
-  @if (editing()) {
-    <form class="rename-form" (submit)="save($event)">
-      <input
-        #nameInput
-        type="text"
-        name="name"
-        aria-label="Новое название комнаты"
-        [attr.maxlength]="nameMaxLength"
-        [value]="draftName()"
-        [disabled]="saving()"
-        (input)="onDraftInput($event)"
-        (keydown.escape)="cancelRename()"
-      />
-      <div class="rename-buttons">
-        <button type="submit" class="primary" [disabled]="saving() || !draftName().trim()">Сохранить</button>
-        <button type="button" (click)="cancelRename()" [disabled]="saving()">Отмена</button>
-      </div>
-      @if (error(); as message) {
-        <p class="error" role="alert">{{ message }}</p>
-      }
-    </form>
-  } @else {
-    <div class="row" [class.menu-open]="menuOpen()">
+@if (editing()) {
+  <form class="rename-form" (submit)="save($event)">
+    <input
+      #nameInput
+      type="text"
+      name="name"
+      aria-label="Новое название комнаты"
+      [attr.maxlength]="nameMaxLength"
+      [value]="draftName()"
+      [disabled]="saving()"
+      (input)="onDraftInput($event)"
+      (keydown.escape)="cancelRename()"
+    />
+    <div class="rename-buttons">
+      <button type="button" (click)="cancelRename()" [disabled]="saving()">Отмена</button>
+      <button type="submit" class="primary" [disabled]="saving() || !draftName().trim()">Сохранить</button>
+    </div>
+    @if (error(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+  </form>
+} @else if (confirmingDelete()) {
+  <app-room-delete-confirm [roomId]="room().id" [roomName]="room().name" (deleted)="deleted.emit()" (cancelled)="confirmingDelete.set(false)" />
+} @else {
+  <div class="row">
+    <button
+      type="button"
+      class="toggle"
+      [attr.aria-expanded]="expanded()"
+      [attr.aria-label]="'Чаты комнаты ' + room().name"
+      (click)="toggleExpanded()"
+    >
+      {{ expanded() ? '▾' : '▸' }}
+    </button>
+    <span class="room-name" [title]="room().name">{{ room().name }}</span>
+    <div class="actions">
       <button
         type="button"
-        class="toggle"
-        [attr.aria-expanded]="expanded()"
-        [attr.aria-label]="'Чаты комнаты ' + room().name"
-        (click)="toggleExpanded()"
+        class="icon"
+        title="Новый чат"
+        [attr.aria-label]="'Новый чат в комнате ' + room().name"
+        (click)="startCreateChat()"
       >
-        {{ expanded() ? '▾' : '▸' }}
+        <app-icon name="plus" />
       </button>
-      <span class="room-name" [title]="room().name">{{ room().name }}</span>
       <button
         type="button"
-        class="menu-button"
-        aria-haspopup="menu"
-        [attr.aria-expanded]="menuOpen()"
-        [attr.aria-label]="'Действия с комнатой ' + room().name"
-        (click)="toggleMenu()"
+        class="icon"
+        title="Переименовать"
+        [attr.aria-label]="'Переименовать комнату ' + room().name"
+        (click)="startRename()"
       >
-        …
+        <app-icon name="pencil" />
+      </button>
+      <button
+        type="button"
+        class="icon danger"
+        title="Удалить"
+        [attr.aria-label]="'Удалить комнату ' + room().name"
+        (click)="requestDelete()"
+      >
+        <app-icon name="trash" />
       </button>
     </div>
-    @if (menuOpen()) {
-      <div class="menu" role="menu">
-        <button type="button" role="menuitem" (click)="startCreateChat()">Новый чат</button>
-        <button type="button" role="menuitem" (click)="startRename()">Переименовать</button>
-        <button type="button" role="menuitem" class="danger" (click)="requestDelete()">Удалить</button>
-      </div>
-    }
-  }
-</div>
+  </div>
+}
 
 @if (expanded()) {
   <app-room-chats [roomId]="room().id" [roomName]="room().name" [(creating)]="creatingChat" />

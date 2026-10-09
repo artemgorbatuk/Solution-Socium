@@ -13,7 +13,7 @@ describe('RoomListItem', () => {
   let http: HttpTestingController;
   let element: HTMLElement;
   let changed: number;
-  let deleteRequested: RoomListModel[];
+  let deleted: number;
 
   function render(): void {
     fixture.detectChanges();
@@ -23,14 +23,13 @@ describe('RoomListItem', () => {
     return Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes(text))!;
   }
 
-  function openMenu(): void {
-    element.querySelector<HTMLButtonElement>('.menu-button')!.click();
-    render();
+  /** Кнопки строки самой комнаты, без кнопок вложенных чатов. */
+  function action(label: string): HTMLButtonElement {
+    return element.querySelector<HTMLButtonElement>(`:scope > .row .actions button[aria-label="${label}"]`)!;
   }
 
   function startRename(value: string): void {
-    openMenu();
-    button('Переименовать').click();
+    action('Переименовать комнату Кухня').click();
     render();
     const field = element.querySelector<HTMLInputElement>('.rename-form input')!;
     field.value = value;
@@ -57,9 +56,9 @@ describe('RoomListItem', () => {
     fixture = TestBed.createComponent(RoomListItem);
     fixture.componentRef.setInput('room', room);
     changed = 0;
-    deleteRequested = [];
+    deleted = 0;
     fixture.componentInstance.changed.subscribe(() => changed++);
-    fixture.componentInstance.deleteRequested.subscribe((value) => deleteRequested.push(value));
+    fixture.componentInstance.deleted.subscribe(() => deleted++);
     element = fixture.nativeElement;
     render();
     expectChatList().flush(successBody({ rowExists: true, rowCount: 1, rows: [{ id: 'c1', name: 'Общий' }] }));
@@ -68,28 +67,30 @@ describe('RoomListItem', () => {
 
   afterEach(() => http.verify());
 
-  it('Row_Render_WithExistingRoom_ShouldShowNameAndMenuButton', () => {
+  it('Row_Render_WithExistingRoom_ShouldShowNameAndActionButtons', () => {
+    const buttons = Array.from(element.querySelectorAll<HTMLButtonElement>(':scope > .row .actions button'));
+
     expect(element.querySelector('.room-name')!.textContent).toContain('Кухня');
-    expect(element.querySelector('.menu-button')!.getAttribute('aria-label')).toBe('Действия с комнатой Кухня');
-  });
-
-  it('Menu_Click_WithOutsideClickAfterOpen_ShouldOpenThenClose', () => {
-    openMenu();
-    expect(element.querySelector('[role=menu]')).not.toBeNull();
-
-    document.body.click();
-    render();
-
+    expect(buttons.map((item) => item.getAttribute('aria-label'))).toEqual([
+      'Новый чат в комнате Кухня',
+      'Переименовать комнату Кухня',
+      'Удалить комнату Кухня',
+    ]);
+    expect(buttons.map((item) => item.title)).toEqual(['Новый чат', 'Переименовать', 'Удалить']);
+    expect(buttons.map((item) => item.querySelector('app-icon svg')!.getAttribute('data-icon'))).toEqual(['plus', 'pencil', 'trash']);
+    expect(buttons[2].classList).toContain('danger');
     expect(element.querySelector('[role=menu]')).toBeNull();
   });
 
-  it('Menu_Escape_WithOpenMenu_ShouldClose', () => {
-    openMenu();
+  it('Row_Render_WithRenameForm_ShouldHideActionButtonsAndPutCancelFirst', () => {
+    startRename('Столовая');
 
-    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    render();
-
-    expect(element.querySelector('[role=menu]')).toBeNull();
+    expect(element.querySelector(':scope > .row')).toBeNull();
+    expect(element.querySelector(':scope > .rename-form')).not.toBeNull();
+    expect(Array.from(element.querySelectorAll('.rename-buttons button')).map((item) => item.textContent!.trim())).toEqual([
+      'Отмена',
+      'Сохранить',
+    ]);
   });
 
   it('RenameForm_Submit_WithPaddedName_ShouldSendTrimmedNameAndEmitChanged', () => {
@@ -171,26 +172,53 @@ describe('RoomListItem', () => {
     expect(localStorage.getItem('socium.sidebar.collapsedRooms')).toBeNull();
   });
 
-  it('Menu_NewChat_WithCollapsedRoom_ShouldExpandAndOpenCreateForm', () => {
+  it('Actions_NewChat_WithCollapsedRoom_ShouldExpandAndOpenCreateForm', () => {
     element.querySelector<HTMLButtonElement>('.toggle')!.click();
     render();
-    openMenu();
-    button('Новый чат').click();
+    action('Новый чат в комнате Кухня').click();
     render();
     expectChatList().flush(successBody({ rowExists: false, rowCount: 0, rows: [] }));
     render();
 
-    expect(element.querySelector('[role=menu]')).toBeNull();
     expect(element.querySelector('.toggle')!.getAttribute('aria-expanded')).toBe('true');
     expect(element.querySelector('app-room-chats .create-form')).not.toBeNull();
   });
 
-  it('Menu_Delete_WithExistingRoom_ShouldEmitDeleteRequested', () => {
-    openMenu();
+  function startDelete(): void {
+    action('Удалить комнату Кухня').click();
+    render();
+    http
+      .expectOne((request) => request.method === 'GET' && request.url === '/api/room/delete' && request.params.get('id') === '1')
+      .flush(successBody({ id: '1', name: 'Кухня', chatCount: 1 }));
+    render();
+  }
+
+  it('Actions_Delete_WithExistingRoom_ShouldReplaceRowWithConfirm', () => {
+    startDelete();
+
+    expect(element.querySelector(':scope > .row')).toBeNull();
+    expect(element.querySelector(':scope > app-room-delete-confirm')!.textContent).toContain('Удалить комнату «Кухня»?');
+  });
+
+  it('DeleteConfirm_Delete_WithExistingRoom_ShouldEmitDeleted', () => {
+    startDelete();
+
     button('Удалить').click();
+    http
+      .expectOne((request) => request.method === 'DELETE' && request.url === '/api/room' && request.params.get('id') === '1')
+      .flush(successBody({ isDeleted: true }, 2));
+
+    expect(deleted).toBe(1);
+  });
+
+  it('DeleteConfirm_Cancel_WithOpenConfirm_ShouldRestoreRowWithoutDelete', () => {
+    startDelete();
+
+    button('Отмена').click();
     render();
 
-    expect(deleteRequested).toEqual([room]);
-    expect(element.querySelector('[role=menu]')).toBeNull();
+    expect(element.querySelector('app-room-delete-confirm')).toBeNull();
+    expect(element.querySelector(':scope > .row .room-name')!.textContent).toContain('Кухня');
+    expect(deleted).toBe(0);
   });
 });

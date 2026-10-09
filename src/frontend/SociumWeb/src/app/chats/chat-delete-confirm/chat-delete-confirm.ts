@@ -4,22 +4,26 @@ import { ChatApi } from '../chat-api';
 import { ChatDeletePageResponse } from '../chat.models';
 
 @Component({
-  selector: 'app-chat-delete-dialog',
-  templateUrl: './chat-delete-dialog.html',
-  styleUrl: './chat-delete-dialog.css',
+  selector: 'app-chat-delete-confirm',
+  templateUrl: './chat-delete-confirm.html',
+  styleUrl: './chat-delete-confirm.css',
   host: {
-    '(document:keydown.escape)': 'close()',
+    role: 'group',
+    'aria-label': 'Удалить чат?',
+    '(keydown.escape)': 'cancel()',
   },
 })
-export class ChatDeleteDialog implements OnInit {
+export class ChatDeleteConfirm implements OnInit {
   private readonly chatApi = inject(ChatApi);
 
   readonly chatId = input.required<string>();
+  /** Название из списка — вопрос виден сразу, до ответа сервера. */
+  readonly chatName = input.required<string>();
   readonly deleted = output<void>();
-  readonly closed = output<void>();
+  readonly cancelled = output<void>();
 
+  /** Данные с сервера; пока их нет, удалить нельзя. */
   protected readonly chat = signal<ChatDeletePageResponse | null>(null);
-  protected readonly loading = signal(true);
   protected readonly deleting = signal(false);
   protected readonly error = signal<string | null>(null);
 
@@ -31,14 +35,8 @@ export class ChatDeleteDialog implements OnInit {
 
   ngOnInit(): void {
     this.chatApi.getDeletePage(this.chatId()).subscribe({
-      next: (body) => {
-        this.chat.set(body.response);
-        this.loading.set(false);
-      },
-      error: (error: unknown) => {
-        this.error.set(problemDetail(error, 'Не удалось загрузить чат'));
-        this.loading.set(false);
-      },
+      next: (body) => this.chat.set(body.response),
+      error: (error: unknown) => this.error.set(problemDetail(error, 'Не удалось загрузить чат')),
     });
   }
 
@@ -59,9 +57,9 @@ export class ChatDeleteDialog implements OnInit {
     });
   }
 
-  protected close(): void {
+  protected cancel(): void {
     if (!this.deleting()) {
-      this.closed.emit();
+      this.cancelled.emit();
     }
   }
 }

@@ -49,26 +49,23 @@ public sealed class ChatSidebarE2eTests(E2eAppFixture fixture)
         var chats = ChatList(page, roomName);
 
         var name = UniqueName();
-        await page.OpenRoomMenuAsync(roomName);
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Новый чат" }).ClickAsync();
+        await page.ClickRowActionAsync($"Новый чат в комнате {roomName}");
         await page.GetByRole(AriaRole.Textbox, new() { Name = $"Название нового чата в комнате {roomName}" }).FillAsync(name);
         await page.GetByRole(AriaRole.Button, new() { Name = "Создать", Exact = true }).ClickAsync();
         await Assertions.Expect(chats.GetByText(name, new() { Exact = true })).ToBeVisibleAsync();
 
         var newName = UniqueName();
-        await page.GetByRole(AriaRole.Button, new() { Name = $"Действия с чатом {name}", Exact = true }).ClickAsync();
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Переименовать" }).ClickAsync();
+        await page.ClickRowActionAsync($"Переименовать чат {name}");
         await page.GetByRole(AriaRole.Textbox, new() { Name = "Новое название чата" }).FillAsync(newName);
         await page.GetByRole(AriaRole.Button, new() { Name = "Сохранить" }).ClickAsync();
         await Assertions.Expect(chats.GetByText(newName, new() { Exact = true })).ToBeVisibleAsync();
         await Assertions.Expect(chats.GetByText(name, new() { Exact = true })).ToHaveCountAsync(0);
 
-        await page.GetByRole(AriaRole.Button, new() { Name = $"Действия с чатом {newName}", Exact = true }).ClickAsync();
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Удалить" }).ClickAsync();
-        var dialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Удалить чат?" });
-        await Assertions.Expect(dialog).ToContainTextAsync(newName);
-        await dialog.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
-        await Assertions.Expect(dialog).ToHaveCountAsync(0);
+        await page.ClickRowActionAsync($"Удалить чат {newName}");
+        var confirm = chats.GetByRole(AriaRole.Group, new() { Name = "Удалить чат?" });
+        await Assertions.Expect(confirm).ToContainTextAsync($"Удалить чат «{newName}»?");
+        await confirm.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
+        await Assertions.Expect(confirm).ToHaveCountAsync(0);
         await Assertions.Expect(chats).ToContainTextAsync("Чатов пока нет");
 
         var list = await fixture.Api.GetChatListAsync(roomId);
@@ -87,12 +84,11 @@ public sealed class ChatSidebarE2eTests(E2eAppFixture fixture)
         var page = await context.NewPageAsync();
         await page.GotoAsync("/");
 
-        await page.OpenRoomMenuAsync(roomName);
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Удалить" }).ClickAsync();
-        var dialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Удалить комнату?" });
-        await Assertions.Expect(dialog).ToContainTextAsync("Вместе с комнатой будут удалены чаты: 2");
-        await dialog.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
-        await Assertions.Expect(dialog).ToHaveCountAsync(0);
+        await page.ClickRowActionAsync($"Удалить комнату {roomName}");
+        var confirm = page.GetByRole(AriaRole.Group, new() { Name = "Удалить комнату?" });
+        await Assertions.Expect(confirm).ToContainTextAsync("Вместе с комнатой будут удалены чаты: 2");
+        await confirm.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
+        await Assertions.Expect(confirm).ToHaveCountAsync(0);
 
         var response = await fixture.Api.GetAsync($"/api/chat?roomId={roomId}", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);

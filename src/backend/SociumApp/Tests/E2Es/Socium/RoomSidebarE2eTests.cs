@@ -26,19 +26,17 @@ public sealed class RoomSidebarE2eTests(E2eAppFixture fixture)
         await Assertions.Expect(rooms.GetByText(name, new() { Exact = true })).ToBeVisibleAsync();
 
         var newName = UniqueName();
-        await page.OpenRoomMenuAsync(name);
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Переименовать" }).ClickAsync();
+        await page.ClickRowActionAsync($"Переименовать комнату {name}");
         await page.GetByRole(AriaRole.Textbox, new() { Name = "Новое название комнаты" }).FillAsync(newName);
         await page.GetByRole(AriaRole.Button, new() { Name = "Сохранить" }).ClickAsync();
         await Assertions.Expect(rooms.GetByText(newName, new() { Exact = true })).ToBeVisibleAsync();
         await Assertions.Expect(rooms.GetByText(name, new() { Exact = true })).ToHaveCountAsync(0);
 
-        await page.OpenRoomMenuAsync(newName);
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Удалить" }).ClickAsync();
-        var dialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Удалить комнату?" });
-        await Assertions.Expect(dialog).ToContainTextAsync(newName);
-        await dialog.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
-        await Assertions.Expect(dialog).ToHaveCountAsync(0);
+        await page.ClickRowActionAsync($"Удалить комнату {newName}");
+        var confirm = rooms.GetByRole(AriaRole.Group, new() { Name = "Удалить комнату?" });
+        await Assertions.Expect(confirm).ToContainTextAsync($"Удалить комнату «{newName}»?");
+        await confirm.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
+        await Assertions.Expect(confirm).ToHaveCountAsync(0);
         await Assertions.Expect(rooms.GetByText(newName, new() { Exact = true })).ToHaveCountAsync(0);
 
         var list = await fixture.Api.GetStringAsync("/api/room", TestContext.Current.CancellationToken);
@@ -58,8 +56,7 @@ public sealed class RoomSidebarE2eTests(E2eAppFixture fixture)
         var page = await context.NewPageAsync();
         await page.GotoAsync("/");
 
-        await page.OpenRoomMenuAsync(name);
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Переименовать" }).ClickAsync();
+        await page.ClickRowActionAsync($"Переименовать комнату {name}");
         await page.GetByRole(AriaRole.Textbox, new() { Name = "Новое название комнаты" }).FillAsync(existingName);
         await page.GetByRole(AriaRole.Button, new() { Name = "Сохранить" }).ClickAsync();
 
@@ -67,7 +64,7 @@ public sealed class RoomSidebarE2eTests(E2eAppFixture fixture)
     }
 
     [Fact]
-    public async Task Room_CancelDelete_WithExistingRoom_ShouldKeepRoom()
+    public async Task Room_CancelDelete_WithEscape_ShouldKeepRoom()
     {
         var name = UniqueName();
         await fixture.Api.CreateRoomAsync(name);
@@ -76,14 +73,36 @@ public sealed class RoomSidebarE2eTests(E2eAppFixture fixture)
         var page = await context.NewPageAsync();
         await page.GotoAsync("/");
 
-        await page.OpenRoomMenuAsync(name);
-        await page.GetByRole(AriaRole.Menuitem, new() { Name = "Удалить" }).ClickAsync();
-        var dialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Удалить комнату?" });
-        await Assertions.Expect(dialog).ToContainTextAsync(name);
-        await dialog.GetByRole(AriaRole.Button, new() { Name = "Отмена" }).ClickAsync();
-
-        await Assertions.Expect(dialog).ToHaveCountAsync(0);
+        await page.ClickRowActionAsync($"Удалить комнату {name}");
         var rooms = page.GetByRole(AriaRole.Navigation, new() { Name = "Комнаты" });
+        var confirm = rooms.GetByRole(AriaRole.Group, new() { Name = "Удалить комнату?" });
+        await Assertions.Expect(confirm).ToContainTextAsync(name);
+        var cancel = confirm.GetByRole(AriaRole.Button, new() { Name = "Отмена" });
+        await Assertions.Expect(cancel).ToBeFocusedAsync();
+        await page.Keyboard.PressAsync("Escape");
+
+        await Assertions.Expect(confirm).ToHaveCountAsync(0);
         await Assertions.Expect(rooms.GetByText(name, new() { Exact = true })).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task Room_Hover_WithExistingRoom_ShouldRevealActionButtons()
+    {
+        var name = UniqueName();
+        await fixture.Api.CreateRoomAsync(name);
+
+        await using var context = await fixture.NewContextAsync();
+        var page = await context.NewPageAsync();
+        await page.GotoAsync("/");
+
+        var actions = page.RowAction($"Удалить комнату {name}").Locator("..");
+        await Assertions.Expect(actions).ToHaveCSSAsync("opacity", "0");
+
+        var rooms = page.GetByRole(AriaRole.Navigation, new() { Name = "Комнаты" });
+        await rooms.GetByText(name, new() { Exact = true }).HoverAsync();
+
+        await Assertions.Expect(actions).ToHaveCSSAsync("opacity", "1");
+        await Assertions.Expect(page.RowAction($"Новый чат в комнате {name}")).ToBeVisibleAsync();
+        await Assertions.Expect(page.RowAction($"Переименовать комнату {name}")).ToBeVisibleAsync();
     }
 }

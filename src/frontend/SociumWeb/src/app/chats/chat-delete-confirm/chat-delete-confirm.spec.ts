@@ -2,16 +2,16 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { successBody } from '../../shared/api/api-response.testing';
-import { ChatDeleteDialog } from './chat-delete-dialog';
+import { ChatDeleteConfirm } from './chat-delete-confirm';
 
-describe('ChatDeleteDialog', () => {
+describe('ChatDeleteConfirm', () => {
   const page = { id: 'c1', roomId: '1', name: 'Общий' };
 
-  let fixture: ComponentFixture<ChatDeleteDialog>;
+  let fixture: ComponentFixture<ChatDeleteConfirm>;
   let http: HttpTestingController;
   let element: HTMLElement;
   let deleted: number;
-  let closed: number;
+  let cancelled: number;
 
   function render(): void {
     fixture.detectChanges();
@@ -21,39 +21,45 @@ describe('ChatDeleteDialog', () => {
     return element.querySelector<HTMLButtonElement>('.danger')!;
   }
 
+  function cancelButton(): HTMLButtonElement {
+    return Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes('Отмена'))!;
+  }
+
   function expectDeletePage() {
     return http.expectOne((request) => request.method === 'GET' && request.url === '/api/chat/delete' && request.params.get('id') === 'c1');
   }
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [ChatDeleteDialog],
+      imports: [ChatDeleteConfirm],
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     http = TestBed.inject(HttpTestingController);
-    fixture = TestBed.createComponent(ChatDeleteDialog);
+    fixture = TestBed.createComponent(ChatDeleteConfirm);
     fixture.componentRef.setInput('chatId', 'c1');
+    fixture.componentRef.setInput('chatName', 'Общий');
     deleted = 0;
-    closed = 0;
+    cancelled = 0;
     fixture.componentInstance.deleted.subscribe(() => deleted++);
-    fixture.componentInstance.closed.subscribe(() => closed++);
+    fixture.componentInstance.cancelled.subscribe(() => cancelled++);
     element = fixture.nativeElement;
     render();
   });
 
   afterEach(() => http.verify());
 
-  it('Dialog_Load_WithExistingChat_ShouldShowNameAndEnableDelete', () => {
+  it('Confirm_Load_WithExistingChat_ShouldAskWithNameAndEnableDeleteAfterResponse', () => {
+    expect(element.getAttribute('role')).toBe('group');
+    expect(element.textContent).toContain('Удалить чат «Общий»?');
     expect(deleteButton().disabled).toBe(true);
 
     expectDeletePage().flush(successBody(page));
     render();
 
-    expect(element.querySelector('[role=dialog]')!.textContent).toContain('Общий');
     expect(deleteButton().disabled).toBe(false);
   });
 
-  it('Dialog_Confirm_WithExistingChat_ShouldDeleteAndEmitDeleted', () => {
+  it('Confirm_Delete_WithExistingChat_ShouldDeleteAndEmitDeleted', () => {
     expectDeletePage().flush(successBody(page));
     render();
 
@@ -65,7 +71,7 @@ describe('ChatDeleteDialog', () => {
     expect(deleted).toBe(1);
   });
 
-  it('Dialog_Load_WithUnknownId_ShouldShowProblemAndKeepDeleteDisabled', () => {
+  it('Confirm_Load_WithUnknownId_ShouldShowProblemAndKeepDeleteDisabled', () => {
     expectDeletePage().flush({ detail: 'Чат не найден по указанному идентификатору.' }, { status: 404, statusText: 'Not Found' });
     render();
 
@@ -73,15 +79,21 @@ describe('ChatDeleteDialog', () => {
     expect(deleteButton().disabled).toBe(true);
   });
 
-  it('Dialog_Close_WithCancelEscapeOrBackdrop_ShouldEmitClosedWithoutDelete', () => {
+  it('Confirm_Render_WithAnyChat_ShouldFocusCancel', async () => {
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(cancelButton());
+    expectDeletePage().flush(successBody(page));
+  });
+
+  it('Confirm_Cancel_WithButtonOrEscape_ShouldEmitCancelledWithoutDelete', () => {
     expectDeletePage().flush(successBody(page));
     render();
 
-    Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes('Отмена'))!.click();
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    element.querySelector<HTMLElement>('.backdrop')!.click();
+    cancelButton().click();
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 
-    expect(closed).toBe(3);
+    expect(cancelled).toBe(2);
     expect(deleted).toBe(0);
   });
 });

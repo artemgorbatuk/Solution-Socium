@@ -1,35 +1,29 @@
-import { Component, ElementRef, OnInit, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, afterNextRender, inject, input, output, signal, viewChild } from '@angular/core';
 import { problemDetail } from '../../shared/api/api-response';
 import { MessageApi } from '../message-api';
 import { MessageDeletePageResponse } from '../message.models';
 
-/** Сколько символов текста показывать в подтверждении; остальное обрезается многоточием. */
-const previewLength = 300;
-
 @Component({
-  selector: 'app-message-delete-dialog',
-  templateUrl: './message-delete-dialog.html',
-  styleUrl: './message-delete-dialog.css',
+  selector: 'app-message-delete-confirm',
+  templateUrl: './message-delete-confirm.html',
+  styleUrl: './message-delete-confirm.css',
   host: {
-    '(document:keydown.escape)': 'close()',
+    role: 'group',
+    'aria-label': 'Удалить сообщение?',
+    '(keydown.escape)': 'cancel()',
   },
 })
-export class MessageDeleteDialog implements OnInit {
+export class MessageDeleteConfirm implements OnInit {
   private readonly messageApi = inject(MessageApi);
 
   readonly messageId = input.required<string>();
   readonly deleted = output<void>();
-  readonly closed = output<void>();
+  readonly cancelled = output<void>();
 
+  /** Данные с сервера; пока их нет, удалить нельзя. */
   protected readonly message = signal<MessageDeletePageResponse | null>(null);
-  protected readonly loading = signal(true);
   protected readonly deleting = signal(false);
   protected readonly error = signal<string | null>(null);
-
-  protected readonly preview = computed(() => {
-    const text = this.message()?.text ?? '';
-    return text.length > previewLength ? `${text.slice(0, previewLength)}…` : text;
-  });
 
   private readonly cancelButton = viewChild<ElementRef<HTMLButtonElement>>('cancelButton');
 
@@ -39,14 +33,8 @@ export class MessageDeleteDialog implements OnInit {
 
   ngOnInit(): void {
     this.messageApi.getDeletePage(this.messageId()).subscribe({
-      next: (body) => {
-        this.message.set(body.response);
-        this.loading.set(false);
-      },
-      error: (error: unknown) => {
-        this.error.set(problemDetail(error, 'Не удалось загрузить сообщение'));
-        this.loading.set(false);
-      },
+      next: (body) => this.message.set(body.response),
+      error: (error: unknown) => this.error.set(problemDetail(error, 'Не удалось загрузить сообщение')),
     });
   }
 
@@ -67,9 +55,9 @@ export class MessageDeleteDialog implements OnInit {
     });
   }
 
-  protected close(): void {
+  protected cancel(): void {
     if (!this.deleting()) {
-      this.closed.emit();
+      this.cancelled.emit();
     }
   }
 }

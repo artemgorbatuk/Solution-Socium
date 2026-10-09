@@ -1,14 +1,12 @@
 :host {
-  position: relative;
   display: block;
 }
 
 /* Сообщения отправителя — справа; пока нет пользователей, все сообщения считаются своими. */
 .row {
+  position: relative;
   display: flex;
-  align-items: flex-start;
   justify-content: flex-end;
-  gap: var(--sc-space-1);
 }
 
 /* Всегда 55% колонки (~50 символов в строке при 768 px), независимо от длины текста. */
@@ -35,63 +33,41 @@
   text-align: right;
 }
 
-.menu-button {
-  flex-shrink: 0;
-  padding: 0 var(--sc-space-2);
-  border-color: transparent;
-  border-radius: var(--sc-radius-sm);
-  background: transparent;
-  color: var(--sc-color-text-muted);
-  opacity: 0;
-}
-
-.row:hover .menu-button,
-.row.menu-open .menu-button,
-.menu-button:focus-visible {
-  opacity: 1;
-}
-
-.menu-button:hover {
-  background: var(--sc-color-active);
-  color: var(--sc-color-text);
-}
-
-@media (hover: none) {
-  .menu-button {
-    opacity: 1;
-  }
-}
-
-.menu {
+/* Плавающая панель сбоку справа от пузыря, за краем колонки ленты: пузырь не сдвигается и остаётся вровень с полем ввода.
+   Скрыта прозрачностью, а не display: none, чтобы до кнопок можно было дойти по Tab. */
+.actions {
   position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 2;
+  top: 0;
+  left: calc(100% + var(--sc-space-1));
+  z-index: 1;
   display: flex;
-  flex-direction: column;
-  min-width: 160px;
-  padding: var(--sc-space-1);
+  gap: 2px;
+  padding: 2px;
   border: 1px solid var(--sc-color-border);
   border-radius: var(--sc-radius-md);
   background: var(--sc-color-surface-raised);
   box-shadow: var(--sc-shadow-menu);
+  opacity: 0;
 }
 
-.menu button {
-  padding: var(--sc-space-1) var(--sc-space-2);
-  border-color: transparent;
-  border-radius: var(--sc-radius-sm);
-  background: transparent;
-  color: var(--sc-color-text);
-  text-align: left;
+.row:hover .actions,
+.row:focus-within .actions {
+  opacity: 1;
 }
 
-.menu button:hover {
-  background: var(--sc-color-hover);
+/* Справа от колонки (768 px) нет места под панель (~60 px с отступом) — панель переходит на правый верхний угол пузыря. */
+@container feed (width < 880px) {
+  .actions {
+    top: calc(-1 * var(--sc-space-3));
+    right: var(--sc-space-2);
+    left: auto;
+  }
 }
 
-.menu button.danger {
-  color: var(--sc-color-danger);
+@media (hover: none) {
+  .actions {
+    opacity: 1;
+  }
 }
 
 .edit-form {

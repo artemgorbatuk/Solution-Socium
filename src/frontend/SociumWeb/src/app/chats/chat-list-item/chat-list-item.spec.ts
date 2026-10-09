@@ -13,24 +13,18 @@ describe('ChatListItem', () => {
   let http: HttpTestingController;
   let element: HTMLElement;
   let changed: number;
-  let deleteRequested: ChatListModel[];
+  let deleted: number;
 
   function render(): void {
     fixture.detectChanges();
   }
 
-  function button(text: string): HTMLButtonElement {
-    return Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes(text))!;
-  }
-
-  function openMenu(): void {
-    element.querySelector<HTMLButtonElement>('.menu-button')!.click();
-    render();
+  function action(label: string): HTMLButtonElement {
+    return element.querySelector<HTMLButtonElement>(`.actions button[aria-label="${label}"]`)!;
   }
 
   function startRename(value: string): void {
-    openMenu();
-    button('Переименовать').click();
+    action('Переименовать чат Общий').click();
     render();
     const field = element.querySelector<HTMLInputElement>('.rename-form input')!;
     field.value = value;
@@ -52,18 +46,24 @@ describe('ChatListItem', () => {
     fixture = TestBed.createComponent(ChatListItem);
     fixture.componentRef.setInput('chat', chat);
     changed = 0;
-    deleteRequested = [];
+    deleted = 0;
     fixture.componentInstance.changed.subscribe(() => changed++);
-    fixture.componentInstance.deleteRequested.subscribe((value) => deleteRequested.push(value));
+    fixture.componentInstance.deleted.subscribe(() => deleted++);
     element = fixture.nativeElement;
     render();
   });
 
   afterEach(() => http.verify());
 
-  it('Row_Render_WithExistingChat_ShouldShowNameAndMenuButton', () => {
+  it('Row_Render_WithExistingChat_ShouldShowNameAndActionButtons', () => {
+    const buttons = Array.from(element.querySelectorAll<HTMLButtonElement>('.actions button'));
+
     expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');
-    expect(element.querySelector('.menu-button')!.getAttribute('aria-label')).toBe('Действия с чатом Общий');
+    expect(buttons.map((item) => item.getAttribute('aria-label'))).toEqual(['Переименовать чат Общий', 'Удалить чат Общий']);
+    expect(buttons.map((item) => item.title)).toEqual(['Переименовать', 'Удалить']);
+    expect(buttons.map((item) => item.querySelector('app-icon svg')!.getAttribute('data-icon'))).toEqual(['pencil', 'trash']);
+    expect(buttons[1].classList).toContain('danger');
+    expect(element.querySelector('[role=menu]')).toBeNull();
   });
 
   it('Link_Render_WithOtherChatOpen_ShouldPointToChatWithoutHighlight', () => {
@@ -83,14 +83,10 @@ describe('ChatListItem', () => {
     expect(link.getAttribute('aria-current')).toBe('page');
   });
 
-  it('Menu_Click_WithOutsideClickAfterOpen_ShouldOpenThenClose', () => {
-    openMenu();
-    expect(element.querySelector('[role=menu]')).not.toBeNull();
+  it('Row_Render_WithRenameForm_ShouldHideActionButtons', () => {
+    startRename('Объявления');
 
-    document.body.click();
-    render();
-
-    expect(element.querySelector('[role=menu]')).toBeNull();
+    expect(element.querySelector('.actions')).toBeNull();
   });
 
   it('RenameForm_Submit_WithPaddedName_ShouldSendTrimmedNameAndEmitChanged', () => {
@@ -139,12 +135,45 @@ describe('ChatListItem', () => {
     expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');
   });
 
-  it('Menu_Delete_WithExistingChat_ShouldEmitDeleteRequested', () => {
-    openMenu();
+  function button(text: string): HTMLButtonElement {
+    return Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes(text))!;
+  }
+
+  function startDelete(): void {
+    action('Удалить чат Общий').click();
+    render();
+    http
+      .expectOne((request) => request.method === 'GET' && request.url === '/api/chat/delete' && request.params.get('id') === 'c1')
+      .flush(successBody({ id: 'c1', roomId: '1', name: 'Общий' }));
+    render();
+  }
+
+  it('Actions_Delete_WithExistingChat_ShouldReplaceRowWithConfirm', () => {
+    startDelete();
+
+    expect(element.querySelector('.row')).toBeNull();
+    expect(element.querySelector('app-chat-delete-confirm')!.textContent).toContain('Удалить чат «Общий»?');
+  });
+
+  it('DeleteConfirm_Delete_WithExistingChat_ShouldEmitDeleted', () => {
+    startDelete();
+
     button('Удалить').click();
+    http
+      .expectOne((request) => request.method === 'DELETE' && request.url === '/api/chat' && request.params.get('id') === 'c1')
+      .flush(successBody({ isDeleted: true }, 2));
+
+    expect(deleted).toBe(1);
+  });
+
+  it('DeleteConfirm_Cancel_WithOpenConfirm_ShouldRestoreRowWithoutDelete', () => {
+    startDelete();
+
+    button('Отмена').click();
     render();
 
-    expect(deleteRequested).toEqual([chat]);
-    expect(element.querySelector('[role=menu]')).toBeNull();
+    expect(element.querySelector('app-chat-delete-confirm')).toBeNull();
+    expect(element.querySelector('.row .chat-name')!.textContent).toContain('Общий');
+    expect(deleted).toBe(0);
   });
 });
