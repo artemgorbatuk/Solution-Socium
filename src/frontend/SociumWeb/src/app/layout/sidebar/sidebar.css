@@ -1,0 +1,117 @@
+:host {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 12px;
+  height: 100%;
+  padding: 12px;
+  border-right: 1px solid #ddd;
+  overflow: hidden;
+}
+
+:host(.collapsed) {
+  width: 56px;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.resize-handle:hover,
+.resize-handle:focus-visible,
+.resize-handle.dragging {
+  outline: none;
+  background: #ccc;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.icon-button {
+  width: 32px;
+  height: 32px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action {
+  text-align: left;
+}
+
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.create-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.rooms {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.section-title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+}
+
+.rooms ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hint {
+  padding: 6px 8px;
+  color: #888;
+}
+
+.error {
+  margin: 0;
+  color: #b00020;
+  white-space: pre-line;
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #ddd;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ddd;
+  font-size: 13px;
+}

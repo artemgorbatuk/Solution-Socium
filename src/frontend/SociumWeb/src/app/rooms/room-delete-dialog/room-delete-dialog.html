@@ -1,0 +1,19 @@
+<div class="backdrop" (click)="close()"></div>
+<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="room-delete-title">
+  <h2 id="room-delete-title">Удалить комнату?</h2>
+
+  @if (loading()) {
+    <p>Загрузка…</p>
+  } @else if (room(); as room) {
+    <p>Комната «<strong>{{ room.name }}</strong>» будет удалена без возможности восстановления.</p>
+  }
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  <div class="buttons">
+    <button #cancelButton type="button" (click)="close()" [disabled]="deleting()">Отмена</button>
+    <button type="button" class="danger" (click)="confirm()" [disabled]="!room() || deleting()">Удалить</button>
+  </div>
+</div>

@@ -1,4 +1,43 @@
 @WebApi_HostAddress = https://localhost:7026
+@RoomId = 00000000-0000-0000-0000-000000000000
 
+### Список комнат
 GET {{WebApi_HostAddress}}/api/room
+Accept: application/json
+
+### Карточка комнаты
+GET {{WebApi_HostAddress}}/api/room/info?id={{RoomId}}
+Accept: application/json
+
+### Данные формы создания
+GET {{WebApi_HostAddress}}/api/room/create
+Accept: application/json
+
+### Создание комнаты
+POST {{WebApi_HostAddress}}/api/room
+Content-Type: application/json
+
+{
+  "name": "Переговорная"
+}
+
+### Данные формы изменения
+GET {{WebApi_HostAddress}}/api/room/update?id={{RoomId}}
+Accept: application/json
+
+### Изменение комнаты
+PUT {{WebApi_HostAddress}}/api/room
+Content-Type: application/json
+
+{
+  "id": "{{RoomId}}",
+  "name": "Большая переговорная"
+}
+
+### Данные подтверждения удаления
+GET {{WebApi_HostAddress}}/api/room/delete?id={{RoomId}}
+Accept: application/json
+
+### Удаление комнаты
+DELETE {{WebApi_HostAddress}}/api/room?id={{RoomId}}
 Accept: application/json

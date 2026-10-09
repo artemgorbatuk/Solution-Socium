@@ -1,3 +1,10 @@
 <Solution>
+  <Folder Name="/Socium/">
+    <Project Path="Socium/Datasource.Socium.Ef/Datasource.Socium.Ef.csproj" />
+    <Project Path="Socium/Repositories.Socium.Ef/Repositories.Socium.Ef.csproj" />
+    <Project Path="Socium/Services.Socium/Services.Socium.csproj" />
+  </Folder>
+  <Project Path="Services.Shared/Services.Shared.csproj" />
+  <Project Path="Tests/Tests.csproj" />
   <Project Path="WebApi/WebApi.csproj" />
 </Solution>

@@ -1,0 +1,47 @@
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 40%);
+}
+
+.dialog {
+  position: relative;
+  width: min(400px, calc(100% - 32px));
+  padding: 20px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
+}
+
+h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+p {
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.error {
+  color: #b00020;
+  white-space: pre-line;
+}
+
+.buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.danger {
+  color: #b00020;
+}

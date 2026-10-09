@@ -1,0 +1,92 @@
+<div class="header">
+  @if (!collapsed()) {
+    <span class="brand">Socium</span>
+  }
+  <button
+    type="button"
+    class="icon-button"
+    (click)="toggleCollapsed()"
+    [attr.aria-label]="collapsed() ? 'Развернуть панель' : 'Свернуть панель'"
+    [attr.aria-expanded]="!collapsed()"
+  >
+    {{ collapsed() ? '»' : '«' }}
+  </button>
+</div>
+
+@if (!collapsed()) {
+  <div class="actions">
+    @if (creating()) {
+      <form class="create-form" (submit)="createRoom($event)">
+        <input
+          type="text"
+          name="name"
+          placeholder="Название комнаты"
+          aria-label="Название новой комнаты"
+          [attr.maxlength]="nameMaxLength"
+          [value]="newRoomName()"
+          [disabled]="saving()"
+          (input)="onNewRoomNameInput($event)"
+          (keydown.escape)="cancelCreate()"
+        />
+        <div class="create-buttons">
+          <button type="submit" [disabled]="saving() || !newRoomName().trim()">Создать</button>
+          <button type="button" (click)="cancelCreate()" [disabled]="saving()">Отмена</button>
+        </div>
+        @if (createError(); as error) {
+          <p class="error" role="alert">{{ error }}</p>
+        }
+      </form>
+    } @else {
+      <button type="button" class="action" (click)="startCreate()">+ Новая комната</button>
+    }
+
+    <input
+      type="search"
+      class="search"
+      placeholder="Поиск комнат"
+      aria-label="Поиск комнат"
+      [value]="search()"
+      (input)="onSearchInput($event)"
+    />
+  </div>
+
+  <nav class="rooms" aria-label="Комнаты">
+    <h2 class="section-title">Комнаты</h2>
+    @if (loading() && !rooms().length) {
+      <p class="hint">Загрузка…</p>
+    } @else if (loadError(); as error) {
+      <p class="error" role="alert">{{ error }}</p>
+    } @else {
+      <ul>
+        @for (room of filteredRooms(); track room.id) {
+          <li>
+            <app-room-list-item [room]="room" (changed)="loadRooms()" (deleteRequested)="roomToDelete.set($event)" />
+          </li>
+        } @empty {
+          <li class="hint">{{ search().trim() ? 'Ничего не найдено' : 'Комнат пока нет' }}</li>
+        }
+      </ul>
+    }
+  </nav>
+
+  <div class="profile">
+    <span class="avatar" aria-hidden="true">Г</span>
+    <span>Гость</span>
+  </div>
+
+  <div
+    class="resize-handle"
+    appResizeHandle
+    aria-label="Ширина панели"
+    title="Перетащите, чтобы изменить ширину. Двойной щелчок — сбросить"
+    [(width)]="width"
+    [min]="minWidth"
+    [max]="maxWidth()"
+    (resizeEnd)="saveWidth($event)"
+    (dblclick)="resetWidth()"
+  ></div>
+}
+
+@if (roomToDelete(); as room) {
+  <app-room-delete-dialog [roomId]="room.id" (deleted)="onRoomDeleted()" (closed)="roomToDelete.set(null)" />
+}
