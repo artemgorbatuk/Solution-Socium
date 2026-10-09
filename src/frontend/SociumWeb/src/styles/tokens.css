@@ -25,6 +25,8 @@
 
   --sc-message-sender-bg: #e9edfc;
   --sc-message-sender-border: #d3dbf8;
+  --sc-message-recipient-bg: #f1f1f4;
+  --sc-message-recipient-border: #e2e2e7;
 
   --sc-shadow-menu: 0 4px 12px rgb(0 0 0 / 12%);
   --sc-shadow-dialog: 0 8px 24px rgb(0 0 0 / 20%);
@@ -73,6 +75,8 @@
 
   --sc-message-sender-bg: #2b3156;
   --sc-message-sender-border: #3a4275;
+  --sc-message-recipient-bg: #2a2b30;
+  --sc-message-recipient-border: #383940;
 
   --sc-shadow-menu: 0 4px 16px rgb(0 0 0 / 50%);
   --sc-shadow-dialog: 0 8px 32px rgb(0 0 0 / 60%);

@@ -29,6 +29,12 @@ public abstract class ApiControllerBase : ControllerBase
             MessageType.INVALID => ApiProblem.Result(
                 messageInfo, StatusCodes.Status422UnprocessableEntity, "Validation Error"),
 
+            MessageType.UNAUTHORIZED => ApiProblem.Result(
+                messageInfo, StatusCodes.Status401Unauthorized, "Unauthorized"),
+
+            MessageType.FORBIDDEN => ApiProblem.Result(
+                messageInfo, StatusCodes.Status403Forbidden, "Forbidden"),
+
             MessageType.NOT_FOUND => ApiProblem.Result(
                 messageInfo, StatusCodes.Status404NotFound, "Not Found"),
 

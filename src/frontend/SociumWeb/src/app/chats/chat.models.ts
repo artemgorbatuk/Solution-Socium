@@ -4,6 +4,8 @@ export const chatNameMaxLength = 128;
 export interface ChatListModel {
   id: string;
   name: string;
+  /** Текущий пользователь — админ чата: ему доступны переименование и удаление. */
+  isAdmin: boolean;
 }
 
 export interface ChatListPageResponse {
@@ -16,6 +18,8 @@ export interface ChatInfoPageResponse {
   id: string;
   roomId: string;
   name: string;
+  isParticipant: boolean;
+  isAdmin: boolean;
 }
 
 export interface ChatCreateRequest {

@@ -277,4 +277,50 @@ public sealed class ChatApiTests(SociumApiFixture fixture)
         var info = await Client.GetAsync($"{BaseUrl}/info?id={id}", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.NotFound, info.StatusCode);
     }
+
+    [Fact]
+    public async Task Create_POST_WithoutUserHeader_ShouldReturn401()
+    {
+        var roomId = await CreateRoomAsync();
+        using var anonymousClient = fixture.CreateClientAs(null);
+
+        var response = await anonymousClient.PostAsJsonAsync(BaseUrl, new ChatCreateRequest { RoomId = roomId, Name = UniqueName() }, TestContext.Current.CancellationToken);
+
+        var problem = await ReadProblemAsync(response, HttpStatusCode.Unauthorized);
+        Assert.Contains(ChatCrudTexts.Messages.Validation.CurrentUserNotFound, problem.Detail);
+    }
+
+    [Fact]
+    public async Task UpdateAndDelete_WithOrdinaryParticipant_ShouldReturn403()
+    {
+        var roomId = await CreateRoomAsync();
+        var id = await CreateChatAsync(roomId, UniqueName());
+        var userId = await fixture.CreateUserAsync(Client, $"user.{Guid.NewGuid():N}", "Пётр");
+        using var userClient = fixture.CreateClientAs(userId);
+        await userClient.PostAsJsonAsync("/api/participant", new ParticipantCreateRequest { ChatId = id }, TestContext.Current.CancellationToken);
+
+        var update = await userClient.PutAsJsonAsync(BaseUrl, new ChatUpdateRequest { Id = id, Name = UniqueName() }, TestContext.Current.CancellationToken);
+        var delete = await userClient.DeleteAsync($"{BaseUrl}?id={id}", TestContext.Current.CancellationToken);
+
+        var problem = await ReadProblemAsync(update, HttpStatusCode.Forbidden);
+        Assert.Contains(ChatCrudTexts.Messages.Validation.NotAdmin, problem.Detail);
+        await ReadProblemAsync(delete, HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Info_GET_WithCreatorAndOtherUser_ShouldReturnParticipationFlags()
+    {
+        var roomId = await CreateRoomAsync();
+        var id = await CreateChatAsync(roomId, UniqueName());
+        var userId = await fixture.CreateUserAsync(Client, $"user.{Guid.NewGuid():N}", "Пётр");
+        using var userClient = fixture.CreateClientAs(userId);
+
+        var creator = await ReadSuccessAsync<ChatInfoPageResponse>(await Client.GetAsync($"{BaseUrl}/info?id={id}", TestContext.Current.CancellationToken));
+        var other = await ReadSuccessAsync<ChatInfoPageResponse>(await userClient.GetAsync($"{BaseUrl}/info?id={id}", TestContext.Current.CancellationToken));
+
+        Assert.True(creator.Response!.IsParticipant);
+        Assert.True(creator.Response.IsAdmin);
+        Assert.False(other.Response!.IsParticipant);
+        Assert.False(other.Response.IsAdmin);
+    }
 }

@@ -12,10 +12,14 @@ public static class ServiceRegistration
         // Репозитории, которые работают с DbContext, создаются в UoW - в DI не требуются.
         services.AddScoped<IUnitOfWorkSocium, UnitOfWorkSocium>();
         services.AddSingleton(TimeProvider.System);
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUser, CurrentUserFromHeader>();
 
         services.AddScoped<IServiceRoom, ServiceRoom>();
         services.AddScoped<IServiceChat, ServiceChat>();
         services.AddScoped<IServiceMessage, ServiceMessage>();
+        services.AddScoped<IServiceUser, ServiceUser>();
+        services.AddScoped<IServiceParticipant, ServiceParticipant>();
 
         return services;
     }

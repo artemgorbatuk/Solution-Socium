@@ -30,6 +30,18 @@
   color: var(--sc-color-text);
 }
 
+/* Вровень с переключателем темы (32 px), нажатая — с фоном, пока панель участников открыта. */
+.icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--sc-radius-md);
+}
+
+.icon[aria-pressed='true'] {
+  background: var(--sc-color-active);
+  color: var(--sc-color-text);
+}
+
 .title {
   flex: 1;
   min-width: 0;

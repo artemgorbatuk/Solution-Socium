@@ -7,7 +7,7 @@ import { ChatListModel } from '../chat.models';
 import { ChatListItem } from './chat-list-item';
 
 describe('ChatListItem', () => {
-  const chat: ChatListModel = { id: 'c1', name: 'Общий' };
+  const chat: ChatListModel = { id: 'c1', name: 'Общий', isAdmin: true };
 
   let fixture: ComponentFixture<ChatListItem>;
   let http: HttpTestingController;
@@ -64,6 +64,14 @@ describe('ChatListItem', () => {
     expect(buttons.map((item) => item.querySelector('app-icon svg')!.getAttribute('data-icon'))).toEqual(['pencil', 'trash']);
     expect(buttons[1].classList).toContain('danger');
     expect(element.querySelector('[role=menu]')).toBeNull();
+  });
+
+  it('Row_Render_WithNotAdmin_ShouldShowNameWithoutActionButtons', () => {
+    fixture.componentRef.setInput('chat', { ...chat, isAdmin: false });
+    render();
+
+    expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');
+    expect(element.querySelector('.actions')).toBeNull();
   });
 
   it('Link_Render_WithOtherChatOpen_ShouldPointToChatWithoutHighlight', () => {

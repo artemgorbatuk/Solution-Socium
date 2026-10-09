@@ -2,12 +2,13 @@ import { HttpRequest, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { successBody } from '../../shared/api/api-response.testing';
+import { CurrentUser, currentUserStorageKey } from '../../users/current-user';
 import { MessageListModel } from '../message.models';
 import { ChatMessages } from './chat-messages';
 
 describe('ChatMessages', () => {
-  const first: MessageListModel = { id: 'm1', text: 'Первое', createdAt: '2020-01-15T12:00:00Z' };
-  const second: MessageListModel = { id: 'm2', text: 'Второе', createdAt: '2020-01-15T12:01:00Z' };
+  const first: MessageListModel = { id: 'm1', text: 'Первое', createdAt: '2020-01-15T12:00:00Z', senderUserId: 'u1', senderName: 'Анна' };
+  const second: MessageListModel = { id: 'm2', text: 'Второе', createdAt: '2020-01-15T12:01:00Z', senderUserId: 'u2', senderName: 'Борис' };
 
   let fixture: ComponentFixture<ChatMessages>;
   let http: HttpTestingController;
@@ -58,6 +59,7 @@ describe('ChatMessages', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     http = TestBed.inject(HttpTestingController);
+    TestBed.inject(CurrentUser).select('u1');
     fixture = TestBed.createComponent(ChatMessages);
     fixture.componentRef.setInput('chatId', 'c1');
     fixture.componentRef.setInput('chatName', 'Общий');
@@ -65,7 +67,10 @@ describe('ChatMessages', () => {
     render();
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem(currentUserStorageKey);
+  });
 
   it('Feed_Load_WithMessages_ShouldShowTextsInSendOrder', () => {
     expect(element.textContent).toContain('Загрузка…');
@@ -74,6 +79,15 @@ describe('ChatMessages', () => {
 
     expect(texts()).toEqual(['Первое', 'Второе']);
     expect(element.querySelector('ol')!.getAttribute('aria-label')).toBe('Сообщения чата Общий');
+  });
+
+  it('Feed_Load_WithOwnAndOtherMessages_ShouldMarkOnlyCurrentUserMessagesAsOwn', () => {
+    flushList('c1', [first, second]);
+
+    const rows = Array.from(element.querySelectorAll('.row'));
+    expect(rows.map((row) => row.classList.contains('own'))).toEqual([true, false]);
+    expect(rows[1].querySelector('.sender')!.textContent).toContain('Борис');
+    expect(element.querySelectorAll('.actions').length).toBe(1);
   });
 
   it('Feed_Load_WithEmptyChat_ShouldShowEmptyState', () => {
@@ -111,7 +125,7 @@ describe('ChatMessages', () => {
     expect(request.request.body).toEqual({ chatId: 'c1', text: 'Строка 1\nСтрока 2' });
     request.flush(successBody(null, 2));
     render();
-    flushList('c1', [first, { id: 'm3', text: 'Строка 1\nСтрока 2', createdAt: '2020-01-15T12:05:00Z' }]);
+    flushList('c1', [first, { ...first, id: 'm3', text: 'Строка 1\nСтрока 2', createdAt: '2020-01-15T12:05:00Z' }]);
 
     expect(textarea().value).toBe('');
     expect(texts()).toEqual(['Первое', 'Строка 1\nСтрока 2']);

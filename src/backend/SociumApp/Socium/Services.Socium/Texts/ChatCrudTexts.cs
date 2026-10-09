@@ -59,6 +59,8 @@ public static class ChatCrudTexts
             public const string RoomIdCannotBeEmpty = "Идентификатор комнаты не может быть пустым.";
             public const string ChatNotFoundById = "Чат не найден по указанному идентификатору.";
             public const string RoomNotFoundById = "Комната не найдена по указанному идентификатору.";
+            public const string CurrentUserNotFound = "Текущий пользователь не выбран или не найден.";
+            public const string NotAdmin = "Действие доступно только админу чата.";
             public const string NameNotEmpty = "Название чата не может быть пустым.";
             public static string NameMaximumLength(int length)
                 => $"Название чата не может превышать {length} символов.";

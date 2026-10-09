@@ -2,10 +2,13 @@
   display: block;
 }
 
-/* Сообщения отправителя — справа; пока нет пользователей, все сообщения считаются своими. */
 .row {
   position: relative;
   display: flex;
+  justify-content: flex-start;
+}
+
+.row.own {
   justify-content: flex-end;
 }
 
@@ -14,9 +17,25 @@
   width: 55%;
   min-width: 0;
   padding: var(--sc-space-2) var(--sc-space-3);
-  border: 1px solid var(--sc-message-sender-border);
+  border: 1px solid var(--sc-message-recipient-border);
+  border-radius: var(--sc-radius-lg) var(--sc-radius-lg) var(--sc-radius-lg) var(--sc-radius-sm);
+  background: var(--sc-message-recipient-bg);
+}
+
+.own .bubble {
+  border-color: var(--sc-message-sender-border);
   border-radius: var(--sc-radius-lg) var(--sc-radius-lg) var(--sc-radius-sm) var(--sc-radius-lg);
   background: var(--sc-message-sender-bg);
+}
+
+.sender {
+  margin: 0 0 var(--sc-space-1);
+  overflow: hidden;
+  color: var(--sc-color-text-muted);
+  font-size: var(--sc-font-size-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .text {

@@ -1,0 +1,73 @@
+@if (open()) {
+  <div class="panel">
+    @if (loading() && !users().length) {
+      <p class="hint">Загрузка…</p>
+    } @else if (loadError(); as error) {
+      <p class="error" role="alert">{{ error }}</p>
+    } @else {
+      <ul aria-label="Пользователи">
+        @for (user of users(); track user.id) {
+          <li>
+            <button
+              type="button"
+              class="user"
+              [class.selected]="user.id === current()?.id"
+              [attr.aria-current]="user.id === current()?.id ? 'true' : null"
+              (click)="select(user)"
+            >
+              <span class="avatar" aria-hidden="true">{{ initial(user) }}</span>
+              <span class="names">
+                <span class="name">{{ user.name }}</span>
+                <span class="login">{{ user.login }}</span>
+              </span>
+            </button>
+          </li>
+        } @empty {
+          <li class="hint">Пользователей пока нет</li>
+        }
+      </ul>
+    }
+
+    @if (adding()) {
+      <form class="add-form" (submit)="add($event)">
+        <input
+          #loginInput
+          type="text"
+          name="login"
+          placeholder="Логин"
+          aria-label="Логин нового пользователя"
+          autocomplete="off"
+          [attr.maxlength]="loginMaxLength"
+          [value]="draftLogin()"
+          [disabled]="saving()"
+          (input)="onLoginInput($event)"
+        />
+        <input
+          type="text"
+          name="name"
+          placeholder="Имя"
+          aria-label="Имя нового пользователя"
+          autocomplete="off"
+          [attr.maxlength]="nameMaxLength"
+          [value]="draftName()"
+          [disabled]="saving()"
+          (input)="onNameInput($event)"
+        />
+        <div class="buttons">
+          <button type="button" (click)="cancelAdd()" [disabled]="saving()">Отмена</button>
+          <button type="submit" class="primary" [disabled]="!canAdd()">Создать</button>
+        </div>
+        @if (addError(); as error) {
+          <p class="error" role="alert">{{ error }}</p>
+        }
+      </form>
+    } @else {
+      <button type="button" class="add" (click)="startAdd()">+ Добавить пользователя</button>
+    }
+  </div>
+}
+
+<button type="button" class="trigger" title="Сменить пользователя" [attr.aria-expanded]="open()" (click)="toggle()">
+  <span class="avatar" aria-hidden="true">{{ initial(current()) }}</span>
+  <span class="name">{{ label() }}</span>
+</button>

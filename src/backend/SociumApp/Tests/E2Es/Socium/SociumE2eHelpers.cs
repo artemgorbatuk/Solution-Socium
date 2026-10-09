@@ -56,6 +56,30 @@ internal static class SociumE2eHelpers
         return body!.Response!;
     }
 
+    public static string UniqueLogin() => $"e2e.{Guid.NewGuid():N}";
+
+    public static async Task<Guid> CreateUserAsync(this HttpClient api, string login, string name)
+    {
+        var response = await api.PostAsJsonAsync("/api/user", new UserCreateRequest { Login = login, Name = name }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var list = await api.GetFromJsonAsync<ApiSuccessResponse<UserListPageResponse>>("/api/user", TestContext.Current.CancellationToken);
+        return list!.Response!.Rows.Single(row => row.Login == login).Id;
+    }
+
+    /// <summary>Вступление пользователя клиента в чат.</summary>
+    public static async Task JoinChatAsync(this HttpClient api, Guid chatId)
+    {
+        var response = await api.PostAsJsonAsync("/api/participant", new ParticipantCreateRequest { ChatId = chatId }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    public static async Task<ParticipantListPageResponse> GetParticipantListAsync(this HttpClient api, Guid chatId)
+    {
+        var body = await api.GetFromJsonAsync<ApiSuccessResponse<ParticipantListPageResponse>>($"/api/participant?chatId={chatId}", TestContext.Current.CancellationToken);
+        return body!.Response!;
+    }
+
     /// <summary>Кнопка действия строки панели по её aria-label, например «Удалить комнату X»; видна при наведении на строку.</summary>
     public static ILocator RowAction(this IPage page, string label) =>
         page.GetByRole(AriaRole.Button, new() { Name = label, Exact = true });

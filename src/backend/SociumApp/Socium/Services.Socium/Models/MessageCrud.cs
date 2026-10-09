@@ -89,4 +89,6 @@ public class MessageListModel
     public required Guid Id { get; set; }
     public required string Text { get; set; }
     public required DateTime CreatedAt { get; set; }
+    public required Guid SenderUserId { get; set; }
+    public required string SenderName { get; set; }
 }

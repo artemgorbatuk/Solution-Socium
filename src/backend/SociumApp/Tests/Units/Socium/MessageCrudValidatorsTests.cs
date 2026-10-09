@@ -1,3 +1,4 @@
+using Datasource.Socium.Ef.Models;
 using Services.Socium.Models;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
@@ -119,5 +120,63 @@ public sealed class MessageCrudValidatorsTests
     {
         Assert.Empty(MessageCrudValidators.ValidateAccessibilityMessage(new object()));
         Assert.Empty(MessageCrudValidators.ValidateAccessibilityChat(new object()));
+    }
+
+    private static Participant CreateParticipant(Guid userId) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        ChatId = Guid.CreateVersion7(),
+        UserId = userId,
+    };
+
+    private static Message CreateMessage(Guid senderUserId) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        ChatId = Guid.CreateVersion7(),
+        Text = "Привет",
+        CreatedAt = DateTime.UtcNow,
+        Sender = new Sender { Id = Guid.CreateVersion7(), MessageId = Guid.CreateVersion7(), UserId = senderUserId },
+    };
+
+    [Fact]
+    public void CurrentUser_Validate_WithMissingOrDeletedUser_ShouldReturnCurrentUserNotFound()
+    {
+        string[] expected = [MessageCrudTexts.Messages.Validation.CurrentUserNotFound];
+        var deleted = new User { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван", IsDeleted = true };
+
+        Assert.Equal(expected, MessageCrudValidators.ValidateCurrentUser(null));
+        Assert.Equal(expected, MessageCrudValidators.ValidateCurrentUser(deleted));
+        Assert.Empty(MessageCrudValidators.ValidateCurrentUser(new User { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван" }));
+    }
+
+    [Fact]
+    public void Participant_ValidateAccess_WithAndWithoutParticipant_ShouldAllowOnlyParticipant()
+    {
+        Assert.Equal([MessageCrudTexts.Messages.Validation.NotParticipant], MessageCrudValidators.ValidateAccessParticipant(null));
+        Assert.Empty(MessageCrudValidators.ValidateAccessParticipant(CreateParticipant(Guid.CreateVersion7())));
+    }
+
+    [Fact]
+    public void Sender_ValidateAccess_WithSenderParticipant_ShouldReturnNoErrors()
+    {
+        var userId = Guid.CreateVersion7();
+
+        Assert.Empty(MessageCrudValidators.ValidateAccessSender(CreateParticipant(userId), CreateMessage(userId)));
+    }
+
+    [Fact]
+    public void Sender_ValidateAccess_WithOtherParticipant_ShouldReturnNotSender()
+    {
+        var errors = MessageCrudValidators.ValidateAccessSender(CreateParticipant(Guid.CreateVersion7()), CreateMessage(Guid.CreateVersion7()));
+
+        Assert.Equal([MessageCrudTexts.Messages.Validation.NotSender], errors);
+    }
+
+    [Fact]
+    public void Sender_ValidateAccess_WithoutParticipant_ShouldReturnNotParticipant()
+    {
+        var errors = MessageCrudValidators.ValidateAccessSender(null, CreateMessage(Guid.CreateVersion7()));
+
+        Assert.Equal([MessageCrudTexts.Messages.Validation.NotParticipant], errors);
     }
 }

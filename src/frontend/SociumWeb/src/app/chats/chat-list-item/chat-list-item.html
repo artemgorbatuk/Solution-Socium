@@ -33,25 +33,27 @@
       <span class="chat-icon" aria-hidden="true">#</span>
       <span class="chat-name">{{ chat().name }}</span>
     </a>
-    <div class="actions">
-      <button
-        type="button"
-        class="icon"
-        title="Переименовать"
-        [attr.aria-label]="'Переименовать чат ' + chat().name"
-        (click)="startRename()"
-      >
-        <app-icon name="pencil" />
-      </button>
-      <button
-        type="button"
-        class="icon danger"
-        title="Удалить"
-        [attr.aria-label]="'Удалить чат ' + chat().name"
-        (click)="requestDelete()"
-      >
-        <app-icon name="trash" />
-      </button>
-    </div>
+    @if (chat().isAdmin) {
+      <div class="actions">
+        <button
+          type="button"
+          class="icon"
+          title="Переименовать"
+          [attr.aria-label]="'Переименовать чат ' + chat().name"
+          (click)="startRename()"
+        >
+          <app-icon name="pencil" />
+        </button>
+        <button
+          type="button"
+          class="icon danger"
+          title="Удалить"
+          [attr.aria-label]="'Удалить чат ' + chat().name"
+          (click)="requestDelete()"
+        >
+          <app-icon name="trash" />
+        </button>
+      </div>
+    }
   </div>
 }

@@ -1,0 +1,69 @@
+<div class="header">
+  <h2>Участники</h2>
+  @if (rows().length) {
+    <span class="count">{{ rows().length }}</span>
+  }
+  <button type="button" class="close" aria-label="Закрыть панель участников" title="Закрыть" (click)="close()">×</button>
+</div>
+
+<div class="body">
+  @if (loading() && !rows().length) {
+    <p class="hint">Загрузка…</p>
+  } @else if (loadError(); as error) {
+    <p class="error" role="alert">{{ error }}</p>
+  } @else {
+    <ul [attr.aria-label]="'Участники чата ' + chatName()">
+      @for (participant of rows(); track participant.id) {
+        <li class="participant">
+          <span class="avatar" aria-hidden="true">{{ participant.name.charAt(0).toUpperCase() }}</span>
+          <span class="names">
+            <span class="name" [title]="participant.name">
+              {{ participant.name }}
+              @if (participant.userId === currentUserId()) {
+                <span class="self">(вы)</span>
+              }
+            </span>
+            <span class="login" [title]="participant.login">{{ participant.login }}</span>
+          </span>
+          @if (participant.isAdmin) {
+            <span class="badge">админ</span>
+          }
+          @if (isAdmin()) {
+            <button
+              type="button"
+              class="role"
+              [disabled]="!!updatingId()"
+              [attr.aria-label]="(participant.isAdmin ? 'Снять роль админа: ' : 'Сделать админом: ') + participant.name"
+              (click)="setAdmin(participant, !participant.isAdmin)"
+            >
+              {{ participant.isAdmin ? 'Снять роль' : 'Сделать админом' }}
+            </button>
+          }
+        </li>
+      }
+    </ul>
+    @if (roleError(); as error) {
+      <p class="error" role="alert">{{ error }}</p>
+    }
+  }
+</div>
+
+<div class="footer">
+  @if (leaveStep() === 'confirm' || leaveStep() === 'leaving') {
+    <p>Покинуть чат «<strong>{{ chatName() }}</strong>»? Ваши сообщения останутся в чате.</p>
+    <div class="buttons">
+      <button type="button" [disabled]="leaveStep() === 'leaving'" (click)="resetLeave()">Отмена</button>
+      <button type="button" class="danger" [disabled]="leaveStep() === 'leaving'" (click)="confirmLeave()">Покинуть</button>
+    </div>
+  } @else if (leaveStep() === 'blocked') {
+    <p class="reason" role="alert">{{ leaveReason() }}</p>
+    <div class="buttons">
+      <button type="button" (click)="resetLeave()">Понятно</button>
+    </div>
+  } @else {
+    <button type="button" class="leave" [disabled]="leaveStep() === 'checking'" (click)="requestLeave()">Покинуть чат</button>
+  }
+  @if (leaveError(); as error) {
+    <p class="error" role="alert">{{ error }}</p>
+  }
+</div>

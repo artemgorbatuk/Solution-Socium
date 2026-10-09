@@ -50,15 +50,31 @@ public sealed class ChatMapperTests
     }
 
     [Fact]
-    public void InfoPageResponse_Map_WithExistingChat_ShouldCopyIdRoomIdAndName()
+    public void InfoPageResponse_Map_WithoutParticipant_ShouldCopyIdRoomIdAndNameAndClearFlags()
     {
         var chat = CreateChat();
 
-        var response = ChatMapper.ToInfoPageResponse(chat);
+        var response = ChatMapper.ToInfoPageResponse(chat, null);
 
         Assert.Equal(chat.Id, response.Id);
         Assert.Equal(chat.RoomId, response.RoomId);
         Assert.Equal(chat.Name, response.Name);
+        Assert.False(response.IsParticipant);
+        Assert.False(response.IsAdmin);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InfoPageResponse_Map_WithParticipant_ShouldSetParticipantAndCopyAdmin(bool isAdmin)
+    {
+        var chat = CreateChat();
+        var participant = new Participant { Id = Guid.CreateVersion7(), ChatId = chat.Id, UserId = Guid.CreateVersion7(), IsAdmin = isAdmin };
+
+        var response = ChatMapper.ToInfoPageResponse(chat, participant);
+
+        Assert.True(response.IsParticipant);
+        Assert.Equal(isAdmin, response.IsAdmin);
     }
 
     [Fact]
@@ -73,14 +89,17 @@ public sealed class ChatMapperTests
         Assert.Equal(chat.Name, response.Name);
     }
 
-    [Fact]
-    public void ListModel_Map_WithExistingChat_ShouldCopyIdAndName()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ListModel_Map_WithExistingChat_ShouldCopyIdAndNameAndAdmin(bool isAdmin)
     {
         var chat = CreateChat();
 
-        var model = ChatMapper.ToListModel(chat);
+        var model = ChatMapper.ToListModel(chat, isAdmin);
 
         Assert.Equal(chat.Id, model.Id);
         Assert.Equal(chat.Name, model.Name);
+        Assert.Equal(isAdmin, model.IsAdmin);
     }
 }

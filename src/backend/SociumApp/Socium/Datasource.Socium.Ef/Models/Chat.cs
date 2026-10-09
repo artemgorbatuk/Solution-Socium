@@ -8,4 +8,5 @@ public class Chat
 
     public virtual Room Room { get; set; } = null!;
     public virtual ICollection<Message> Messages { get; set; } = [];
+    public virtual ICollection<Participant> Participants { get; set; } = [];
 }

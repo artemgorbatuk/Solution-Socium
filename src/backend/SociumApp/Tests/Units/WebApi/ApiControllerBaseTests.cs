@@ -51,6 +51,8 @@ public sealed class ApiControllerBaseTests
 
     [Theory]
     [InlineData(MessageType.BAD_REQUEST, StatusCodes.Status400BadRequest)]
+    [InlineData(MessageType.UNAUTHORIZED, StatusCodes.Status401Unauthorized)]
+    [InlineData(MessageType.FORBIDDEN, StatusCodes.Status403Forbidden)]
     [InlineData(MessageType.NOT_FOUND, StatusCodes.Status404NotFound)]
     [InlineData(MessageType.INVALID, StatusCodes.Status422UnprocessableEntity)]
     [InlineData(MessageType.ERROR, StatusCodes.Status500InternalServerError)]

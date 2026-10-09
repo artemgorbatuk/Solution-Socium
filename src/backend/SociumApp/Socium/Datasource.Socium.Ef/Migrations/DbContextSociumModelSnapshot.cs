@@ -66,6 +66,53 @@ namespace Datasource.Socium.Ef.Migrations
                     b.ToTable("Messages", (string)null);
                 });
 
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.Participant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "ChatId", "UserId" }, "IX_Participants_ChatId_UserId")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "UserId" }, "IX_Participants_UserId");
+
+                    b.ToTable("Participants", (string)null);
+                });
+
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.Recipient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "MessageId", "UserId" }, "IX_Recipients_MessageId_UserId")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "UserId" }, "IX_Recipients_UserId");
+
+                    b.ToTable("Recipients", (string)null);
+                });
+
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Room", b =>
                 {
                     b.Property<Guid>("Id")
@@ -83,6 +130,55 @@ namespace Datasource.Socium.Ef.Migrations
                         .IsUnique();
 
                     b.ToTable("Rooms", (string)null);
+                });
+
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.Sender", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "MessageId" }, "IX_Senders_MessageId")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "UserId" }, "IX_Senders_UserId");
+
+                    b.ToTable("Senders", (string)null);
+                });
+
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Login")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "Login" }, "IX_Users_Login")
+                        .IsUnique();
+
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Chat", b =>
@@ -107,9 +203,75 @@ namespace Datasource.Socium.Ef.Migrations
                     b.Navigation("Chat");
                 });
 
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.Participant", b =>
+                {
+                    b.HasOne("Datasource.Socium.Ef.Models.Chat", "Chat")
+                        .WithMany("Participants")
+                        .HasForeignKey("ChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Datasource.Socium.Ef.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Chat");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.Recipient", b =>
+                {
+                    b.HasOne("Datasource.Socium.Ef.Models.Message", "Message")
+                        .WithMany("Recipients")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Datasource.Socium.Ef.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Message");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.Sender", b =>
+                {
+                    b.HasOne("Datasource.Socium.Ef.Models.Message", "Message")
+                        .WithOne("Sender")
+                        .HasForeignKey("Datasource.Socium.Ef.Models.Sender", "MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Datasource.Socium.Ef.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Chat", b =>
                 {
                     b.Navigation("Messages");
+
+                    b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.Message", b =>
+                {
+                    b.Navigation("Recipients");
+
+                    b.Navigation("Sender")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Room", b =>

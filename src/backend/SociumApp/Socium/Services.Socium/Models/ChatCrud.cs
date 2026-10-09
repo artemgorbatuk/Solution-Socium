@@ -67,6 +67,8 @@ public class ChatInfoPageResponse
     public required Guid Id { get; set; }
     public required Guid RoomId { get; set; }
     public required string Name { get; set; }
+    public required bool IsParticipant { get; set; }
+    public required bool IsAdmin { get; set; }
 }
 
 public class ChatListPageRequest
@@ -85,4 +87,5 @@ public class ChatListModel
 {
     public required Guid Id { get; set; }
     public required string Name { get; set; }
+    public required bool IsAdmin { get; set; }
 }

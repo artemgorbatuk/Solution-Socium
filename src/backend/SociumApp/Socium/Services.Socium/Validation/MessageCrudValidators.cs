@@ -1,3 +1,4 @@
+using Datasource.Socium.Ef.Models;
 using Services.Socium.Models;
 using Services.Socium.Texts;
 
@@ -124,6 +125,34 @@ public static class MessageCrudValidators
         if (model == null)
         {
             yield return MessageCrudTexts.Messages.Validation.ChatNotFoundById;
+        }
+    }
+
+    public static IEnumerable<string> ValidateCurrentUser(User? user)
+    {
+        if (user == null || user.IsDeleted)
+        {
+            yield return MessageCrudTexts.Messages.Validation.CurrentUserNotFound;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessParticipant(Participant? participant)
+    {
+        if (participant == null)
+        {
+            yield return MessageCrudTexts.Messages.Validation.NotParticipant;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessSender(Participant? participant, Message message)
+    {
+        if (participant == null)
+        {
+            yield return MessageCrudTexts.Messages.Validation.NotParticipant;
+        }
+        else if (message.Sender.UserId != participant.UserId)
+        {
+            yield return MessageCrudTexts.Messages.Validation.NotSender;
         }
     }
 

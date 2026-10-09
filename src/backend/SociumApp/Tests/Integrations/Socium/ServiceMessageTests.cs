@@ -1,3 +1,5 @@
+using Datasource.Socium.Ef.Contexts;
+using Microsoft.EntityFrameworkCore;
 using Services.Shared.Enums;
 using Services.Shared.Models;
 using Services.Socium.Api;
@@ -360,5 +362,117 @@ public sealed class ServiceMessageTests(SociumServiceFixture fixture)
         var result = await RunAsync(service => service.DeleteAsync(new MessageDeleteRequest { Id = Guid.CreateVersion7() }));
 
         Assert.Equal(MessageType.NOT_FOUND, result.MessageInfo.MessageType);
+    }
+
+    private Task<Guid> CreateUserAsync() => fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", $"User {Guid.NewGuid():N}");
+
+    private Task<ResponseInfo<T>> RunAsAsync<T>(Guid? userId, Func<IServiceMessage, Task<ResponseInfo<T>>> action) where T : class
+        => fixture.RunAsAsync(userId, action);
+
+    [Fact]
+    public async Task Create_Submit_WithParticipants_ShouldSaveSenderAndOtherParticipantsAsRecipients()
+    {
+        var chatId = await CreateChatAsync();
+        var userId = await CreateUserAsync();
+        var otherUserId = await CreateUserAsync();
+        await fixture.JoinChatAsync(chatId, userId);
+        await fixture.JoinChatAsync(chatId, otherUserId);
+        var text = UniqueText();
+
+        var result = await RunAsAsync(userId, service => service.CreateAsync(new MessageCreateRequest { ChatId = chatId, Text = text }));
+
+        Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
+        var row = Assert.Single((await GetListAsync(chatId)).Response!.Rows);
+        Assert.Equal(userId, row.SenderUserId);
+        var sender = await fixture.RunAsync((DbContextSocium db) => db.Senders.SingleAsync(sender => sender.MessageId == row.Id));
+        var recipientUserIds = await fixture.RunAsync((DbContextSocium db) => db.Recipients
+            .Where(recipient => recipient.MessageId == row.Id)
+            .Select(recipient => recipient.UserId)
+            .ToListAsync());
+        Assert.Equal(userId, sender.UserId);
+        Assert.Equal(
+            new Guid?[] { fixture.DefaultUserId, otherUserId }.Order(),
+            recipientUserIds.Order());
+    }
+
+    [Fact]
+    public async Task List_Load_WithMessage_ShouldReturnSenderName()
+    {
+        var chatId = await CreateChatAsync();
+        await fixture.CreateMessageAsync(chatId, UniqueText());
+
+        var row = Assert.Single((await GetListAsync(chatId)).Response!.Rows);
+
+        Assert.Equal(fixture.DefaultUserId, row.SenderUserId);
+        Assert.Equal("Пользователь по умолчанию", row.SenderName);
+    }
+
+    [Fact]
+    public async Task ListAndCreate_WithNonParticipant_ShouldReturnForbiddenWithoutDataAndNotSave()
+    {
+        var chatId = await CreateChatAsync();
+        await fixture.CreateMessageAsync(chatId, UniqueText());
+        var userId = await CreateUserAsync();
+
+        var list = await RunAsAsync(userId, service => service.DisplayListPageAsync(new MessageListPageRequest { ChatId = chatId }));
+        var createPage = await RunAsAsync(userId, service => service.DisplayCreatePageAsync(new MessageCreatePageRequest { ChatId = chatId }));
+        var create = await RunAsAsync(userId, service => service.CreateAsync(new MessageCreateRequest { ChatId = chatId, Text = UniqueText() }));
+
+        Assert.Equal(MessageType.FORBIDDEN, list.MessageInfo.MessageType);
+        Assert.Contains(MessageCrudTexts.Messages.Validation.NotParticipant, list.MessageInfo.MessageText);
+        Assert.Null(list.Response);
+        Assert.Equal(MessageType.FORBIDDEN, createPage.MessageInfo.MessageType);
+        Assert.Equal(MessageType.FORBIDDEN, create.MessageInfo.MessageType);
+        Assert.Single((await GetListAsync(chatId)).Response!.Rows);
+    }
+
+    [Fact]
+    public async Task ListAndCreate_WithoutCurrentUser_ShouldReturnUnauthorized()
+    {
+        var chatId = await CreateChatAsync();
+
+        var list = await RunAsAsync(null, service => service.DisplayListPageAsync(new MessageListPageRequest { ChatId = chatId }));
+        var create = await RunAsAsync(null, service => service.CreateAsync(new MessageCreateRequest { ChatId = chatId, Text = UniqueText() }));
+
+        Assert.Equal(MessageType.UNAUTHORIZED, list.MessageInfo.MessageType);
+        Assert.Contains(MessageCrudTexts.Messages.Validation.CurrentUserNotFound, list.MessageInfo.MessageText);
+        Assert.Equal(MessageType.UNAUTHORIZED, create.MessageInfo.MessageType);
+    }
+
+    [Fact]
+    public async Task UpdateAndDelete_WithOtherParticipant_ShouldReturnForbiddenAndKeepMessage()
+    {
+        var chatId = await CreateChatAsync();
+        var text = UniqueText();
+        var id = await fixture.CreateMessageAsync(chatId, text);
+        var userId = await CreateUserAsync();
+        await fixture.JoinChatAsync(chatId, userId);
+
+        var updatePage = await RunAsAsync(userId, service => service.DisplayUpdatePageAsync(new MessageUpdatePageRequest { Id = id }));
+        var update = await RunAsAsync(userId, service => service.UpdateAsync(new MessageUpdateRequest { Id = id, Text = UniqueText() }));
+        var deletePage = await RunAsAsync(userId, service => service.DisplayDeletePageAsync(new MessageDeletePageRequest { Id = id }));
+        var delete = await RunAsAsync(userId, service => service.DeleteAsync(new MessageDeleteRequest { Id = id }));
+        var info = await RunAsAsync(userId, service => service.DisplayInfoPageAsync(new MessageInfoPageRequest { Id = id }));
+
+        Assert.Equal(MessageType.FORBIDDEN, updatePage.MessageInfo.MessageType);
+        Assert.Equal(MessageType.FORBIDDEN, update.MessageInfo.MessageType);
+        Assert.Contains(MessageCrudTexts.Messages.Validation.NotSender, update.MessageInfo.MessageText);
+        Assert.Equal(MessageType.FORBIDDEN, deletePage.MessageInfo.MessageType);
+        Assert.Equal(MessageType.FORBIDDEN, delete.MessageInfo.MessageType);
+        Assert.Equal(MessageType.LOADED, info.MessageInfo.MessageType);
+        Assert.Equal(text, info.Response!.Text);
+    }
+
+    [Fact]
+    public async Task Info_Load_WithNonParticipant_ShouldReturnForbidden()
+    {
+        var chatId = await CreateChatAsync();
+        var id = await fixture.CreateMessageAsync(chatId, UniqueText());
+        var userId = await CreateUserAsync();
+
+        var result = await RunAsAsync(userId, service => service.DisplayInfoPageAsync(new MessageInfoPageRequest { Id = id }));
+
+        Assert.Equal(MessageType.FORBIDDEN, result.MessageInfo.MessageType);
+        Assert.Null(result.Response);
     }
 }

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Text.Json;
 using Microsoft.Playwright;
+using Tests.E2Es.Socium;
 using Tests.Infrastructure;
 
 namespace Tests.E2Es;
@@ -14,6 +16,8 @@ public sealed class E2eAppFixture : IAsyncLifetime
     private static readonly TimeSpan ApiStartTimeout = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan FrontendBuildTimeout = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan FrontendStartTimeout = TimeSpan.FromSeconds(30);
+    private const string CurrentUserHeader = "X-User-Id";
+    private const string CurrentUserStorageKey = "socium.currentUserId";
 
     private PostgresTestHost? postgres;
     private TestProcess? api;
@@ -25,8 +29,14 @@ public sealed class E2eAppFixture : IAsyncLifetime
     /// <summary>Адрес фронтенда; запросы <c>/api</c> проксируются в WebApi.</summary>
     public string BaseUrl { get; private set; } = string.Empty;
 
-    /// <summary>Клиент к тому же WebApi через прокси фронтенда — для подготовки и проверки данных.</summary>
+    /// <summary>Клиент к тому же WebApi через прокси фронтенда от имени <see cref="DefaultUserId"/> — для подготовки и проверки данных.</summary>
     public HttpClient Api { get; private set; } = default!;
+
+    /// <summary>Имя пользователя <see cref="DefaultUserId"/>.</summary>
+    public const string DefaultUserName = "Пользователь по умолчанию";
+
+    /// <summary>Пользователь, от которого по умолчанию работают <see cref="Api"/> и браузер: создатель и админ подготовленных чатов.</summary>
+    public Guid DefaultUserId { get; private set; }
 
     public async ValueTask InitializeAsync()
     {
@@ -46,13 +56,30 @@ public sealed class E2eAppFixture : IAsyncLifetime
         await WaitForUrlAsync(BaseUrl, frontend, FrontendStartTimeout);
 
         Api = new HttpClient { BaseAddress = new Uri(BaseUrl) };
+        DefaultUserId = await Api.CreateUserAsync("e2e.default", DefaultUserName);
+        Api.DefaultRequestHeaders.Add(CurrentUserHeader, DefaultUserId.ToString());
         playwright = await Playwright.CreateAsync();
         browser = await LaunchChromiumAsync(playwright);
     }
 
-    /// <summary>Новый изолированный контекст браузера (свои cookies и localStorage) с базовым адресом фронтенда.</summary>
-    public Task<IBrowserContext> NewContextAsync() =>
-        browser!.NewContextAsync(new BrowserNewContextOptions { BaseURL = BaseUrl, Locale = "ru-RU" });
+    /// <summary>Новый изолированный контекст браузера (свои cookies и localStorage) с выбранным <see cref="DefaultUserId"/>.</summary>
+    public Task<IBrowserContext> NewContextAsync() => NewContextAsAsync(DefaultUserId);
+
+    /// <summary>Новый изолированный контекст браузера с выбранным пользователем; <c>null</c> — пользователь не выбран.</summary>
+    public Task<IBrowserContext> NewContextAsAsync(Guid? userId)
+    {
+        var localStorage = userId is Guid id ? new[] { new { name = CurrentUserStorageKey, value = id.ToString() } } : [];
+        var storageState = JsonSerializer.Serialize(new { cookies = Array.Empty<object>(), origins = new[] { new { origin = BaseUrl, localStorage } } });
+        return browser!.NewContextAsync(new BrowserNewContextOptions { BaseURL = BaseUrl, Locale = "ru-RU", StorageState = storageState });
+    }
+
+    /// <summary>Клиент к WebApi от имени другого пользователя; вызывающий освобождает его.</summary>
+    public HttpClient CreateApiAs(Guid userId)
+    {
+        var client = new HttpClient { BaseAddress = new Uri(BaseUrl) };
+        client.DefaultRequestHeaders.Add(CurrentUserHeader, userId.ToString());
+        return client;
+    }
 
     public async ValueTask DisposeAsync()
     {

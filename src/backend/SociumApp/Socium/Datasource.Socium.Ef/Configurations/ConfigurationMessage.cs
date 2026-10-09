@@ -20,12 +20,12 @@ public class ConfigurationMessage : IEntityTypeConfiguration<Message>
         builder.Property(message => message.ChatId)
             .IsRequired();
 
+        builder.Property(message => message.CreatedAt)
+            .IsRequired();
+
         // Длина сообщения намеренно не ограничивается.
         builder.Property(message => message.Text)
             .HasColumnType("text")
-            .IsRequired();
-
-        builder.Property(message => message.CreatedAt)
             .IsRequired();
 
         builder.HasIndex(message => new { message.ChatId, message.CreatedAt }, "IX_Messages_ChatId_CreatedAt");

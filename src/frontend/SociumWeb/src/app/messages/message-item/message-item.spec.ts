@@ -6,7 +6,13 @@ import { MessageListModel } from '../message.models';
 import { MessageItem } from './message-item';
 
 describe('MessageItem', () => {
-  const message: MessageListModel = { id: 'm1', text: 'Привет\nмир', createdAt: '2020-01-15T12:02:00Z' };
+  const message: MessageListModel = {
+    id: 'm1',
+    text: 'Привет\nмир',
+    createdAt: '2020-01-15T12:02:00Z',
+    senderUserId: 'u1',
+    senderName: 'Анна',
+  };
 
   let fixture: ComponentFixture<MessageItem>;
   let http: HttpTestingController;
@@ -53,6 +59,7 @@ describe('MessageItem', () => {
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(MessageItem);
     fixture.componentRef.setInput('message', message);
+    fixture.componentRef.setInput('own', true);
     changed = 0;
     deleted = 0;
     fixture.componentInstance.changed.subscribe(() => changed++);
@@ -81,6 +88,21 @@ describe('MessageItem', () => {
     expect(buttons[1].classList).toContain('danger');
     expect(element.querySelector('.row')!.lastElementChild!.classList).toContain('actions');
     expect(element.querySelector('[role=menu]')).toBeNull();
+  });
+
+  it('Message_Render_WithOwnMessage_ShouldAlignRightWithSenderName', () => {
+    expect(element.querySelector('.row')!.classList).toContain('own');
+    expect(element.querySelector('.sender')!.textContent).toBe('Анна');
+  });
+
+  it('Message_Render_WithOtherSender_ShouldAlignLeftWithSenderNameAndNoActions', () => {
+    fixture.componentRef.setInput('own', false);
+    render();
+
+    expect(element.querySelector('.row')!.classList).not.toContain('own');
+    expect(element.querySelector('.sender')!.textContent).toBe('Анна');
+    expect(element.querySelector('.text')!.textContent).toBe('Привет\nмир');
+    expect(element.querySelector('.actions')).toBeNull();
   });
 
   it('Message_Render_WithEditForm_ShouldHideActionButtons', () => {

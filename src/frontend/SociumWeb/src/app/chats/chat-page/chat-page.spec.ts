@@ -3,7 +3,9 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { TopbarTitle } from '../../layout/topbar/topbar-title';
+import { ParticipantsPanelState, participantsPanelOpenStorageKey } from '../../participants/participants-panel-state';
 import { successBody } from '../../shared/api/api-response.testing';
+import { CurrentUser, currentUserStorageKey } from '../../users/current-user';
 import { ChatChanges } from '../chat-changes';
 import { ChatPage } from './chat-page';
 
@@ -25,8 +27,8 @@ describe('ChatPage', () => {
       request.method === 'GET' && request.url === '/api/message' && request.params.get('chatId') === chatId;
   }
 
-  function flushChat(id: string, name: string): void {
-    expectInfo(id).flush(successBody({ id, roomId: 'r1', name }));
+  function flushChat(id: string, name: string, isParticipant = true): void {
+    expectInfo(id).flush(successBody({ id, roomId: 'r1', name, isParticipant, isAdmin: false }));
     render();
   }
 
@@ -37,6 +39,10 @@ describe('ChatPage', () => {
 
   function textarea(): HTMLTextAreaElement {
     return element.querySelector<HTMLTextAreaElement>('textarea')!;
+  }
+
+  function button(text: string): HTMLButtonElement | undefined {
+    return Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes(text));
   }
 
   function type(value: string): void {
@@ -56,11 +62,16 @@ describe('ChatPage', () => {
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
     http = TestBed.inject(HttpTestingController);
+    TestBed.inject(CurrentUser).select('u1');
     fixture = TestBed.createComponent(ChatPage);
     element = fixture.nativeElement;
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem(currentUserStorageKey);
+    localStorage.removeItem(participantsPanelOpenStorageKey);
+  });
 
   it('Chat_Load_WithExistingChat_ShouldSetTopbarTitleAndShowMessagesWithComposer', () => {
     open('c1');
@@ -94,6 +105,106 @@ describe('ChatPage', () => {
     render();
 
     expect(element.querySelector('[role=alert]')!.textContent).toContain('База недоступна.');
+  });
+
+  it('Chat_Load_WithNotParticipant_ShouldShowJoinStubWithoutMessages', () => {
+    open('c1');
+    flushChat('c1', 'Общий', false);
+
+    expect(element.textContent).toContain('Вы не участник этого чата');
+    expect(button('Вступить в чат')!.classList).toContain('primary');
+    expect(element.querySelector('textarea')).toBeNull();
+    expect(TestBed.inject(TopbarTitle).text()).toBe('Общий');
+    expect(TestBed.inject(ParticipantsPanelState).available()).toBe(false);
+  });
+
+  it('Chat_Load_WithoutCurrentUser_ShouldAskToChooseUserWithoutJoinButton', () => {
+    TestBed.inject(CurrentUser).clear();
+    open('c1');
+    flushChat('c1', 'Общий', false);
+
+    expect(element.textContent).toContain('Выберите пользователя внизу боковой панели');
+    expect(button('Вступить в чат')).toBeUndefined();
+    expect(element.querySelector('textarea')).toBeNull();
+  });
+
+  it('Join_Click_WithNotParticipant_ShouldJoinNotifyChangesAndShowMessages', () => {
+    open('c1');
+    flushChat('c1', 'Общий', false);
+
+    button('Вступить в чат')!.click();
+    const request = http.expectOne({ method: 'POST', url: '/api/participant' });
+    expect(request.request.body).toEqual({ chatId: 'c1' });
+    request.flush(successBody({ id: 'p1' }, 2));
+    render();
+    flushChat('c1', 'Общий');
+    flushMessages('c1');
+
+    expect(TestBed.inject(ChatChanges).version()).toBe(1);
+    expect(textarea()).not.toBeNull();
+    expect(TestBed.inject(ParticipantsPanelState).available()).toBe(true);
+  });
+
+  it('Join_Click_WithServerError_ShouldShowProblemAndKeepStub', () => {
+    open('c1');
+    flushChat('c1', 'Общий', false);
+
+    button('Вступить в чат')!.click();
+    http
+      .expectOne({ method: 'POST', url: '/api/participant' })
+      .flush({ detail: 'Вы уже участник этого чата.' }, { status: 422, statusText: 'Unprocessable Entity' });
+    render();
+
+    expect(element.querySelector('[role=alert]')!.textContent).toContain('Вы уже участник этого чата.');
+    expect(button('Вступить в чат')!.disabled).toBe(false);
+  });
+
+  it('CurrentUser_Change_WithOpenChat_ShouldReloadChatForNewUser', () => {
+    open('c1');
+    flushChat('c1', 'Общий');
+    flushMessages('c1');
+
+    TestBed.inject(CurrentUser).select('u2');
+    render();
+    flushChat('c1', 'Общий', false);
+
+    expect(element.textContent).toContain('Вы не участник этого чата');
+    expect(element.querySelector('textarea')).toBeNull();
+  });
+
+  it('ParticipantsPanel_Open_WithParticipant_ShouldShowPanelBesideMessages', () => {
+    open('c1');
+    flushChat('c1', 'Общий');
+    flushMessages('c1');
+    const panel = TestBed.inject(ParticipantsPanelState);
+    expect(panel.available()).toBe(true);
+    expect(element.querySelector('app-participants-panel')).toBeNull();
+
+    panel.toggle();
+    render();
+
+    http
+      .expectOne((request) => request.method === 'GET' && request.url === '/api/participant' && request.params.get('chatId') === 'c1')
+      .flush(successBody({ rowExists: false, rowCount: 0, isAdmin: false, rows: [] }));
+    render();
+    expect(element.querySelector('.chat-body app-participants-panel')).not.toBeNull();
+  });
+
+  it('ParticipantsPanel_Reload_WithParticipantLeft_ShouldHideButtonAndPanelButKeepChoice', () => {
+    open('c1');
+    flushChat('c1', 'Общий');
+    flushMessages('c1');
+    const panel = TestBed.inject(ParticipantsPanelState);
+    panel.toggle();
+
+    TestBed.inject(ChatChanges).notify();
+    render();
+    flushChat('c1', 'Общий', false);
+    http.match((request) => request.url === '/api/participant');
+
+    expect(panel.available()).toBe(false);
+    expect(panel.open()).toBe(true);
+    expect(element.querySelector('app-participants-panel')).toBeNull();
   });
 
   it('Chat_Switch_WithTypedText_ShouldClearTextAndLoadOtherChatMessages', () => {
@@ -141,7 +252,7 @@ describe('ChatPage', () => {
     expect(navigate).toHaveBeenCalledWith('/');
   });
 
-  it('Page_Destroy_WithLoadedChat_ShouldClearTopbarTitle', () => {
+  it('Page_Destroy_WithLoadedChat_ShouldClearTopbarTitleAndParticipantsButton', () => {
     open('c1');
     flushChat('c1', 'Общий');
     flushMessages('c1');
@@ -149,5 +260,19 @@ describe('ChatPage', () => {
     fixture.destroy();
 
     expect(TestBed.inject(TopbarTitle).text()).toBeNull();
+    expect(TestBed.inject(ParticipantsPanelState).available()).toBe(false);
+  });
+
+  it('ParticipantsPanel_Load_WithRememberedOpenPanel_ShouldShowPanelForParticipant', () => {
+    TestBed.inject(ParticipantsPanelState).toggle();
+    open('c1');
+    flushChat('c1', 'Общий');
+    flushMessages('c1');
+
+    http
+      .expectOne((request) => request.url === '/api/participant')
+      .flush(successBody({ rowExists: false, rowCount: 0, isAdmin: false, rows: [] }));
+    render();
+    expect(element.querySelector('app-participants-panel')).not.toBeNull();
   });
 });

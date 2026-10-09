@@ -322,4 +322,35 @@ public sealed class MessageApiTests(SociumApiFixture fixture)
         var info = await Client.GetAsync($"{BaseUrl}/info?id={id}", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.NotFound, info.StatusCode);
     }
+
+    [Fact]
+    public async Task List_GET_WithNonParticipantOrWithoutUser_ShouldReturn403Or401()
+    {
+        var chatId = await CreateChatAsync();
+        var userId = await fixture.CreateUserAsync(Client, $"user.{Guid.NewGuid():N}", "Пётр");
+        using var userClient = fixture.CreateClientAs(userId);
+        using var anonymousClient = fixture.CreateClientAs(null);
+
+        var forbidden = await userClient.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken);
+        var unauthorized = await anonymousClient.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken);
+
+        var problem = await ReadProblemAsync(forbidden, HttpStatusCode.Forbidden);
+        Assert.Contains(MessageCrudTexts.Messages.Validation.NotParticipant, problem.Detail);
+        await ReadProblemAsync(unauthorized, HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Update_PUT_WithOtherParticipant_ShouldReturn403()
+    {
+        var chatId = await CreateChatAsync();
+        var id = await CreateMessageAsync(chatId, UniqueText());
+        var userId = await fixture.CreateUserAsync(Client, $"user.{Guid.NewGuid():N}", "Пётр");
+        using var userClient = fixture.CreateClientAs(userId);
+        await userClient.PostAsJsonAsync("/api/participant", new ParticipantCreateRequest { ChatId = chatId }, TestContext.Current.CancellationToken);
+
+        var response = await userClient.PutAsJsonAsync(BaseUrl, new MessageUpdateRequest { Id = id, Text = UniqueText() }, TestContext.Current.CancellationToken);
+
+        var problem = await ReadProblemAsync(response, HttpStatusCode.Forbidden);
+        Assert.Contains(MessageCrudTexts.Messages.Validation.NotSender, problem.Detail);
+    }
 }

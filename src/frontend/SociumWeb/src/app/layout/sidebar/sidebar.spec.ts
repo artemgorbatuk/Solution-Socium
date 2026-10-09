@@ -55,7 +55,11 @@ describe('Sidebar', () => {
 
   afterEach(() => {
     // Комнаты раскрыты по умолчанию и сами загружают чаты; чаты проверяются в спеках RoomListItem и RoomChats.
-    http.match((request) => request.url === '/api/chat').forEach((request) => request.flush(successBody({ rowExists: false, rowCount: 0, rows: [] })));
+    // Выбор пользователя внизу панели загружает список сам; он проверяется в спеке UserPicker.
+    http
+      .match((request) => request.url === '/api/chat' || request.url === '/api/user')
+      .filter((request) => !request.cancelled)
+      .forEach((request) => request.flush(successBody({ rowExists: false, rowCount: 0, rows: [] })));
     http.verify();
   });
 
@@ -288,6 +292,16 @@ describe('Sidebar', () => {
       expect(element.style.width).toBe('');
       expect(element.querySelector('.resize-handle')).toBeNull();
     });
+  });
+
+  it('Panel_Render_WithExpandedPanel_ShouldShowUserPickerAndHideItWhenCollapsed', () => {
+    http.expectOne('/api/room').flush(listBody([]));
+    render();
+    expect(element.querySelector('app-user-picker')).not.toBeNull();
+
+    button('«').click();
+    render();
+    expect(element.querySelector('app-user-picker')).toBeNull();
   });
 
   it('CreateForm_Input_WithBlankName_ShouldDisableCreate', () => {

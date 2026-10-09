@@ -1,3 +1,4 @@
+using Datasource.Socium.Ef.Models;
 using Services.Socium.Models;
 using Services.Socium.Texts;
 
@@ -132,6 +133,22 @@ public static class ChatCrudValidators
         if (model == null)
         {
             yield return ChatCrudTexts.Messages.Validation.RoomNotFoundById;
+        }
+    }
+
+    public static IEnumerable<string> ValidateCurrentUser(User? user)
+    {
+        if (user == null || user.IsDeleted)
+        {
+            yield return ChatCrudTexts.Messages.Validation.CurrentUserNotFound;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessAdmin(Participant? participant)
+    {
+        if (participant == null || !participant.IsAdmin)
+        {
+            yield return ChatCrudTexts.Messages.Validation.NotAdmin;
         }
     }
 

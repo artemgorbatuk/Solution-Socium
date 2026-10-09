@@ -1,0 +1,121 @@
+:host {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  padding-top: var(--sc-space-3);
+  border-top: 1px solid var(--sc-color-border);
+}
+
+.trigger,
+.user {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--sc-space-1);
+  border-color: transparent;
+  background: transparent;
+  text-align: left;
+}
+
+.avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--sc-color-active);
+  font-size: var(--sc-font-size-sm);
+}
+
+.name,
+.login {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.login {
+  color: var(--sc-color-text-muted);
+  font-size: var(--sc-font-size-sm);
+}
+
+.panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--sc-space-1));
+  left: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-1);
+  max-height: 60vh;
+  padding: var(--sc-space-1);
+  overflow-y: auto;
+  border: 1px solid var(--sc-color-border);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-surface-raised);
+  box-shadow: var(--sc-shadow-menu);
+}
+
+.panel ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.user.selected {
+  background: var(--sc-color-active);
+}
+
+.user.selected .avatar {
+  background: var(--sc-color-surface-raised);
+}
+
+.add {
+  padding: var(--sc-space-1) var(--sc-space-2);
+  border-color: transparent;
+  background: transparent;
+  color: var(--sc-color-text-muted);
+  text-align: left;
+}
+
+.add:hover:not(:disabled) {
+  color: var(--sc-color-text);
+}
+
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-1);
+}
+
+.buttons {
+  display: flex;
+  gap: var(--sc-space-2);
+}
+
+.hint {
+  margin: 0;
+  padding: var(--sc-space-1) var(--sc-space-2);
+  color: var(--sc-color-text-muted);
+}
+
+.error {
+  margin: 0;
+  color: var(--sc-color-danger);
+  white-space: pre-line;
+}

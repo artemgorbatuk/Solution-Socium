@@ -29,22 +29,25 @@ public static class ChatMapper
         };
     }
 
-    public static ChatInfoPageResponse ToInfoPageResponse(Chat model)
+    public static ChatInfoPageResponse ToInfoPageResponse(Chat model, Participant? currentParticipant)
     {
         return new ChatInfoPageResponse
         {
             Id = model.Id,
             RoomId = model.RoomId,
             Name = model.Name,
+            IsParticipant = currentParticipant != null,
+            IsAdmin = currentParticipant?.IsAdmin ?? false,
         };
     }
 
-    public static ChatListModel ToListModel(Chat model)
+    public static ChatListModel ToListModel(Chat model, bool isAdmin)
     {
         return new ChatListModel
         {
             Id = model.Id,
             Name = model.Name,
+            IsAdmin = isAdmin,
         };
     }
 

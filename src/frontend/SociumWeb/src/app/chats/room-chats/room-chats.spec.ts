@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { successBody } from '../../shared/api/api-response.testing';
+import { CurrentUser, currentUserStorageKey } from '../../users/current-user';
 import { ChatChanges } from '../chat-changes';
 import { ChatListModel } from '../chat.models';
 import { RoomChats } from './room-chats';
@@ -52,13 +53,16 @@ describe('RoomChats', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem(currentUserStorageKey);
+  });
 
   it('List_Load_WithRoomChats_ShouldShowChatsInOrder', () => {
     create(false);
     expect(element.textContent).toContain('Загрузка…');
 
-    expectList().flush(listBody([{ id: 'c1', name: 'Арт' }, { id: 'c2', name: 'Общий' }]));
+    expectList().flush(listBody([{ id: 'c1', name: 'Арт', isAdmin: true }, { id: 'c2', name: 'Общий', isAdmin: true }]));
     render();
 
     const names = Array.from(element.querySelectorAll('.chat-name')).map((item) => item.textContent!.trim());
@@ -94,7 +98,7 @@ describe('RoomChats', () => {
     const request = http.expectOne({ method: 'POST', url: '/api/chat' });
     expect(request.request.body).toEqual({ roomId: '1', name: 'Общий' });
     request.flush(successBody(null, 2));
-    expectList().flush(listBody([{ id: 'c1', name: 'Общий' }]));
+    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: true }]));
     render();
 
     expect(fixture.componentInstance.creating()).toBe(false);
@@ -143,7 +147,7 @@ describe('RoomChats', () => {
 
   it('ChatRename_Save_WithNewName_ShouldNotifyChangesAndReloadList', () => {
     create(false);
-    expectList().flush(listBody([{ id: 'c1', name: 'Общий' }]));
+    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: true }]));
     render();
 
     element.querySelector<HTMLButtonElement>('[aria-label="Переименовать чат Общий"]')!.click();
@@ -153,7 +157,8 @@ describe('RoomChats', () => {
     field.dispatchEvent(new Event('input'));
     element.querySelector('.rename-form')!.dispatchEvent(new Event('submit'));
     http.expectOne({ method: 'PUT', url: '/api/chat' }).flush(successBody(null, 2));
-    expectList().flush(listBody([{ id: 'c1', name: 'Объявления' }]));
+    render();
+    expectList().flush(listBody([{ id: 'c1', name: 'Объявления', isAdmin: true }]));
     render();
 
     expect(TestBed.inject(ChatChanges).version()).toBe(1);
@@ -162,7 +167,7 @@ describe('RoomChats', () => {
 
   it('ChatDelete_Confirm_WithExistingChat_ShouldDeleteNotifyChangesAndReloadList', () => {
     create(false);
-    expectList().flush(listBody([{ id: 'c1', name: 'Общий' }]));
+    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: true }]));
     render();
 
     element.querySelector<HTMLButtonElement>('[aria-label="Удалить чат Общий"]')!.click();
@@ -173,11 +178,39 @@ describe('RoomChats', () => {
     render();
     element.querySelector<HTMLButtonElement>('[role=group] .danger')!.click();
     http.expectOne({ method: 'DELETE', url: '/api/chat?id=c1' }).flush(successBody({ isDeleted: true }, 2));
+    render();
     expectList().flush(listBody([]));
     render();
 
     expect(element.querySelector('[role=group]')).toBeNull();
     expect(TestBed.inject(ChatChanges).version()).toBe(1);
     expect(element.textContent).toContain('Чатов пока нет');
+  });
+
+  it('List_Reload_WithCurrentUserChanged_ShouldLoadAdminFlagsOfNewUser', () => {
+    create(false);
+    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: true }]));
+    render();
+
+    TestBed.inject(CurrentUser).select('u2');
+    render();
+    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: false }]));
+    render();
+
+    expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');
+    expect(element.querySelector('.actions')).toBeNull();
+  });
+
+  it('List_Reload_WithChatChangesNotified_ShouldReloadList', () => {
+    create(false);
+    expectList().flush(listBody([]));
+    render();
+
+    TestBed.inject(ChatChanges).notify();
+    render();
+    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: false }]));
+    render();
+
+    expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');
   });
 });

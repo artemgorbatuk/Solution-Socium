@@ -6,12 +6,13 @@ import { RoomApi } from '../../rooms/room-api';
 import { RoomExpansion } from '../../rooms/room-expansion';
 import { RoomListItem } from '../../rooms/room-list-item/room-list-item';
 import { RoomListModel, roomNameMaxLength } from '../../rooms/room.models';
+import { UserPicker } from '../../users/user-picker/user-picker';
 
 const widthStorageKey = 'socium.sidebar.width';
 
 @Component({
   selector: 'app-sidebar',
-  imports: [ResizeHandle, RoomListItem],
+  imports: [ResizeHandle, RoomListItem, UserPicker],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.css',
   host: {

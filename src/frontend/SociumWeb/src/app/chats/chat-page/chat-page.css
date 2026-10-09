@@ -4,13 +4,22 @@
   height: 100%;
 }
 
+/* Панель участников всегда стоит справа от ленты и сжимает её. */
+.chat-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
 .state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sc-space-2);
+  gap: var(--sc-space-3);
   margin: auto;
+  padding: 0 var(--sc-space-4);
   color: var(--sc-color-text-muted);
+  text-align: center;
 }
 
 .state p {
@@ -21,6 +30,8 @@
   color: var(--sc-color-accent);
 }
 
-.state.error {
+.state.error,
+.state .error {
   color: var(--sc-color-danger);
+  white-space: pre-line;
 }

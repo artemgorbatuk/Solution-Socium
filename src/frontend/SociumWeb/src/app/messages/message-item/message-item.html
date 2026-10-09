@@ -20,12 +20,13 @@
     }
   </form>
 } @else {
-  <div class="row">
+  <div class="row" [class.own]="own()">
     <div class="bubble">
+      <p class="sender">{{ message().senderName }}</p>
       <p class="text">{{ message().text }}</p>
       <time class="time" [attr.datetime]="message().createdAt" [title]="fullTime()">{{ time() }}</time>
     </div>
-    @if (!confirmingDelete()) {
+    @if (own() && !confirmingDelete()) {
       <div class="actions">
         <button type="button" class="icon" title="Изменить" aria-label="Изменить сообщение" (click)="startEdit()">
           <app-icon name="pencil" />

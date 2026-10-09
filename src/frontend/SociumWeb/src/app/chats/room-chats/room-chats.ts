@@ -1,5 +1,7 @@
-import { Component, ElementRef, OnInit, effect, inject, input, model, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { problemDetail } from '../../shared/api/api-response';
+import { CurrentUser } from '../../users/current-user';
 import { ChatApi } from '../chat-api';
 import { ChatChanges } from '../chat-changes';
 import { ChatListItem } from '../chat-list-item/chat-list-item';
@@ -11,9 +13,10 @@ import { ChatListModel, chatNameMaxLength } from '../chat.models';
   templateUrl: './room-chats.html',
   styleUrl: './room-chats.css',
 })
-export class RoomChats implements OnInit {
+export class RoomChats {
   private readonly chatApi = inject(ChatApi);
   private readonly chatChanges = inject(ChatChanges);
+  private readonly currentUser = inject(CurrentUser);
 
   readonly roomId = input.required<string>();
   readonly roomName = input.required<string>();
@@ -31,13 +34,16 @@ export class RoomChats implements OnInit {
   protected readonly createError = signal<string | null>(null);
 
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
+  private loadSubscription?: Subscription;
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.loadSubscription?.unsubscribe());
     effect(() => this.nameInput()?.nativeElement.focus());
-  }
-
-  ngOnInit(): void {
-    this.loadChats();
+    effect(() => {
+      this.currentUser.id();
+      this.chatChanges.version();
+      untracked(() => this.loadChats());
+    });
   }
 
   protected onNewChatNameInput(event: Event): void {
@@ -74,18 +80,17 @@ export class RoomChats implements OnInit {
 
   protected onChatRenamed(): void {
     this.chatChanges.notify();
-    this.loadChats();
   }
 
   protected onChatDeleted(): void {
     this.chatChanges.notify();
-    this.loadChats();
   }
 
   protected loadChats(): void {
+    this.loadSubscription?.unsubscribe();
     this.loading.set(true);
     this.loadError.set(null);
-    this.chatApi.getList(this.roomId()).subscribe({
+    this.loadSubscription = this.chatApi.getList(this.roomId()).subscribe({
       next: (body) => {
         this.chats.set(body.response?.rows ?? []);
         this.loading.set(false);

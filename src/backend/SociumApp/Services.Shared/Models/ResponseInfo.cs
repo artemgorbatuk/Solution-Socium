@@ -15,6 +15,8 @@ public static class ResponseInfo
     private const string DefaultInvalidMessage = "Данные не прошли валидацию";
     private const string DefaultBadRequestMessage = "Некорректный запрос";
     private const string DefaultNotFoundMessage = "Данные не найден";
+    private const string DefaultUnauthorizedMessage = "Пользователь не определён";
+    private const string DefaultForbiddenMessage = "Доступ запрещён";
     private const string InvalidTypeErrorMessage = "Недопустимый тип сообщения для ошибки.";
 
     public static ResponseInfo<TResponse> Success<TResponse>(
@@ -155,5 +157,61 @@ public static class ResponseInfo
         string messageText = DefaultNotFoundMessage) where TResponse : class
     {
         return NotFound((TResponse?)null, messageType, messageText);
+    }
+
+    public static ResponseInfo<TResponse> Unauthorized<TResponse>(
+        TResponse? response = null,
+        int messageType = MessageType.UNAUTHORIZED,
+        string messageText = DefaultUnauthorizedMessage) where TResponse : class
+    {
+        if (messageType != MessageType.UNAUTHORIZED)
+        {
+            throw new ArgumentOutOfRangeException(nameof(messageType), messageType, InvalidTypeErrorMessage);
+        }
+
+        return new ResponseInfo<TResponse>
+        {
+            Response = response,
+            MessageInfo = new MessageInfo
+            {
+                MessageType = messageType,
+                MessageText = messageText
+            }
+        };
+    }
+
+    public static ResponseInfo<TResponse> Unauthorized<TResponse>(
+        int messageType = MessageType.UNAUTHORIZED,
+        string messageText = DefaultUnauthorizedMessage) where TResponse : class
+    {
+        return Unauthorized((TResponse?)null, messageType, messageText);
+    }
+
+    public static ResponseInfo<TResponse> Forbidden<TResponse>(
+        TResponse? response = null,
+        int messageType = MessageType.FORBIDDEN,
+        string messageText = DefaultForbiddenMessage) where TResponse : class
+    {
+        if (messageType != MessageType.FORBIDDEN)
+        {
+            throw new ArgumentOutOfRangeException(nameof(messageType), messageType, InvalidTypeErrorMessage);
+        }
+
+        return new ResponseInfo<TResponse>
+        {
+            Response = response,
+            MessageInfo = new MessageInfo
+            {
+                MessageType = messageType,
+                MessageText = messageText
+            }
+        };
+    }
+
+    public static ResponseInfo<TResponse> Forbidden<TResponse>(
+        int messageType = MessageType.FORBIDDEN,
+        string messageText = DefaultForbiddenMessage) where TResponse : class
+    {
+        return Forbidden((TResponse?)null, messageType, messageText);
     }
 }

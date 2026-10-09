@@ -14,6 +14,7 @@ import {
 } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { problemDetail } from '../../shared/api/api-response';
+import { CurrentUser } from '../../users/current-user';
 import { MessageApi } from '../message-api';
 import { MessageItem } from '../message-item/message-item';
 import { MessageListModel } from '../message.models';
@@ -32,6 +33,7 @@ export class ChatMessages {
   readonly chatId = input.required<string>();
   readonly chatName = input.required<string>();
 
+  protected readonly currentUserId = inject(CurrentUser).id;
   protected readonly messages = signal<MessageListModel[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);

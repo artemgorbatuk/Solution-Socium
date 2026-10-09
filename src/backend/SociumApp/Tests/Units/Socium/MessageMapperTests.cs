@@ -80,14 +80,18 @@ public sealed class MessageMapperTests
     }
 
     [Fact]
-    public void ListModel_Map_WithExistingMessage_ShouldCopyIdTextAndCreatedAt()
+    public void ListModel_Map_WithExistingMessage_ShouldCopyIdTextCreatedAtAndSender()
     {
         var message = CreateMessage();
+        var user = new User { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван" };
+        message.Sender = new Sender { Id = Guid.CreateVersion7(), MessageId = message.Id, UserId = user.Id, User = user };
 
         var model = MessageMapper.ToListModel(message);
 
         Assert.Equal(message.Id, model.Id);
         Assert.Equal(message.Text, model.Text);
         Assert.Equal(message.CreatedAt, model.CreatedAt);
+        Assert.Equal(user.Id, model.SenderUserId);
+        Assert.Equal(user.Name, model.SenderName);
     }
 }

@@ -48,6 +48,8 @@ public static class MessageMapper
             Id = model.Id,
             Text = model.Text,
             CreatedAt = model.CreatedAt,
+            SenderUserId = model.Sender.UserId,
+            SenderName = model.Sender.User.Name,
         };
     }
 

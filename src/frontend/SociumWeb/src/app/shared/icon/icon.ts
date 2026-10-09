@@ -1,6 +1,6 @@
 import { Component, input } from '@angular/core';
 
-export type IconName = 'plus' | 'pencil' | 'trash';
+export type IconName = 'plus' | 'pencil' | 'trash' | 'users';
 
 /** Иконка-линия 16×16 цвета текста; смысл передаёт `aria-label` кнопки, сама иконка скрыта от экранных дикторов. */
 @Component({

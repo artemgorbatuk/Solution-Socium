@@ -9,7 +9,10 @@
     <ol class="list" [attr.aria-label]="'Сообщения чата ' + chatName()">
       @for (message of messages(); track message.id) {
         <li>
-          <app-message-item [message]="message" (changed)="onMessageChanged()" (deleted)="onMessageDeleted()" />
+          <app-message-item
+            [message]="message"
+            [own]="message.senderUserId === currentUserId()"
+            (changed)="onMessageChanged()" (deleted)="onMessageDeleted()" />
         </li>
       }
     </ol>

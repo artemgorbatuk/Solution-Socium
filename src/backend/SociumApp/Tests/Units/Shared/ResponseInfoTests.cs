@@ -40,6 +40,8 @@ public sealed class ResponseInfoTests
     [InlineData(MessageType.INVALID)]
     [InlineData(MessageType.BAD_REQUEST)]
     [InlineData(MessageType.NOT_FOUND)]
+    [InlineData(MessageType.UNAUTHORIZED)]
+    [InlineData(MessageType.FORBIDDEN)]
     public void Success_Create_WithErrorType_ShouldThrow(int messageType)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => ResponseInfo.Success<Payload>(messageType, "text"));
@@ -76,6 +78,36 @@ public sealed class ResponseInfoTests
         var result = ResponseInfo.NotFound<Payload>(MessageType.NOT_FOUND, "text");
 
         Assert.Equal(MessageType.NOT_FOUND, result.MessageInfo.MessageType);
+    }
+
+    [Fact]
+    public void Unauthorized_Create_WithMatchingType_ShouldReturnUnauthorized()
+    {
+        var result = ResponseInfo.Unauthorized<Payload>(MessageType.UNAUTHORIZED, "text");
+
+        Assert.Equal(MessageType.UNAUTHORIZED, result.MessageInfo.MessageType);
+        Assert.Equal("text", result.MessageInfo.MessageText);
+    }
+
+    [Fact]
+    public void Forbidden_Create_WithMatchingType_ShouldReturnForbidden()
+    {
+        var result = ResponseInfo.Forbidden<Payload>(MessageType.FORBIDDEN, "text");
+
+        Assert.Equal(MessageType.FORBIDDEN, result.MessageInfo.MessageType);
+        Assert.Equal("text", result.MessageInfo.MessageText);
+    }
+
+    [Fact]
+    public void Unauthorized_Create_WithForbiddenType_ShouldThrow()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ResponseInfo.Unauthorized<Payload>(MessageType.FORBIDDEN, "text"));
+    }
+
+    [Fact]
+    public void Forbidden_Create_WithUnauthorizedType_ShouldThrow()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ResponseInfo.Forbidden<Payload>(MessageType.UNAUTHORIZED, "text"));
     }
 
     [Fact]

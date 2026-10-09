@@ -59,6 +59,9 @@ public static class MessageCrudTexts
             public const string ChatIdCannotBeEmpty = "Идентификатор чата не может быть пустым.";
             public const string MessageNotFoundById = "Сообщение не найдено по указанному идентификатору.";
             public const string ChatNotFoundById = "Чат не найден по указанному идентификатору.";
+            public const string CurrentUserNotFound = "Текущий пользователь не выбран или не найден.";
+            public const string NotParticipant = "Вы не участник этого чата.";
+            public const string NotSender = "Изменять и удалять сообщение может только его отправитель.";
             public const string TextNotEmpty = "Текст сообщения не может быть пустым.";
         }
     }

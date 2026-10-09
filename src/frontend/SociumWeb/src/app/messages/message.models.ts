@@ -3,6 +3,8 @@ export interface MessageListModel {
   text: string;
   /** UTC в формате ISO 8601. */
   createdAt: string;
+  senderUserId: string;
+  senderName: string;
 }
 
 export interface MessageListPageResponse {

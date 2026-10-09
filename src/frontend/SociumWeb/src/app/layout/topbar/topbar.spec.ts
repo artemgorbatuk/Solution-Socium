@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { ParticipantsPanelState } from '../../participants/participants-panel-state';
 import { Topbar } from './topbar';
 import { TopbarTitle } from './topbar-title';
 
@@ -46,5 +47,32 @@ describe('Topbar', () => {
     fixture.nativeElement.querySelector('[aria-label="Закрыть чат"]').click();
 
     expect(navigate).toHaveBeenCalledWith('/');
+  });
+
+  it('Participants_Render_WithoutAvailablePanel_ShouldHideButton', () => {
+    const fixture = TestBed.createComponent(Topbar);
+    TestBed.inject(TopbarTitle).text.set('Общий');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[aria-label="Участники"]')).toBeNull();
+  });
+
+  it('Participants_Click_WithAvailablePanel_ShouldTogglePanelAndPressedState', () => {
+    const fixture = TestBed.createComponent(Topbar);
+    const panel = TestBed.inject(ParticipantsPanelState);
+    TestBed.inject(TopbarTitle).text.set('Общий');
+    panel.available.set(true);
+    fixture.detectChanges();
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('[aria-label="Участники"]');
+
+    expect(button.title).toBe('Участники');
+    expect(button.querySelector('app-icon svg')!.getAttribute('data-icon')).toBe('users');
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+
+    button.click();
+    fixture.detectChanges();
+
+    expect(panel.open()).toBe(true);
+    expect(button.getAttribute('aria-pressed')).toBe('true');
   });
 });

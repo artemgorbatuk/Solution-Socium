@@ -18,6 +18,8 @@ export class MessageItem {
   private readonly injector = inject(Injector);
 
   readonly message = input.required<MessageListModel>();
+  /** Сообщение текущего пользователя: справа и с кнопками; чужое — слева и без кнопок; имя отправителя — у обоих. */
+  readonly own = input(false);
   /** Текст изменён — владелец перезагружает ленту. */
   readonly changed = output<void>();
   /** Сообщение удалено — владелец перезагружает ленту. */

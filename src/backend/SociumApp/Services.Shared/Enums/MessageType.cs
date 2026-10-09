@@ -10,6 +10,8 @@ public static class MessageType
     public const int BAD_REQUEST = 5;
     public const int NOT_FOUND = 6;
     public const int WARNING = 7;
+    public const int UNAUTHORIZED = 8;
+    public const int FORBIDDEN = 9;
 
     public static string GetDescription(int messageTypeId)
     {
@@ -23,6 +25,8 @@ public static class MessageType
             BAD_REQUEST => "Некорректный запрос",
             NOT_FOUND => "Не найдено",
             WARNING => "Предупреждение",
+            UNAUTHORIZED => "Пользователь не определён",
+            FORBIDDEN => "Доступ запрещён",
             _ => "Неизвестный тип"
         };
     }
@@ -39,6 +43,8 @@ public static class MessageType
             BAD_REQUEST => "alert-danger",
             NOT_FOUND => "alert-danger",
             WARNING => "alert-warning",
+            UNAUTHORIZED => "alert-danger",
+            FORBIDDEN => "alert-danger",
             _ => "alert-secondary"
         };
     }
@@ -55,6 +61,8 @@ public static class MessageType
             BAD_REQUEST => "text-danger",
             NOT_FOUND => "text-danger",
             WARNING => "text-warning",
+            UNAUTHORIZED => "text-danger",
+            FORBIDDEN => "text-danger",
             _ => "text-secondary"
         };
     }
@@ -71,6 +79,8 @@ public static class MessageType
             BAD_REQUEST => "border-danger",
             NOT_FOUND => "border-danger",
             WARNING => "border-warning",
+            UNAUTHORIZED => "border-danger",
+            FORBIDDEN => "border-danger",
             _ => "border-secondary"
         };
     }
@@ -87,6 +97,8 @@ public static class MessageType
             BAD_REQUEST => "bg-danger",
             NOT_FOUND => "bg-danger",
             WARNING => "bg-warning",
+            UNAUTHORIZED => "bg-danger",
+            FORBIDDEN => "bg-danger",
             _ => "bg-secondary"
         };
     }
@@ -102,6 +114,8 @@ public static class MessageType
             BAD_REQUEST => "fa-exclamation-triangle",
             NOT_FOUND => "fa-times-circle",
             WARNING => "fa-exclamation-circle",
+            UNAUTHORIZED => "fa-user-times",
+            FORBIDDEN => "fa-ban",
             _ => "fa-info-circle"
         };
     }
@@ -117,6 +131,8 @@ public static class MessageType
             INVALID => "InvalidMessage",
             BAD_REQUEST => "ErrorMessage",
             NOT_FOUND => "ErrorMessage",
+            UNAUTHORIZED => "ErrorMessage",
+            FORBIDDEN => "ErrorMessage",
             SAVED => "SuccessMessage",
             LOADED => "SuccessMessage",
             WARNING => "WarningMessage",

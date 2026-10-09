@@ -401,4 +401,122 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
 
         Assert.Equal(MessageType.NOT_FOUND, result.MessageInfo.MessageType);
     }
+
+    private Task<Guid> CreateUserAsync() => fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", $"User {Guid.NewGuid():N}");
+
+    private Task<ResponseInfo<T>> RunAsAsync<T>(Guid? userId, Func<IServiceChat, Task<ResponseInfo<T>>> action) where T : class
+        => fixture.RunAsAsync(userId, action);
+
+    [Fact]
+    public async Task Create_Submit_WithCurrentUser_ShouldMakeCreatorParticipantAndAdmin()
+    {
+        var roomId = await CreateRoomAsync();
+        var chatId = await fixture.CreateChatAsync(roomId, UniqueName());
+
+        var info = await RunAsync(service => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = chatId }));
+        var list = await RunAsync(service => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }));
+
+        Assert.True(info.Response!.IsParticipant);
+        Assert.True(info.Response.IsAdmin);
+        Assert.True(Assert.Single(list.Response!.Rows).IsAdmin);
+    }
+
+    [Fact]
+    public async Task Create_Submit_WithoutCurrentUser_ShouldReturnUnauthorizedAndNotCreate()
+    {
+        var roomId = await CreateRoomAsync();
+
+        var result = await RunAsAsync(null, service => service.CreateAsync(new ChatCreateRequest { RoomId = roomId, Name = UniqueName() }));
+
+        Assert.Equal(MessageType.UNAUTHORIZED, result.MessageInfo.MessageType);
+        Assert.Contains(ChatCrudTexts.Messages.Validation.CurrentUserNotFound, result.MessageInfo.MessageText);
+        Assert.Empty((await RunAsync(service => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }))).Response!.Rows);
+    }
+
+    [Fact]
+    public async Task Create_Submit_WithUnknownUser_ShouldReturnUnauthorized()
+    {
+        var roomId = await CreateRoomAsync();
+
+        var result = await RunAsAsync(Guid.CreateVersion7(), service => service.CreateAsync(new ChatCreateRequest { RoomId = roomId, Name = UniqueName() }));
+
+        Assert.Equal(MessageType.UNAUTHORIZED, result.MessageInfo.MessageType);
+    }
+
+    [Fact]
+    public async Task InfoAndList_Load_WithNonParticipantOrNoUser_ShouldClearFlags()
+    {
+        var roomId = await CreateRoomAsync();
+        var chatId = await fixture.CreateChatAsync(roomId, UniqueName());
+        var userId = await CreateUserAsync();
+
+        var info = await RunAsAsync(userId, service => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = chatId }));
+        var anonymousInfo = await RunAsAsync(null, service => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = chatId }));
+        var list = await RunAsAsync(userId, service => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }));
+
+        Assert.Equal(MessageType.LOADED, info.MessageInfo.MessageType);
+        Assert.False(info.Response!.IsParticipant);
+        Assert.False(info.Response.IsAdmin);
+        Assert.Equal(MessageType.LOADED, anonymousInfo.MessageInfo.MessageType);
+        Assert.False(anonymousInfo.Response!.IsParticipant);
+        Assert.False(Assert.Single(list.Response!.Rows).IsAdmin);
+    }
+
+    [Fact]
+    public async Task InfoAndList_Load_WithOrdinaryParticipant_ShouldSetParticipantOnly()
+    {
+        var roomId = await CreateRoomAsync();
+        var chatId = await fixture.CreateChatAsync(roomId, UniqueName());
+        var userId = await CreateUserAsync();
+        await fixture.JoinChatAsync(chatId, userId);
+
+        var info = await RunAsAsync(userId, service => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = chatId }));
+        var list = await RunAsAsync(userId, service => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }));
+
+        Assert.True(info.Response!.IsParticipant);
+        Assert.False(info.Response.IsAdmin);
+        Assert.False(Assert.Single(list.Response!.Rows).IsAdmin);
+    }
+
+    [Fact]
+    public async Task UpdateAndDelete_WithOrdinaryParticipant_ShouldReturnForbiddenAndKeepChat()
+    {
+        var roomId = await CreateRoomAsync();
+        var name = UniqueName();
+        var chatId = await fixture.CreateChatAsync(roomId, name);
+        var userId = await CreateUserAsync();
+        await fixture.JoinChatAsync(chatId, userId);
+
+        var updatePage = await RunAsAsync(userId, service => service.DisplayUpdatePageAsync(new ChatUpdatePageRequest { Id = chatId }));
+        var update = await RunAsAsync(userId, service => service.UpdateAsync(new ChatUpdateRequest { Id = chatId, Name = UniqueName() }));
+        var deletePage = await RunAsAsync(userId, service => service.DisplayDeletePageAsync(new ChatDeletePageRequest { Id = chatId }));
+        var delete = await RunAsAsync(userId, service => service.DeleteAsync(new ChatDeleteRequest { Id = chatId }));
+
+        Assert.Equal(MessageType.FORBIDDEN, updatePage.MessageInfo.MessageType);
+        Assert.Equal(MessageType.FORBIDDEN, update.MessageInfo.MessageType);
+        Assert.Contains(ChatCrudTexts.Messages.Validation.NotAdmin, update.MessageInfo.MessageText);
+        Assert.Equal(MessageType.FORBIDDEN, deletePage.MessageInfo.MessageType);
+        Assert.Equal(MessageType.FORBIDDEN, delete.MessageInfo.MessageType);
+        var info = await RunAsync(service => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = chatId }));
+        Assert.Equal(name, info.Response!.Name);
+    }
+
+    [Fact]
+    public async Task Update_Submit_WithGrantedAdmin_ShouldRenameChat()
+    {
+        var roomId = await CreateRoomAsync();
+        var chatId = await fixture.CreateChatAsync(roomId, UniqueName());
+        var userId = await CreateUserAsync();
+        await fixture.JoinChatAsync(chatId, userId);
+        var participants = await fixture.RunAsync((IServiceParticipant service) => service.DisplayListPageAsync(new ParticipantListPageRequest { ChatId = chatId }));
+        var participantId = participants.Response!.Rows.Single(row => row.UserId == userId).Id;
+        await fixture.RunAsync((IServiceParticipant service) => service.UpdateAsync(new ParticipantUpdateRequest { Id = participantId, IsAdmin = true }));
+        var newName = UniqueName();
+
+        var result = await RunAsAsync(userId, service => service.UpdateAsync(new ChatUpdateRequest { Id = chatId, Name = newName }));
+
+        Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
+        var info = await RunAsync(service => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = chatId }));
+        Assert.Equal(newName, info.Response!.Name);
+    }
 }

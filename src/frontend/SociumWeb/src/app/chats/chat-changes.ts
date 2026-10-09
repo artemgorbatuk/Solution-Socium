@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-/** Сообщает открытому окну чата, что чаты или комнаты изменились в боковой панели. */
+/** Сообщает окну чата, спискам чатов и панели участников, что изменились чаты, комнаты, состав участников или роли. */
 @Injectable({ providedIn: 'root' })
 export class ChatChanges {
   private readonly versionSignal = signal(0);
