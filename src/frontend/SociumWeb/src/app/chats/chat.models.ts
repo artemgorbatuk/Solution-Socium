@@ -12,6 +12,12 @@ export interface ChatListPageResponse {
   rows: ChatListModel[];
 }
 
+export interface ChatInfoPageResponse {
+  id: string;
+  roomId: string;
+  name: string;
+}
+
 export interface ChatCreateRequest {
   roomId: string;
   name: string;

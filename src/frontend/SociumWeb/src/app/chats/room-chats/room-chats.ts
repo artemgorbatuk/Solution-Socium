@@ -1,6 +1,7 @@
 import { Component, ElementRef, OnInit, effect, inject, input, model, signal, viewChild } from '@angular/core';
 import { problemDetail } from '../../shared/api/api-response';
 import { ChatApi } from '../chat-api';
+import { ChatChanges } from '../chat-changes';
 import { ChatDeleteDialog } from '../chat-delete-dialog/chat-delete-dialog';
 import { ChatListItem } from '../chat-list-item/chat-list-item';
 import { ChatListModel, chatNameMaxLength } from '../chat.models';
@@ -13,6 +14,7 @@ import { ChatListModel, chatNameMaxLength } from '../chat.models';
 })
 export class RoomChats implements OnInit {
   private readonly chatApi = inject(ChatApi);
+  private readonly chatChanges = inject(ChatChanges);
 
   readonly roomId = input.required<string>();
   readonly roomName = input.required<string>();
@@ -73,8 +75,14 @@ export class RoomChats implements OnInit {
     });
   }
 
+  protected onChatRenamed(): void {
+    this.chatChanges.notify();
+    this.loadChats();
+  }
+
   protected onChatDeleted(): void {
     this.chatToDelete.set(null);
+    this.chatChanges.notify();
     this.loadChats();
   }
 

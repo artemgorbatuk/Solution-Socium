@@ -1,0 +1,28 @@
+@if (chat(); as chat) {
+  <section class="messages" aria-label="Сообщения"></section>
+
+  <form class="composer" (submit)="$event.preventDefault()">
+    <div class="composer-box">
+      <textarea
+        name="message"
+        rows="1"
+        placeholder="Напишите сообщение…"
+        [attr.aria-label]="'Сообщение в чат ' + chat.name"
+        [value]="draft()"
+        (input)="onDraftInput($event)"
+      ></textarea>
+      <button type="submit" class="primary send" aria-label="Отправить" title="Отправка сообщений появится позже" disabled>
+        ↑
+      </button>
+    </div>
+  </form>
+} @else if (loading()) {
+  <p class="state">Загрузка…</p>
+} @else if (notFound()) {
+  <div class="state">
+    <p>Чат не найден</p>
+    <a routerLink="/">На главную</a>
+  </div>
+} @else if (loadError(); as error) {
+  <p class="state error" role="alert">{{ error }}</p>
+}

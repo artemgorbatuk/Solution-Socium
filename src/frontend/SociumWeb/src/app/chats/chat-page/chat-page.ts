@@ -1,0 +1,80 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, DestroyRef, effect, inject, input, signal, untracked } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
+import { TopbarTitle } from '../../layout/topbar/topbar-title';
+import { problemDetail } from '../../shared/api/api-response';
+import { ChatApi } from '../chat-api';
+import { ChatChanges } from '../chat-changes';
+import { ChatInfoPageResponse } from '../chat.models';
+
+@Component({
+  selector: 'app-chat-page',
+  imports: [RouterLink],
+  templateUrl: './chat-page.html',
+  styleUrl: './chat-page.css',
+})
+export class ChatPage {
+  private readonly chatApi = inject(ChatApi);
+  private readonly chatChanges = inject(ChatChanges);
+  private readonly topbarTitle = inject(TopbarTitle);
+  private readonly router = inject(Router);
+
+  /** Из маршрута `chat/:id`. */
+  readonly id = input.required<string>();
+
+  protected readonly chat = signal<ChatInfoPageResponse | null>(null);
+  protected readonly loading = signal(true);
+  protected readonly notFound = signal(false);
+  protected readonly loadError = signal<string | null>(null);
+  protected readonly draft = signal('');
+
+  constructor() {
+    effect((onCleanup) => {
+      const id = this.id();
+      this.chatChanges.version();
+      untracked(() => onCleanup(this.load(id)));
+    });
+    effect(() => this.topbarTitle.text.set(this.chat()?.name ?? null));
+    inject(DestroyRef).onDestroy(() => this.topbarTitle.text.set(null));
+  }
+
+  protected onDraftInput(event: Event): void {
+    this.draft.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  /** Загружает чат; возвращает отмену запроса. */
+  private load(id: string): () => void {
+    const isReload = this.chat()?.id === id;
+    if (!isReload) {
+      this.chat.set(null);
+      this.draft.set('');
+    }
+    this.loading.set(true);
+    this.notFound.set(false);
+    this.loadError.set(null);
+
+    const subscription = this.chatApi.getInfo(id).subscribe({
+      next: (body) => {
+        this.chat.set(body.response);
+        this.notFound.set(!body.response);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.loading.set(false);
+        if (!isNotFound(error)) {
+          this.loadError.set(problemDetail(error, 'Не удалось загрузить чат'));
+        } else if (isReload) {
+          void this.router.navigateByUrl('/');
+        } else {
+          this.notFound.set(true);
+        }
+      },
+    });
+    return () => subscription.unsubscribe();
+  }
+}
+
+/** `400` — `id` в адресе не является `Guid`, `404` — чат удалён или не существовал. */
+function isNotFound(error: unknown): boolean {
+  return error instanceof HttpErrorResponse && (error.status === 400 || error.status === 404);
+}

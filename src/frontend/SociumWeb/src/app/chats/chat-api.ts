@@ -6,6 +6,7 @@ import {
   ChatCreateRequest,
   ChatDeletePageResponse,
   ChatDeleteResponse,
+  ChatInfoPageResponse,
   ChatListPageResponse,
   ChatUpdateRequest,
 } from './chat.models';
@@ -17,6 +18,10 @@ export class ChatApi {
 
   getList(roomId: string): Observable<ApiSuccessResponse<ChatListPageResponse>> {
     return this.http.get<ApiSuccessResponse<ChatListPageResponse>>(this.baseUrl, { params: { roomId } });
+  }
+
+  getInfo(id: string): Observable<ApiSuccessResponse<ChatInfoPageResponse>> {
+    return this.http.get<ApiSuccessResponse<ChatInfoPageResponse>>(`${this.baseUrl}/info`, { params: { id } });
   }
 
   create(request: ChatCreateRequest): Observable<ApiSuccessResponse<null>> {

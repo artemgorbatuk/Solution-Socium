@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router, provideRouter } from '@angular/router';
 import { successBody } from '../../shared/api/api-response.testing';
 import { ChatListModel } from '../chat.models';
 import { ChatListItem } from './chat-list-item';
@@ -45,7 +46,7 @@ describe('ChatListItem', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [ChatListItem],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: 'chat/:id', children: [] }])],
     });
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(ChatListItem);
@@ -63,6 +64,23 @@ describe('ChatListItem', () => {
   it('Row_Render_WithExistingChat_ShouldShowNameAndMenuButton', () => {
     expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');
     expect(element.querySelector('.menu-button')!.getAttribute('aria-label')).toBe('Действия с чатом Общий');
+  });
+
+  it('Link_Render_WithOtherChatOpen_ShouldPointToChatWithoutHighlight', () => {
+    const link = element.querySelector<HTMLAnchorElement>('a.chat-link')!;
+
+    expect(link.getAttribute('href')).toBe('/chat/c1');
+    expect(link.classList).not.toContain('active');
+    expect(link.hasAttribute('aria-current')).toBe(false);
+  });
+
+  it('Link_Navigate_WithThisChatOpen_ShouldHighlightAsCurrentPage', async () => {
+    await TestBed.inject(Router).navigateByUrl('/chat/c1');
+    render();
+
+    const link = element.querySelector<HTMLAnchorElement>('a.chat-link')!;
+    expect(link.classList).toContain('active');
+    expect(link.getAttribute('aria-current')).toBe('page');
   });
 
   it('Menu_Click_WithOutsideClickAfterOpen_ShouldOpenThenClose', () => {

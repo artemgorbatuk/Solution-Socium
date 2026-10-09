@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { successBody } from '../../shared/api/api-response.testing';
 import { RoomListModel } from '../room.models';
 import { RoomListItem } from './room-list-item';
@@ -50,7 +51,7 @@ describe('RoomListItem', () => {
     localStorage.clear();
     TestBed.configureTestingModule({
       imports: [RoomListItem],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(RoomListItem);

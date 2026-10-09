@@ -17,6 +17,31 @@
   background: var(--sc-color-hover);
 }
 
+.row:has(.chat-link.active) {
+  background: var(--sc-color-active);
+}
+
+.chat-link {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--sc-space-1);
+  min-width: 0;
+  border-radius: var(--sc-radius-sm);
+  color: var(--sc-color-text-muted);
+  text-decoration: none;
+}
+
+.row:hover .chat-link,
+.row.menu-open .chat-link,
+.chat-link.active {
+  color: var(--sc-color-text);
+}
+
+.chat-link.active {
+  font-weight: 600;
+}
+
 .chat-icon {
   color: var(--sc-color-text-subtle);
 }
@@ -26,14 +51,8 @@
   min-width: 0;
   padding: var(--sc-space-1) 0;
   overflow: hidden;
-  color: var(--sc-color-text-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.row:hover .chat-name,
-.row.menu-open .chat-name {
-  color: var(--sc-color-text);
 }
 
 .menu-button {

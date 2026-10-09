@@ -1,8 +1,6 @@
 using System.Net;
-using System.Net.Http.Json;
 using Microsoft.Playwright;
-using Services.Socium.Models;
-using WebApi.Controllers.Shared;
+using static Tests.E2Es.Socium.SociumE2eHelpers;
 
 namespace Tests.E2Es.Socium;
 
@@ -13,15 +11,13 @@ namespace Tests.E2Es.Socium;
 [Trait("Category", "E2E")]
 public sealed class ChatSidebarE2eTests(E2eAppFixture fixture)
 {
-    private static string UniqueName() => $"E2E {Guid.NewGuid():N}";
-
     [Fact]
     public async Task Room_Toggle_WithExpandedRoom_ShouldHideChatsAndKeepCollapsedAfterReload()
     {
         var roomName = UniqueName();
-        var roomId = await CreateRoomAsync(roomName);
-        await CreateChatAsync(roomId, "Общий");
-        await CreateChatAsync(roomId, "Арт");
+        var roomId = await fixture.Api.CreateRoomAsync(roomName);
+        await fixture.Api.CreateChatAsync(roomId, "Общий");
+        await fixture.Api.CreateChatAsync(roomId, "Арт");
 
         await using var context = await fixture.NewContextAsync();
         var page = await context.NewPageAsync();
@@ -45,7 +41,7 @@ public sealed class ChatSidebarE2eTests(E2eAppFixture fixture)
     public async Task Chat_CreateRenameDelete_WithUniqueNames_ShouldUpdateTreeAndApi()
     {
         var roomName = UniqueName();
-        var roomId = await CreateRoomAsync(roomName);
+        var roomId = await fixture.Api.CreateRoomAsync(roomName);
 
         await using var context = await fixture.NewContextAsync();
         var page = await context.NewPageAsync();
@@ -53,7 +49,7 @@ public sealed class ChatSidebarE2eTests(E2eAppFixture fixture)
         var chats = ChatList(page, roomName);
 
         var name = UniqueName();
-        await OpenRoomMenuAsync(page, roomName);
+        await page.OpenRoomMenuAsync(roomName);
         await page.GetByRole(AriaRole.Menuitem, new() { Name = "Новый чат" }).ClickAsync();
         await page.GetByRole(AriaRole.Textbox, new() { Name = $"Название нового чата в комнате {roomName}" }).FillAsync(name);
         await page.GetByRole(AriaRole.Button, new() { Name = "Создать", Exact = true }).ClickAsync();
@@ -75,7 +71,7 @@ public sealed class ChatSidebarE2eTests(E2eAppFixture fixture)
         await Assertions.Expect(dialog).ToHaveCountAsync(0);
         await Assertions.Expect(chats).ToContainTextAsync("Чатов пока нет");
 
-        var list = await GetChatListAsync(roomId);
+        var list = await fixture.Api.GetChatListAsync(roomId);
         Assert.Empty(list.Rows);
     }
 
@@ -83,15 +79,15 @@ public sealed class ChatSidebarE2eTests(E2eAppFixture fixture)
     public async Task Room_Delete_WithChats_ShouldWarnAboutChatCountAndDeleteChats()
     {
         var roomName = UniqueName();
-        var roomId = await CreateRoomAsync(roomName);
-        await CreateChatAsync(roomId, "Общий");
-        await CreateChatAsync(roomId, "Арт");
+        var roomId = await fixture.Api.CreateRoomAsync(roomName);
+        await fixture.Api.CreateChatAsync(roomId, "Общий");
+        await fixture.Api.CreateChatAsync(roomId, "Арт");
 
         await using var context = await fixture.NewContextAsync();
         var page = await context.NewPageAsync();
         await page.GotoAsync("/");
 
-        await OpenRoomMenuAsync(page, roomName);
+        await page.OpenRoomMenuAsync(roomName);
         await page.GetByRole(AriaRole.Menuitem, new() { Name = "Удалить" }).ClickAsync();
         var dialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Удалить комнату?" });
         await Assertions.Expect(dialog).ToContainTextAsync("Вместе с комнатой будут удалены чаты: 2");
@@ -104,29 +100,4 @@ public sealed class ChatSidebarE2eTests(E2eAppFixture fixture)
 
     private static ILocator ChatList(IPage page, string roomName) =>
         page.GetByRole(AriaRole.List, new() { Name = $"Чаты комнаты {roomName}", Exact = true });
-
-    private static Task OpenRoomMenuAsync(IPage page, string roomName) =>
-        page.GetByRole(AriaRole.Button, new() { Name = $"Действия с комнатой {roomName}", Exact = true }).ClickAsync();
-
-    private async Task<Guid> CreateRoomAsync(string name)
-    {
-        var response = await fixture.Api.PostAsJsonAsync("/api/room", new RoomCreateRequest { Name = name }, TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var list = await fixture.Api.GetFromJsonAsync<ApiSuccessResponse<RoomListPageResponse>>("/api/room", TestContext.Current.CancellationToken);
-        return list!.Response!.Rows.Single(row => row.Name == name).Id;
-    }
-
-    private async Task CreateChatAsync(Guid roomId, string name)
-    {
-        var request = new ChatCreateRequest { RoomId = roomId, Name = name };
-        var response = await fixture.Api.PostAsJsonAsync("/api/chat", request, TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
-
-    private async Task<ChatListPageResponse> GetChatListAsync(Guid roomId)
-    {
-        var body = await fixture.Api.GetFromJsonAsync<ApiSuccessResponse<ChatListPageResponse>>($"/api/chat?roomId={roomId}", TestContext.Current.CancellationToken);
-        return body!.Response!;
-    }
 }

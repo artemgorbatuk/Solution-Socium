@@ -1,10 +1,12 @@
 import { Component, ElementRef, Injector, afterNextRender, inject, input, output, signal, viewChild } from '@angular/core';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { problemDetail } from '../../shared/api/api-response';
 import { ChatApi } from '../chat-api';
 import { ChatListModel, chatNameMaxLength } from '../chat.models';
 
 @Component({
   selector: 'app-chat-list-item',
+  imports: [RouterLink, RouterLinkActive],
   templateUrl: './chat-list-item.html',
   styleUrl: './chat-list-item.css',
   host: {

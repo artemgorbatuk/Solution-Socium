@@ -21,8 +21,16 @@
   </form>
 } @else {
   <div class="row" [class.menu-open]="menuOpen()">
-    <span class="chat-icon" aria-hidden="true">#</span>
-    <span class="chat-name" [title]="chat().name">{{ chat().name }}</span>
+    <a
+      class="chat-link"
+      [routerLink]="['/chat', chat().id]"
+      routerLinkActive="active"
+      ariaCurrentWhenActive="page"
+      [title]="chat().name"
+    >
+      <span class="chat-icon" aria-hidden="true">#</span>
+      <span class="chat-name">{{ chat().name }}</span>
+    </a>
     <button
       type="button"
       class="menu-button"

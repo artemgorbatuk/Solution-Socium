@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { ChatChanges } from '../../chats/chat-changes';
 import { problemDetail } from '../../shared/api/api-response';
 import { ResizeHandle } from '../../shared/resize/resize-handle';
 import { RoomApi } from '../../rooms/room-api';
@@ -23,6 +24,7 @@ const widthStorageKey = 'socium.sidebar.width';
 export class Sidebar {
   private readonly roomApi = inject(RoomApi);
   private readonly roomExpansion = inject(RoomExpansion);
+  private readonly chatChanges = inject(ChatChanges);
 
   protected readonly nameMaxLength = roomNameMaxLength;
 
@@ -123,6 +125,7 @@ export class Sidebar {
 
   protected onRoomDeleted(): void {
     this.roomToDelete.set(null);
+    this.chatChanges.notify();
     this.loadRooms();
   }
 

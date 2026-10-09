@@ -1,7 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { successBody } from '../../shared/api/api-response.testing';
+import { ChatChanges } from '../chat-changes';
 import { ChatListModel } from '../chat.models';
 import { RoomChats } from './room-chats';
 
@@ -45,7 +47,7 @@ describe('RoomChats', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [RoomChats],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
     http = TestBed.inject(HttpTestingController);
   });
@@ -139,7 +141,28 @@ describe('RoomChats', () => {
     expect(element.querySelector('.create-form')).toBeNull();
   });
 
-  it('ChatDelete_Confirm_WithExistingChat_ShouldDeleteAndReloadList', () => {
+  it('ChatRename_Save_WithNewName_ShouldNotifyChangesAndReloadList', () => {
+    create(false);
+    expectList().flush(listBody([{ id: 'c1', name: 'Общий' }]));
+    render();
+
+    element.querySelector<HTMLButtonElement>('.menu-button')!.click();
+    render();
+    button('Переименовать').click();
+    render();
+    const field = element.querySelector<HTMLInputElement>('.rename-form input')!;
+    field.value = 'Объявления';
+    field.dispatchEvent(new Event('input'));
+    element.querySelector('.rename-form')!.dispatchEvent(new Event('submit'));
+    http.expectOne({ method: 'PUT', url: '/api/chat' }).flush(successBody(null, 2));
+    expectList().flush(listBody([{ id: 'c1', name: 'Объявления' }]));
+    render();
+
+    expect(TestBed.inject(ChatChanges).version()).toBe(1);
+    expect(element.querySelector('.chat-name')!.textContent).toContain('Объявления');
+  });
+
+  it('ChatDelete_Confirm_WithExistingChat_ShouldDeleteNotifyChangesAndReloadList', () => {
     create(false);
     expectList().flush(listBody([{ id: 'c1', name: 'Общий' }]));
     render();
@@ -158,6 +181,7 @@ describe('RoomChats', () => {
     render();
 
     expect(element.querySelector('[role=dialog]')).toBeNull();
+    expect(TestBed.inject(ChatChanges).version()).toBe(1);
     expect(element.textContent).toContain('Чатов пока нет');
   });
 });

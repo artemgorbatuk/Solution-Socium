@@ -1,0 +1,54 @@
+:host {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--sc-space-5);
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sc-space-4);
+  text-align: center;
+  animation: appear 400ms ease-out both;
+}
+
+.wordmark {
+  margin: 0;
+  font-size: 72px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--sc-color-text);
+}
+
+.wordmark::after {
+  content: '';
+  display: block;
+  width: 56px;
+  height: 4px;
+  margin: var(--sc-space-4) auto 0;
+  border-radius: 2px;
+  background: var(--sc-color-accent);
+}
+
+.tagline {
+  margin: 0;
+  font-size: var(--sc-font-size-lg);
+  color: var(--sc-color-text-muted);
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero {
+    animation: none;
+  }
+}

@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ChatChanges } from '../../chats/chat-changes';
 import { ApiSuccessResponse } from '../../shared/api/api-response';
 import { successBody } from '../../shared/api/api-response.testing';
 import { RoomExpansion } from '../../rooms/room-expansion';
@@ -170,7 +171,7 @@ describe('Sidebar', () => {
     expect(roomNames()).toEqual(['Гостиная', 'Столовая']);
   });
 
-  it('DeleteDialog_Confirm_WithExistingRoom_ShouldDeleteAndReloadList', () => {
+  it('DeleteDialog_Confirm_WithExistingRoom_ShouldDeleteNotifyChatChangesAndReloadList', () => {
     http.expectOne('/api/room').flush(listBody(rooms));
     render();
 
@@ -193,6 +194,7 @@ describe('Sidebar', () => {
     render();
 
     expect(element.querySelector('[role=dialog]')).toBeNull();
+    expect(TestBed.inject(ChatChanges).version()).toBe(1);
     expect(roomNames()).toEqual(['Гостиная']);
   });
 

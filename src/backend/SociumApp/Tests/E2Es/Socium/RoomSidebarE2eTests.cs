@@ -1,8 +1,6 @@
-using System.Net;
-using System.Net.Http.Json;
 using Microsoft.Playwright;
-using Services.Socium.Models;
 using Services.Socium.Texts;
+using static Tests.E2Es.Socium.SociumE2eHelpers;
 
 namespace Tests.E2Es.Socium;
 
@@ -13,8 +11,6 @@ namespace Tests.E2Es.Socium;
 [Trait("Category", "E2E")]
 public sealed class RoomSidebarE2eTests(E2eAppFixture fixture)
 {
-    private static string UniqueName() => $"E2E {Guid.NewGuid():N}";
-
     [Fact]
     public async Task Room_CreateRenameDelete_WithUniqueNames_ShouldUpdateListAndApi()
     {
@@ -30,14 +26,14 @@ public sealed class RoomSidebarE2eTests(E2eAppFixture fixture)
         await Assertions.Expect(rooms.GetByText(name, new() { Exact = true })).ToBeVisibleAsync();
 
         var newName = UniqueName();
-        await OpenRoomMenuAsync(page, name);
+        await page.OpenRoomMenuAsync(name);
         await page.GetByRole(AriaRole.Menuitem, new() { Name = "Переименовать" }).ClickAsync();
         await page.GetByRole(AriaRole.Textbox, new() { Name = "Новое название комнаты" }).FillAsync(newName);
         await page.GetByRole(AriaRole.Button, new() { Name = "Сохранить" }).ClickAsync();
         await Assertions.Expect(rooms.GetByText(newName, new() { Exact = true })).ToBeVisibleAsync();
         await Assertions.Expect(rooms.GetByText(name, new() { Exact = true })).ToHaveCountAsync(0);
 
-        await OpenRoomMenuAsync(page, newName);
+        await page.OpenRoomMenuAsync(newName);
         await page.GetByRole(AriaRole.Menuitem, new() { Name = "Удалить" }).ClickAsync();
         var dialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Удалить комнату?" });
         await Assertions.Expect(dialog).ToContainTextAsync(newName);
@@ -55,14 +51,14 @@ public sealed class RoomSidebarE2eTests(E2eAppFixture fixture)
     {
         var existingName = UniqueName();
         var name = UniqueName();
-        await CreateRoomAsync(existingName);
-        await CreateRoomAsync(name);
+        await fixture.Api.CreateRoomAsync(existingName);
+        await fixture.Api.CreateRoomAsync(name);
 
         await using var context = await fixture.NewContextAsync();
         var page = await context.NewPageAsync();
         await page.GotoAsync("/");
 
-        await OpenRoomMenuAsync(page, name);
+        await page.OpenRoomMenuAsync(name);
         await page.GetByRole(AriaRole.Menuitem, new() { Name = "Переименовать" }).ClickAsync();
         await page.GetByRole(AriaRole.Textbox, new() { Name = "Новое название комнаты" }).FillAsync(existingName);
         await page.GetByRole(AriaRole.Button, new() { Name = "Сохранить" }).ClickAsync();
@@ -74,13 +70,13 @@ public sealed class RoomSidebarE2eTests(E2eAppFixture fixture)
     public async Task Room_CancelDelete_WithExistingRoom_ShouldKeepRoom()
     {
         var name = UniqueName();
-        await CreateRoomAsync(name);
+        await fixture.Api.CreateRoomAsync(name);
 
         await using var context = await fixture.NewContextAsync();
         var page = await context.NewPageAsync();
         await page.GotoAsync("/");
 
-        await OpenRoomMenuAsync(page, name);
+        await page.OpenRoomMenuAsync(name);
         await page.GetByRole(AriaRole.Menuitem, new() { Name = "Удалить" }).ClickAsync();
         var dialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Удалить комнату?" });
         await Assertions.Expect(dialog).ToContainTextAsync(name);
@@ -89,14 +85,5 @@ public sealed class RoomSidebarE2eTests(E2eAppFixture fixture)
         await Assertions.Expect(dialog).ToHaveCountAsync(0);
         var rooms = page.GetByRole(AriaRole.Navigation, new() { Name = "Комнаты" });
         await Assertions.Expect(rooms.GetByText(name, new() { Exact = true })).ToBeVisibleAsync();
-    }
-
-    private static Task OpenRoomMenuAsync(IPage page, string roomName) =>
-        page.GetByRole(AriaRole.Button, new() { Name = $"Действия с комнатой {roomName}", Exact = true }).ClickAsync();
-
-    private async Task CreateRoomAsync(string name)
-    {
-        var response = await fixture.Api.PostAsJsonAsync("/api/room", new RoomCreateRequest { Name = name }, TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }
