@@ -1,5 +1,6 @@
 using Datasource.Socium.Ef.Models;
 using Services.Socium.Models;
+using Services.Socium.Ports;
 using Services.Socium.Texts;
 
 namespace Services.Socium.Validation;
@@ -128,9 +129,9 @@ public static class MessageCrudValidators
         }
     }
 
-    public static IEnumerable<string> ValidateCurrentUser(User? user)
+    public static IEnumerable<string> ValidateCurrentUser(UserPortModel? user)
     {
-        if (user == null || user.IsDeleted)
+        if (user == null)
         {
             yield return MessageCrudTexts.Messages.Validation.CurrentUserNotFound;
         }

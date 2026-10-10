@@ -32,11 +32,5 @@ public class ConfigurationSender : IEntityTypeConfiguration<Sender>
             .WithOne(message => message.Sender)
             .HasForeignKey<Sender>(sender => sender.MessageId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        // Пользователь удаляется мягко (IsDeleted), поэтому каскада от него нет.
-        builder.HasOne(sender => sender.User)
-            .WithMany()
-            .HasForeignKey(sender => sender.UserId)
-            .OnDelete(DeleteBehavior.Restrict);
     }
 }

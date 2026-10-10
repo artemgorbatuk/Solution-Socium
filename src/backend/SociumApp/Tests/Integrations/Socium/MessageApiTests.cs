@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Services.Shared.Enums;
 using Services.Socium.Models;
@@ -327,7 +327,7 @@ public sealed class MessageApiTests(SociumApiFixture fixture)
     public async Task List_GET_WithNonParticipantOrWithoutUser_ShouldReturn403Or401()
     {
         var chatId = await CreateChatAsync();
-        var userId = await fixture.CreateUserAsync(Client, $"user.{Guid.NewGuid():N}", "Пётр");
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Пётр");
         using var userClient = fixture.CreateClientAs(userId);
         using var anonymousClient = fixture.CreateClientAs(null);
 
@@ -344,7 +344,7 @@ public sealed class MessageApiTests(SociumApiFixture fixture)
     {
         var chatId = await CreateChatAsync();
         var id = await CreateMessageAsync(chatId, UniqueText());
-        var userId = await fixture.CreateUserAsync(Client, $"user.{Guid.NewGuid():N}", "Пётр");
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Пётр");
         using var userClient = fixture.CreateClientAs(userId);
         await userClient.PostAsJsonAsync("/api/participant", new ParticipantCreateRequest { ChatId = chatId }, TestContext.Current.CancellationToken);
 

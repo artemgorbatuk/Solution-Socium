@@ -9,5 +9,4 @@ public class Participant
     public bool IsAdmin { get; set; }
 
     public virtual Chat Chat { get; set; } = null!;
-    public virtual User User { get; set; } = null!;
 }

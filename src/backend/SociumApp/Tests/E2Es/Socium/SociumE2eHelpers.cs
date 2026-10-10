@@ -58,15 +58,6 @@ internal static class SociumE2eHelpers
 
     public static string UniqueLogin() => $"e2e.{Guid.NewGuid():N}";
 
-    public static async Task<Guid> CreateUserAsync(this HttpClient api, string login, string name)
-    {
-        var response = await api.PostAsJsonAsync("/api/user", new UserCreateRequest { Login = login, Name = name }, TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var list = await api.GetFromJsonAsync<ApiSuccessResponse<UserListPageResponse>>("/api/user", TestContext.Current.CancellationToken);
-        return list!.Response!.Rows.Single(row => row.Login == login).Id;
-    }
-
     /// <summary>Вступление пользователя клиента в чат.</summary>
     public static async Task JoinChatAsync(this HttpClient api, Guid chatId)
     {

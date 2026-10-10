@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Socium.Api;
-using Services.Socium.Models;
+using Microsoft.AspNetCore.RateLimiting;
+using Services.Security.Api;
+using Services.Security.Models;
 using WebApi.Controllers.Shared;
+using WebApi.Middleware;
 
 namespace WebApi.Controllers;
 
@@ -16,6 +19,7 @@ public class UserController : ApiControllerBase
         this.serviceUser = serviceUser;
     }
 
+    [AllowAnonymous]
     [HttpGet("create")]
     public async Task<IActionResult> Create(
         [FromQuery] UserCreatePageRequest request,
@@ -25,6 +29,8 @@ public class UserController : ApiControllerBase
         return FromResponse(responseInfo);
     }
 
+    [AllowAnonymous]
+    [EnableRateLimiting(AuthenticationRegistration.AuthRateLimitPolicy)]
     [HttpPost]
     public async Task<IActionResult> Create(
         [FromBody] UserCreateRequest request,

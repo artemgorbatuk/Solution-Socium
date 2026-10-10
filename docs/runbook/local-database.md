@@ -41,7 +41,7 @@ docker compose -f deploy/development/docker-compose.yml down -v
 dotnet tool restore
 ```
 
-В окружении `Development` WebApi накатывает миграции сам при старте. Команды ниже выполняются из `src/backend/SociumApp/`.
+В БД `Socium` два контекста со своими историями миграций: `DbContextSocium` (`__EFMigrationsHistory_Socium`) и `DbContextSecurity` (`__EFMigrationsHistory_Security`, таблицы `Users` и `RefreshTokens`). В окружении `Development` WebApi накатывает миграции сам при старте — сначала Socium, потом Security. Команды ниже выполняются из `src/backend/SociumApp/`; для Security — `--project Security/Datasource.Security.Ef --context DbContextSecurity`.
 
 ```powershell
 # создать миграцию задачи (имя — TaskNNNN, см. rule-0003)
@@ -54,7 +54,7 @@ dotnet ef migrations remove --project Socium/Datasource.Socium.Ef --startup-proj
 dotnet ef database update --project Socium/Datasource.Socium.Ef --startup-project WebApi --context DbContextSocium
 ```
 
-Design-time factory берёт строку подключения из переменной окружения `ConnectionStrings__Socium`, а если она не задана — локальную строку на `localhost:5433`.
+Обе design-time factory берут строку подключения из переменной окружения `ConnectionStrings__Socium`, а если она не задана — локальную строку на `localhost:5433`. Вручную миграции применяются в том же порядке: сначала Socium, потом Security.
 
 ## Проверка
 
@@ -62,4 +62,4 @@ Design-time factory берёт строку подключения из пере
 docker exec socium-dev-postgres psql -U postgres -d Socium -c "\dt"
 ```
 
-В списке должны быть таблицы `Rooms`, `Chats`, `Messages` и `__EFMigrationsHistory_Socium`.
+В списке должны быть таблицы `Rooms`, `Chats`, `Messages`, `Participants`, `Senders`, `Recipients`, `Users`, `RefreshTokens`, `__EFMigrationsHistory_Socium` и `__EFMigrationsHistory_Security`.

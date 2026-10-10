@@ -1,4 +1,4 @@
-using Microsoft.Playwright;
+﻿using Microsoft.Playwright;
 using static Tests.E2Es.Socium.SociumE2eHelpers;
 
 namespace Tests.E2Es.Socium;
@@ -14,7 +14,7 @@ public sealed class ParticipantsE2eTests(E2eAppFixture fixture)
     public async Task Join_Click_WithNotParticipant_ShouldShowComposerWithoutAdminActions()
     {
         var (chatId, chatName) = await CreateChatAsync();
-        var userId = await fixture.Api.CreateUserAsync(UniqueLogin(), UniqueName());
+        var userId = await fixture.CreateUserAsync(UniqueLogin(), UniqueName());
 
         await using var context = await fixture.NewContextAsAsync(userId);
         var page = await context.NewPageAsync();
@@ -38,7 +38,7 @@ public sealed class ParticipantsE2eTests(E2eAppFixture fixture)
     {
         var (chatId, chatName) = await CreateChatAsync();
         var otherName = UniqueName();
-        using var other = fixture.CreateApiAs(await fixture.Api.CreateUserAsync(UniqueLogin(), otherName));
+        using var other = fixture.CreateApiAs(await fixture.CreateUserAsync(UniqueLogin(), otherName));
         await other.JoinChatAsync(chatId);
         await other.CreateMessageAsync(chatId, "Чужое сообщение");
         await fixture.Api.CreateMessageAsync(chatId, "Своё сообщение");
@@ -66,7 +66,7 @@ public sealed class ParticipantsE2eTests(E2eAppFixture fixture)
     {
         var (chatId, chatName) = await CreateChatAsync();
         var otherName = UniqueName();
-        var otherId = await fixture.Api.CreateUserAsync(UniqueLogin(), otherName);
+        var otherId = await fixture.CreateUserAsync(UniqueLogin(), otherName);
         using (var other = fixture.CreateApiAs(otherId))
         {
             await other.JoinChatAsync(chatId);
@@ -112,7 +112,7 @@ public sealed class ParticipantsE2eTests(E2eAppFixture fixture)
     public async Task Leave_Click_WithLastAdmin_ShouldShowReasonAndStayParticipant()
     {
         var (chatId, chatName) = await CreateChatAsync();
-        using (var other = fixture.CreateApiAs(await fixture.Api.CreateUserAsync(UniqueLogin(), UniqueName())))
+        using (var other = fixture.CreateApiAs(await fixture.CreateUserAsync(UniqueLogin(), UniqueName())))
         {
             await other.JoinChatAsync(chatId);
         }
@@ -133,7 +133,7 @@ public sealed class ParticipantsE2eTests(E2eAppFixture fixture)
     public async Task Leave_Confirm_WithOrdinaryParticipant_ShouldShowJoinStubAndKeepMessages()
     {
         var (chatId, chatName) = await CreateChatAsync();
-        var userId = await fixture.Api.CreateUserAsync(UniqueLogin(), UniqueName());
+        var userId = await fixture.CreateUserAsync(UniqueLogin(), UniqueName());
         using (var user = fixture.CreateApiAs(userId))
         {
             await user.JoinChatAsync(chatId);
@@ -152,20 +152,6 @@ public sealed class ParticipantsE2eTests(E2eAppFixture fixture)
         await Assertions.Expect(ParticipantsButton(page)).ToHaveCountAsync(0);
         Assert.DoesNotContain((await fixture.Api.GetParticipantListAsync(chatId)).Rows, row => row.UserId == userId);
         Assert.Contains((await fixture.Api.GetMessageListAsync(chatId)).Rows, row => row.Text == "Сообщение ушедшего");
-    }
-
-    [Fact]
-    public async Task Chat_Open_WithoutCurrentUser_ShouldAskToChooseUserWithoutJoinButton()
-    {
-        var (chatId, chatName) = await CreateChatAsync();
-
-        await using var context = await fixture.NewContextAsAsync(null);
-        var page = await context.NewPageAsync();
-        await page.GotoAsync($"/chat/{chatId}");
-
-        await Assertions.Expect(page.GetByText("Выберите пользователя внизу боковой панели, чтобы читать чат и писать в него")).ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Вступить в чат" })).ToHaveCountAsync(0);
-        await Assertions.Expect(Composer(page, chatName)).ToHaveCountAsync(0);
     }
 
     private async Task<(Guid ChatId, string ChatName)> CreateChatAsync()

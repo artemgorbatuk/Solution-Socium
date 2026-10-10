@@ -1,22 +1,19 @@
 using Datasource.Socium.Ef.Models;
 using Services.Socium.Mapping;
+using Services.Socium.Ports;
+using Services.Socium.Texts;
 
 namespace Tests.Units.Socium;
 
 public sealed class ParticipantMapperTests
 {
-    private static Participant CreateParticipant(bool isAdmin)
+    private static Participant CreateParticipant(bool isAdmin) => new()
     {
-        var user = new User { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван" };
-        return new Participant
-        {
-            Id = Guid.CreateVersion7(),
-            ChatId = Guid.CreateVersion7(),
-            UserId = user.Id,
-            IsAdmin = isAdmin,
-            User = user,
-        };
-    }
+        Id = Guid.CreateVersion7(),
+        ChatId = Guid.CreateVersion7(),
+        UserId = Guid.CreateVersion7(),
+        IsAdmin = isAdmin,
+    };
 
     [Theory]
     [InlineData(false, true)]
@@ -82,13 +79,26 @@ public sealed class ParticipantMapperTests
     public void ListModel_Map_WithParticipant_ShouldCopyIdsUserAndRole()
     {
         var participant = CreateParticipant(isAdmin: true);
+        var user = new UserPortModel { Id = participant.UserId, Login = "ivan", Name = "Иван" };
 
-        var model = ParticipantMapper.ToListModel(participant);
+        var model = ParticipantMapper.ToListModel(participant, user);
 
         Assert.Equal(participant.Id, model.Id);
         Assert.Equal(participant.UserId, model.UserId);
-        Assert.Equal(participant.User.Login, model.Login);
-        Assert.Equal(participant.User.Name, model.Name);
+        Assert.Equal(user.Login, model.Login);
+        Assert.Equal(user.Name, model.Name);
         Assert.True(model.IsAdmin);
+    }
+
+    [Fact]
+    public void ListModel_Map_WithMissingUser_ShouldShowDeletedUserWithoutLogin()
+    {
+        var participant = CreateParticipant(isAdmin: false);
+
+        var model = ParticipantMapper.ToListModel(participant, null);
+
+        Assert.Equal(participant.UserId, model.UserId);
+        Assert.Equal(string.Empty, model.Login);
+        Assert.Equal(UserPortTexts.DeletedUserName, model.Name);
     }
 }

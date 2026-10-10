@@ -1,11 +1,13 @@
 using Microsoft.Extensions.Logging;
 using Repositories.Socium.Ef.Api;
 using Repositories.Socium.Ef.Options;
+using Services.Shared.Api;
 using Services.Shared.Enums;
 using Services.Shared.Models;
 using Services.Socium.Mapping;
 using Services.Socium.Models;
 using Services.Socium.Normalizers;
+using Services.Socium.Ports;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
 
@@ -27,12 +29,14 @@ public class ServiceChat : IServiceChat
 {
     private readonly IUnitOfWorkSocium unitOfWork;
     private readonly ICurrentUser currentUser;
+    private readonly IUserPort userPort;
     private readonly ILogger<ServiceChat> logger;
 
-    public ServiceChat(IUnitOfWorkSocium unitOfWork, ICurrentUser currentUser, ILogger<ServiceChat> logger)
+    public ServiceChat(IUnitOfWorkSocium unitOfWork, ICurrentUser currentUser, IUserPort userPort, ILogger<ServiceChat> logger)
     {
         this.unitOfWork = unitOfWork;
         this.currentUser = currentUser;
+        this.userPort = userPort;
         this.logger = logger;
     }
 
@@ -98,7 +102,7 @@ public class ServiceChat : IServiceChat
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = ChatCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -178,7 +182,7 @@ public class ServiceChat : IServiceChat
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = ChatCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -246,7 +250,7 @@ public class ServiceChat : IServiceChat
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = ChatCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -327,7 +331,7 @@ public class ServiceChat : IServiceChat
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = ChatCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -395,7 +399,7 @@ public class ServiceChat : IServiceChat
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = ChatCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -476,7 +480,7 @@ public class ServiceChat : IServiceChat
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var participantOptions = new ParticipantQueryOptions
             {
@@ -529,7 +533,7 @@ public class ServiceChat : IServiceChat
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var participantOptions = new ParticipantQueryOptions
             {

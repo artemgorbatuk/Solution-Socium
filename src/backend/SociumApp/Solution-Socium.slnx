@@ -1,4 +1,11 @@
 <Solution>
+  <Folder Name="/Security/">
+    <Project Path="Security/Datasource.Security.Ef/Datasource.Security.Ef.csproj" />
+    <Project Path="Security/Repositories.Security.Ef/Repositories.Security.Ef.csproj" />
+    <Project Path="Security/Services.Security.Passwords/Services.Security.Passwords.csproj" />
+    <Project Path="Security/Services.Security.Tokens/Services.Security.Tokens.csproj" />
+    <Project Path="Security/Services.Security/Services.Security.csproj" />
+  </Folder>
   <Folder Name="/Socium/">
     <Project Path="Socium/Datasource.Socium.Ef/Datasource.Socium.Ef.csproj" />
     <Project Path="Socium/Repositories.Socium.Ef/Repositories.Socium.Ef.csproj" />

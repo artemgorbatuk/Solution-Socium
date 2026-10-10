@@ -1,21 +1,12 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
+import { Auth } from '../account/auth';
 
-export const currentUserStorageKey = 'socium.currentUserId';
-
-/** Временный выбор пользователя без пароля (task-0010); при настоящем входе меняется только источник `id`. */
+/** Вошедший пользователь для экранов чатов; `null` — не вошёл. */
 @Injectable({ providedIn: 'root' })
 export class CurrentUser {
-  private readonly selectedId = signal<string | null>(localStorage.getItem(currentUserStorageKey));
+  private readonly auth = inject(Auth);
 
-  readonly id = this.selectedId.asReadonly();
-
-  select(id: string): void {
-    this.selectedId.set(id);
-    localStorage.setItem(currentUserStorageKey, id);
-  }
-
-  clear(): void {
-    this.selectedId.set(null);
-    localStorage.removeItem(currentUserStorageKey);
-  }
+  readonly id = computed(() => this.auth.user()?.id ?? null);
+  /** Меняется после правки своего имени: экраны с подписями отправителей и участников перечитывают данные. */
+  readonly name = computed(() => this.auth.user()?.name ?? null);
 }

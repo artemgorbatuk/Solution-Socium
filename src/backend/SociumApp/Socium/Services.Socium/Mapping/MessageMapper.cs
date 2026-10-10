@@ -1,5 +1,7 @@
 using Datasource.Socium.Ef.Models;
 using Services.Socium.Models;
+using Services.Socium.Ports;
+using Services.Socium.Texts;
 
 namespace Services.Socium.Mapping;
 
@@ -41,7 +43,7 @@ public static class MessageMapper
         };
     }
 
-    public static MessageListModel ToListModel(Message model)
+    public static MessageListModel ToListModel(Message model, UserPortModel? sender)
     {
         return new MessageListModel
         {
@@ -49,7 +51,7 @@ public static class MessageMapper
             Text = model.Text,
             CreatedAt = model.CreatedAt,
             SenderUserId = model.Sender.UserId,
-            SenderName = model.Sender.User.Name,
+            SenderName = sender?.Name ?? UserPortTexts.DeletedUserName,
         };
     }
 

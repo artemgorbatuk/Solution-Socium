@@ -1,11 +1,13 @@
 using Microsoft.Extensions.Logging;
 using Repositories.Socium.Ef.Api;
 using Repositories.Socium.Ef.Options;
+using Services.Shared.Api;
 using Services.Shared.Enums;
 using Services.Shared.Models;
 using Services.Socium.Mapping;
 using Services.Socium.Models;
 using Services.Socium.Normalizers;
+using Services.Socium.Ports;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
 
@@ -27,13 +29,15 @@ public class ServiceMessage : IServiceMessage
 {
     private readonly IUnitOfWorkSocium unitOfWork;
     private readonly ICurrentUser currentUser;
+    private readonly IUserPort userPort;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<ServiceMessage> logger;
 
-    public ServiceMessage(IUnitOfWorkSocium unitOfWork, ICurrentUser currentUser, TimeProvider timeProvider, ILogger<ServiceMessage> logger)
+    public ServiceMessage(IUnitOfWorkSocium unitOfWork, ICurrentUser currentUser, IUserPort userPort, TimeProvider timeProvider, ILogger<ServiceMessage> logger)
     {
         this.unitOfWork = unitOfWork;
         this.currentUser = currentUser;
+        this.userPort = userPort;
         this.timeProvider = timeProvider;
         this.logger = logger;
     }
@@ -54,7 +58,7 @@ public class ServiceMessage : IServiceMessage
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = MessageCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -129,7 +133,7 @@ public class ServiceMessage : IServiceMessage
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = MessageCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -220,7 +224,7 @@ public class ServiceMessage : IServiceMessage
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = MessageCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -288,7 +292,7 @@ public class ServiceMessage : IServiceMessage
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = MessageCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -369,7 +373,7 @@ public class ServiceMessage : IServiceMessage
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = MessageCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -437,7 +441,7 @@ public class ServiceMessage : IServiceMessage
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = MessageCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -508,7 +512,7 @@ public class ServiceMessage : IServiceMessage
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = MessageCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -576,7 +580,7 @@ public class ServiceMessage : IServiceMessage
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = MessageCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -617,7 +621,8 @@ public class ServiceMessage : IServiceMessage
                 ChatId = request.ChatId,
             };
             var models = await unitOfWork.Messages.GetListAsync(messageOptions, cancellationToken);
-            ICollection<MessageListModel> rows = [.. models.Select(MessageMapper.ToListModel)];
+            var senders = await userPort.GetListAsync(models.Select(model => model.Sender.UserId).Distinct(), cancellationToken);
+            ICollection<MessageListModel> rows = [.. models.Select(model => MessageMapper.ToListModel(model, senders.GetValueOrDefault(model.Sender.UserId)))];
             var response = new MessageListPageResponse
             {
                 Rows = rows,

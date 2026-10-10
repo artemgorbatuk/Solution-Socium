@@ -1,8 +1,9 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Services.Shared.Enums;
 using Services.Socium.Models;
 using Services.Socium.Texts;
+using WebApi.Middleware;
 using static Tests.Infrastructure.ApiAssert;
 
 namespace Tests.Integrations.Socium;
@@ -32,7 +33,7 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
 
     private async Task<HttpClient> CreateUserClientAsync()
     {
-        var userId = await fixture.CreateUserAsync(Client, $"user.{Guid.NewGuid():N}", "Пётр");
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Пётр");
         return fixture.CreateClientAs(userId);
     }
 
@@ -66,15 +67,15 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
     }
 
     [Fact]
-    public async Task List_GET_WithoutUserHeader_ShouldReturn401()
+    public async Task List_GET_WithoutToken_ShouldReturn401()
     {
         var chatId = await CreateChatAsync();
-        using var client = fixture.CreateClientAs(null);
+        using var client = fixture.CreateAnonymousClient();
 
         var response = await client.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken);
 
         var problem = await ReadProblemAsync(response, HttpStatusCode.Unauthorized);
-        Assert.Contains(ParticipantCrudTexts.Messages.Validation.CurrentUserNotFound, problem.Detail);
+        Assert.Equal(AuthenticationRegistration.UnauthorizedDetail, problem.Detail);
     }
 
     [Fact]

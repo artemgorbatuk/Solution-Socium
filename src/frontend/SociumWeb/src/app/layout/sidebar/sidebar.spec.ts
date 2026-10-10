@@ -55,9 +55,8 @@ describe('Sidebar', () => {
 
   afterEach(() => {
     // Комнаты раскрыты по умолчанию и сами загружают чаты; чаты проверяются в спеках RoomListItem и RoomChats.
-    // Выбор пользователя внизу панели загружает список сам; он проверяется в спеке UserPicker.
     http
-      .match((request) => request.url === '/api/chat' || request.url === '/api/user')
+      .match((request) => request.url === '/api/chat')
       .filter((request) => !request.cancelled)
       .forEach((request) => request.flush(successBody({ rowExists: false, rowCount: 0, rows: [] })));
     http.verify();
@@ -294,14 +293,14 @@ describe('Sidebar', () => {
     });
   });
 
-  it('Panel_Render_WithExpandedPanel_ShouldShowUserPickerAndHideItWhenCollapsed', () => {
+  it('Panel_Render_WithExpandedPanel_ShouldShowAccountMenuAndHideItWhenCollapsed', () => {
     http.expectOne('/api/room').flush(listBody([]));
     render();
-    expect(element.querySelector('app-user-picker')).not.toBeNull();
+    expect(element.querySelector('app-account-menu')).not.toBeNull();
 
     button('«').click();
     render();
-    expect(element.querySelector('app-user-picker')).toBeNull();
+    expect(element.querySelector('app-account-menu')).toBeNull();
   });
 
   it('CreateForm_Input_WithBlankName_ShouldDisableCreate', () => {

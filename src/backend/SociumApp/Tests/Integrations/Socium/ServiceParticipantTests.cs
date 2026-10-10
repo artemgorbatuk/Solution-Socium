@@ -1,4 +1,4 @@
-using Datasource.Socium.Ef.Contexts;
+﻿using Datasource.Socium.Ef.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Services.Shared.Enums;
 using Services.Shared.Models;
@@ -141,7 +141,7 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
     {
         var chatId = await CreateChatAsync();
         var userId = await CreateUserAsync();
-        await fixture.RunAsync((IServiceUser service) => service.DeleteAsync(new UserDeleteRequest { Id = userId }));
+        await fixture.RunAsAsync(userId, (Services.Security.Api.IServiceUser service) => service.DeleteAsync(new Services.Security.Models.UserDeleteRequest { Id = userId }));
 
         var result = await RunAsAsync(userId, service => service.CreateAsync(new ParticipantCreateRequest { ChatId = chatId }));
 

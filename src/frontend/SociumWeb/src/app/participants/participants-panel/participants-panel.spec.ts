@@ -3,7 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ChatChanges } from '../../chats/chat-changes';
 import { successBody } from '../../shared/api/api-response.testing';
-import { CurrentUser, currentUserStorageKey } from '../../users/current-user';
+import { Auth } from '../../account/auth';
+import { signInAs } from '../../account/auth.testing';
 import { ParticipantListModel } from '../participant.models';
 import { ParticipantsPanelState, participantsPanelOpenStorageKey } from '../participants-panel-state';
 import { ParticipantsPanel } from './participants-panel';
@@ -51,7 +52,7 @@ describe('ParticipantsPanel', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     http = TestBed.inject(HttpTestingController);
-    TestBed.inject(CurrentUser).select('u1');
+    signInAs('u1');
     fixture = TestBed.createComponent(ParticipantsPanel);
     fixture.componentRef.setInput('chatId', 'c1');
     fixture.componentRef.setInput('chatName', 'Общий');
@@ -61,7 +62,6 @@ describe('ParticipantsPanel', () => {
 
   afterEach(() => {
     http.verify();
-    localStorage.removeItem(currentUserStorageKey);
     localStorage.removeItem(participantsPanelOpenStorageKey);
   });
 
@@ -216,11 +216,21 @@ describe('ParticipantsPanel', () => {
   it('List_Reload_WithCurrentUserChanged_ShouldReloadList', () => {
     flushList([anna, boris], true);
 
-    TestBed.inject(CurrentUser).select('u2');
+    signInAs('u2');
     render();
     flushList([anna, boris], false);
 
     expect(element.querySelector('.role')).toBeNull();
     expect(rowTexts()[1]).toContain('(вы)');
+  });
+
+  it('List_Reload_WithOwnNameChanged_ShouldReloadList', () => {
+    flushList([anna, boris], false);
+
+    TestBed.inject(Auth).updateProfile({ id: 'u1', login: 'anna', name: 'Анна Новая' });
+    render();
+    flushList([{ ...anna, name: 'Анна Новая' }, boris], false);
+
+    expect(rowTexts()[0]).toContain('Анна Новая');
   });
 });

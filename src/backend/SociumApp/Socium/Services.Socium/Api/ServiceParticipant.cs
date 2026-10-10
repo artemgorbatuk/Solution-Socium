@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Logging;
 using Repositories.Socium.Ef.Api;
 using Repositories.Socium.Ef.Options;
+using Services.Shared.Api;
 using Services.Shared.Enums;
 using Services.Shared.Models;
 using Services.Socium.Mapping;
 using Services.Socium.Models;
+using Services.Socium.Ports;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
 
@@ -23,12 +25,14 @@ public class ServiceParticipant : IServiceParticipant
 {
     private readonly IUnitOfWorkSocium unitOfWork;
     private readonly ICurrentUser currentUser;
+    private readonly IUserPort userPort;
     private readonly ILogger<ServiceParticipant> logger;
 
-    public ServiceParticipant(IUnitOfWorkSocium unitOfWork, ICurrentUser currentUser, ILogger<ServiceParticipant> logger)
+    public ServiceParticipant(IUnitOfWorkSocium unitOfWork, ICurrentUser currentUser, IUserPort userPort, ILogger<ServiceParticipant> logger)
     {
         this.unitOfWork = unitOfWork;
         this.currentUser = currentUser;
+        this.userPort = userPort;
         this.logger = logger;
     }
 
@@ -48,7 +52,7 @@ public class ServiceParticipant : IServiceParticipant
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = ParticipantCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -126,7 +130,7 @@ public class ServiceParticipant : IServiceParticipant
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = ParticipantCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -207,7 +211,7 @@ public class ServiceParticipant : IServiceParticipant
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = ParticipantCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -276,7 +280,7 @@ public class ServiceParticipant : IServiceParticipant
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = ParticipantCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -357,7 +361,7 @@ public class ServiceParticipant : IServiceParticipant
             }
 
             var user = currentUser.UserId is Guid currentUserId
-                ? await unitOfWork.Users.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
                 : null;
             var currentUserErrors = ParticipantCrudValidators.ValidateCurrentUser(user);
             if (currentUserErrors.Any())
@@ -393,7 +397,15 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.Forbidden<ParticipantListPageResponse>(MessageType.FORBIDDEN, messageText);
             }
 
-            ICollection<ParticipantListModel> rows = [.. participants.Select(ParticipantMapper.ToListModel)];
+            var users = await userPort.GetListAsync(participants.Select(participant => participant.UserId), cancellationToken);
+            ICollection<ParticipantListModel> rows =
+            [
+                .. participants
+                    .Select(participant => ParticipantMapper.ToListModel(participant, users.GetValueOrDefault(participant.UserId)))
+                    .OrderBy(row => row.Name)
+                    .ThenBy(row => row.Login)
+                    .ThenBy(row => row.Id)
+            ];
             var response = new ParticipantListPageResponse
             {
                 Rows = rows,

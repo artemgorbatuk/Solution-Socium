@@ -8,7 +8,6 @@ public interface IUnitOfWorkSocium
     IRepositoryRoom Rooms { get; }
     IRepositoryChat Chats { get; }
     IRepositoryMessage Messages { get; }
-    IRepositoryUser Users { get; }
     IRepositoryParticipant Participants { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
@@ -28,14 +27,12 @@ public class UnitOfWorkSocium : IUnitOfWorkSocium
         Rooms = new RepositoryRoom(context);
         Chats = new RepositoryChat(context);
         Messages = new RepositoryMessage(context);
-        Users = new RepositoryUser(context);
         Participants = new RepositoryParticipant(context);
     }
 
     public IRepositoryRoom Rooms { get; }
     public IRepositoryChat Chats { get; }
     public IRepositoryMessage Messages { get; }
-    public IRepositoryUser Users { get; }
     public IRepositoryParticipant Participants { get; }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

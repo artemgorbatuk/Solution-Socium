@@ -5,7 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { TopbarTitle } from '../../layout/topbar/topbar-title';
 import { ParticipantsPanelState, participantsPanelOpenStorageKey } from '../../participants/participants-panel-state';
 import { successBody } from '../../shared/api/api-response.testing';
-import { CurrentUser, currentUserStorageKey } from '../../users/current-user';
+import { signInAs } from '../../account/auth.testing';
 import { ChatChanges } from '../chat-changes';
 import { ChatPage } from './chat-page';
 
@@ -62,14 +62,13 @@ describe('ChatPage', () => {
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
     http = TestBed.inject(HttpTestingController);
-    TestBed.inject(CurrentUser).select('u1');
+    signInAs('u1');
     fixture = TestBed.createComponent(ChatPage);
     element = fixture.nativeElement;
   });
 
   afterEach(() => {
     http.verify();
-    localStorage.removeItem(currentUserStorageKey);
     localStorage.removeItem(participantsPanelOpenStorageKey);
   });
 
@@ -118,16 +117,6 @@ describe('ChatPage', () => {
     expect(TestBed.inject(ParticipantsPanelState).available()).toBe(false);
   });
 
-  it('Chat_Load_WithoutCurrentUser_ShouldAskToChooseUserWithoutJoinButton', () => {
-    TestBed.inject(CurrentUser).clear();
-    open('c1');
-    flushChat('c1', 'Общий', false);
-
-    expect(element.textContent).toContain('Выберите пользователя внизу боковой панели');
-    expect(button('Вступить в чат')).toBeUndefined();
-    expect(element.querySelector('textarea')).toBeNull();
-  });
-
   it('Join_Click_WithNotParticipant_ShouldJoinNotifyChangesAndShowMessages', () => {
     open('c1');
     flushChat('c1', 'Общий', false);
@@ -164,10 +153,11 @@ describe('ChatPage', () => {
     flushChat('c1', 'Общий');
     flushMessages('c1');
 
-    TestBed.inject(CurrentUser).select('u2');
+    signInAs('u2');
     render();
     flushChat('c1', 'Общий', false);
 
+    expect(http.expectOne(isMessageList('c1')).cancelled).toBe(true);
     expect(element.textContent).toContain('Вы не участник этого чата');
     expect(element.querySelector('textarea')).toBeNull();
   });

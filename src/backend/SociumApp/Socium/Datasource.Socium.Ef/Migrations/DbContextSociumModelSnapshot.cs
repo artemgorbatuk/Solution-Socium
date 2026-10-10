@@ -154,33 +154,6 @@ namespace Datasource.Socium.Ef.Migrations
                     b.ToTable("Senders", (string)null);
                 });
 
-            modelBuilder.Entity("Datasource.Socium.Ef.Models.User", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Login")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex(new[] { "Login" }, "IX_Users_Login")
-                        .IsUnique();
-
-                    b.ToTable("Users", (string)null);
-                });
-
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Chat", b =>
                 {
                     b.HasOne("Datasource.Socium.Ef.Models.Room", "Room")
@@ -211,15 +184,7 @@ namespace Datasource.Socium.Ef.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Datasource.Socium.Ef.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("Chat");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Recipient", b =>
@@ -230,14 +195,7 @@ namespace Datasource.Socium.Ef.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Datasource.Socium.Ef.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.Navigation("Message");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Sender", b =>
@@ -248,15 +206,7 @@ namespace Datasource.Socium.Ef.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Datasource.Socium.Ef.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("Message");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Chat", b =>

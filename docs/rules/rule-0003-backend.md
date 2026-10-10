@@ -12,13 +12,15 @@
 
 **Правила:**
 
-1. Area: предметная область (`Socium`, …) — папка `src/backend/SociumApp/{Area}/` с цепочкой библиотек `Datasource.{Area}.Ef` → `Repositories.{Area}.Ef` → `Services.{Area}`; в `Solution-Socium.slnx` проекты area лежат в папке решения `/{Area}/`.
+1. Area: предметная область (`Socium`, `Security`, …) — папка `src/backend/SociumApp/{Area}/` с цепочкой библиотек `Datasource.{Area}.Ef` → `Repositories.{Area}.Ef` → `Services.{Area}`; в `Solution-Socium.slnx` проекты area лежат в папке решения `/{Area}/`.
 2. Общие библиотеки: код, нужный нескольким area, — в корне `src/backend/SociumApp/` (`Services.Shared`, …); общая библиотека не ссылается на area и на ASP.NET.
-3. Зависимости: `WebApi` → `Services.{Area}` → `Repositories.{Area}.Ef` → `Datasource.{Area}.Ef`; `Services.{Area}` также ссылается на `Services.Shared`; `WebApi` дополнительно ссылается на `Datasource.{Area}.Ef` только ради регистрации контекста. Обратные и «перепрыгивающие» ссылки (контроллер → репозиторий) запрещены.
+3. Зависимости: `WebApi` → `Services.{Area}` → `Repositories.{Area}.Ef` → `Datasource.{Area}.Ef`; `Services.{Area}` также ссылается на `Services.Shared`; `WebApi` дополнительно ссылается на `Datasource.{Area}.Ef` только ради регистрации контекста. Обратные и «перепрыгивающие» ссылки (контроллер → репозиторий) запрещены; проекты одной area не ссылаются на проекты другой — связь областей только через порт (п. 41).
 4. Папки: папка создаётся только при появлении в ней файла; папки называются по роли кода, а не по фиче.
    - `Datasource.{Area}.Ef`: `Common/`, `Configurations/`, `Contexts/`, `Factories/`, `Migrations/`, `Models/`, `Seeds/`.
    - `Repositories.{Area}.Ef`: `Api/`, `Options/`, `Models/` (проекции запросов).
-   - `Services.{Area}`: `Api/`, `Models/`, `Mapping/`, `Validation/`, `Texts/`, `Rules/`, `Normalizers/`.
+   - `Services.{Area}`: `Api/`, `Models/`, `Mapping/`, `Validation/`, `Texts/`, `Rules/`, `Normalizers/`, `Ports/`.
+   - `Services.{Area}.{Роль}` (п. 42): `Providers/`, `Options/`, `Models/`, `Validation/`, `Texts/`.
+   - `WebApi`: `Controllers/`, `Controllers/Shared/`, `Middleware/`, `Ports/`.
 5. Файлы: один публичный класс — один файл, имя файла совпадает с именем класса; интерфейс лежит в одном файле со своей единственной реализацией.
 6. Именование:
 
@@ -51,7 +53,7 @@
 14. Seed-данные: только с фиксированными `Guid`, в `Seed{Entity}`, подключаются из `Configuration{Entity}`.
 15. Миграции: имя — `TaskNNNN` по номеру задачи; одна миграция на задачу на контекст (если модель изменилась после создания — `dotnet ef migrations remove` и создать заново с тем же именем); хранятся в `Datasource.{Area}.Ef/Migrations/`; startup-проект — `WebApi`.
     - Создание: `dotnet ef migrations add Task0003 --project Socium/Datasource.Socium.Ef --startup-project WebApi --context DbContextSocium`.
-16. Применение миграций: приложение накатывает миграции при старте только в окружении `Development`; в остальных окружениях схема применяется отдельным шагом развёртывания.
+16. Применение миграций: приложение накатывает миграции при старте только в окружении `Development`; в остальных окружениях схема применяется отдельным шагом развёртывания. Контексты мигрируются в порядке `DbContextSocium` → `DbContextSecurity` (миграция Socium `Task0011` удаляет старую таблицу `Users`, Security создаёт новую); тот же порядок — в `Tests/Infrastructure/TestDatabase`.
 17. Репозиторий: только меняет состояние контекста (`Add` / `Update` / `Remove`) и выполняет запросы; не вызывает `SaveChanges`, не валидирует и не бросает исключения ради бизнес-правил.
 18. Методы репозитория: базовый набор — `GetNew`, `GetSingleOrDefaultAsync(id)`, `GetListAsync({Entity}QueryOptions?)`, `CreateAsync`, `UpdateAsync`, `DeleteAsync`; методы добавляются только при появлении потребности в сервисе.
 19. Фильтры выборки: все критерии выборки передаются через `{Entity}QueryOptions`, а не отдельными параметрами метода; в сервисе options создаются отдельной локальной переменной, а не inline в аргументе вызова.
@@ -87,18 +89,24 @@
 
 38. HTTP-ответ: `ApiControllerBase.FromResponse` переводит `MessageType` в ответ — `LOADED` / `SAVED` / `WARNING` → `200` с `ApiSuccessResponse<T>`; `BAD_REQUEST` → `400`, `UNAUTHORIZED` → `401`, `FORBIDDEN` → `403`, `NOT_FOUND` → `404`, `INVALID` → `422`, `ERROR` → `500` — Problem Details через `ApiProblem`. `ApiControllerBase`, `ApiSuccessResponse` и `ApiProblem` повторяют эталон, кроме веток `401` / `403`, включая поля оформления (`messageTypeDescription`, `messageAlert`, `messageTextColor`, `messageBorderColor`, `messageBackgroundColor`, `messageIcon`).
 39. Конфигурация: строка подключения — `ConnectionStrings:{Area}`; опции библиотек — отдельные секции appsettings с Options-классом; код ветвится только по окружениям `Development` / `Testing`, а не по имени стенда.
-40. Секреты: пароли, ключи и токены в репозиторий не попадают; для окружений, кроме локального, они задаются переменными окружения или user-secrets.
+40. Секреты: пароли, ключи и токены в репозиторий не попадают; для окружений, кроме локального, они задаются переменными окружения или user-secrets. Ключ подписи JWT (`Security:Jwt:SigningKey`) не хранится в репозитории ни для какого окружения: локально — `dotnet user-secrets` проекта `WebApi` (его создаёт `scripts/local/start-solution.ps1`), в тестах — новый случайный ключ на каждый запуск.
+41. Порты: сервис одной area получает данные другой через интерфейс-порт `I{Entity}Port` с моделью `{Entity}PortModel` в `Services.{Area}/Ports/`; адаптер `{Entity}Port` лежит в `WebApi/Ports/`, вызывает сервис другой area и регистрируется в DI как scoped. Порт отдаёт данные набором по списку `Id` одним вызовом; «не найден» — `null` или отсутствие ключа, сбой другой area — исключение.
+   - Пример: `IUserPort` в `Services.Socium/Ports/`, адаптер `UserPort` вызывает `IServiceUser` из `Services.Security`.
+42. Служебные библиотеки area: техническая логика без БД (токены, хеширование паролей) — отдельный проект `Services.{Area}.{Роль}` (`Services.Security.Tokens`, `Services.Security.Passwords`); на него ссылается `Services.{Area}`, сам он не ссылается на `Repositories.{Area}.Ef` и `Datasource.{Area}.Ef`. Абстракции для сервиса — интерфейс и реализация с суффиксом по роли (п. 26: `IAccessTokenProvider`, `IPasswordHasher`) в `Providers/`, регистрируются как singleton, настройки — `{Name}Options` в `Options/` с `IValidateOptions` и `ValidateOnStart`.
+43. Аутентификация: все эндпоинты требуют входа (fallback-политика авторизации); анонимные действия помечаются `[AllowAnonymous]` явно. Текущий пользователь — `ICurrentUser` из claim `sub` проверенного JWT (`WebApi/Middleware/CurrentUserFromClaims`); существование и флаг удаления пользователя сервис проверяет сам (п. 27). Регистрация JwtBearer, ответ `401` в формате Problem Details и ограничение частоты запросов — в `WebApi/Middleware/AuthenticationRegistration.cs`.
 
 **Исключения:**
 
 1. Локальная разработка: строка подключения к локальной БД с паролем допускается в `WebApi/appsettings.Development.json` и как запасная строка в design-time factory (п. 8, 40) — согласовано в [task-0003](../tasks/task-0003.md).
-2. Абстракции HTTP-окружения: интерфейс, который сервис получает от `WebApi` (например, `ICurrentUser`), лежит в `Services.{Area}/Api/` отдельно от реализации, а реализация — в `WebApi/Middleware/`, потому что `Services.{Area}` не ссылается на `WebApi` (п. 3, 5) — согласовано в [task-0010](../tasks/task-0010.md).
+2. Абстракции HTTP-окружения: интерфейс, который сервис получает от `WebApi`, лежит отдельно от реализации — в `Services.{Area}/Api/`, а если он нужен нескольким area (`ICurrentUser`), — в `Services.Shared/Api/`; реализация — в `WebApi/Middleware/`, потому что сервисы не ссылаются на `WebApi` (п. 3, 5) — согласовано в [task-0010](../tasks/task-0010.md), перенос `ICurrentUser` в `Services.Shared` — в [task-0011](../tasks/task-0011.md). Порты (п. 41) лежат так же, отдельно от адаптера.
 3. Участники чата: `ParticipantController` (`api/participant`) содержит только `List` (`GET`), `Create` — вступление текущего пользователя (`POST`), `Update` — смена роли (`PUT`), `DeleteConfirm` — страница выхода с причиной, если уйти нельзя (`GET delete`), и `Delete` — выход (`DELETE`); страниц создания и обновления и `Info` нет (п. 37) — согласовано в [task-0010](../tasks/task-0010.md).
 4. Коды `401` / `403`: `MessageType.UNAUTHORIZED` и `FORBIDDEN`, фабрики `ResponseInfo.Unauthorized` / `Forbidden` и их ветки в `ApiControllerBase.FromResponse` добавлены сверх эталона (п. 23, 24, 38) — согласовано в [task-0010](../tasks/task-0010.md).
+5. Учётная запись: `AccountController` (`api/account`) — не CRUD: `POST login`, `POST refresh`, `POST logout`, `GET profile`, `PUT profile` (п. 37); refresh-токен ставит и удаляет в `HttpOnly`-cookie контроллер (`Controllers/Shared/RefreshTokenCookie`), а `refresh` и `logout` берут его из cookie, а не из параметра запроса (п. 35) — согласовано в [task-0011](../tasks/task-0011.md).
+6. Строка подключения Security: таблицы `Security` лежат в БД `Socium`, поэтому `DbContextSecurity` и `SecurityDbContextFactoryDesignTime` берут `ConnectionStrings:Socium` / `ConnectionStrings__Socium`, а не строку своей area (п. 8, 39) — согласовано в [task-0011](../tasks/task-0011.md).
 
 **Связанные документы:**
 
 - Реестр правил: `docs/rules.md`
 - Оформление задач: `docs/rules/rule-0001-tasks.md`
 - Оформление правил: `docs/rules/rule-0002-rules.md`
-- Эталон структуры: `autoclass-reports.ru/src/backend/ReportsApp/Reports`, правило эталона `autoclass-reports.ru/docs/solution-rules/rule-0006-backend.md`
+- Эталон структуры: `autoclass-reports.ru/src/backend/ReportsApp/Reports`, область учётных записей — `autoclass-reports.ru/src/backend/ReportsApp/Security`, правило эталона `autoclass-reports.ru/docs/solution-rules/rule-0006-backend.md`

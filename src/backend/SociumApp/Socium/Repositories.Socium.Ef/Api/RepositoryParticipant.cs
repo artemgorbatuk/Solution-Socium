@@ -72,7 +72,6 @@ public class RepositoryParticipant : IRepositoryParticipant
     {
         var query = context.Participants
             .AsNoTracking()
-            .Include(participant => participant.User)
             .AsQueryable();
 
         if (options?.ChatId is Guid chatId)
@@ -90,10 +89,9 @@ public class RepositoryParticipant : IRepositoryParticipant
             query = query.Where(participant => participant.IsAdmin == isAdmin);
         }
 
+        // Имена пользователей — в области Security; сортировку по имени делает сервис.
         return await query
-            .OrderBy(participant => participant.User.Name)
-            .ThenBy(participant => participant.User.Login)
-            .ThenBy(participant => participant.Id)
+            .OrderBy(participant => participant.Id)
             .ToListAsync(cancellationToken);
     }
 }

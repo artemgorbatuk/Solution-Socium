@@ -1,8 +1,9 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Services.Shared.Enums;
 using Services.Socium.Models;
 using Services.Socium.Texts;
+using WebApi.Middleware;
 using static Tests.Infrastructure.ApiAssert;
 
 namespace Tests.Integrations.Socium;
@@ -279,12 +280,27 @@ public sealed class ChatApiTests(SociumApiFixture fixture)
     }
 
     [Fact]
-    public async Task Create_POST_WithoutUserHeader_ShouldReturn401()
+    public async Task Create_POST_WithoutToken_ShouldReturn401()
     {
         var roomId = await CreateRoomAsync();
-        using var anonymousClient = fixture.CreateClientAs(null);
+        using var anonymousClient = fixture.CreateAnonymousClient();
 
         var response = await anonymousClient.PostAsJsonAsync(BaseUrl, new ChatCreateRequest { RoomId = roomId, Name = UniqueName() }, TestContext.Current.CancellationToken);
+
+        var problem = await ReadProblemAsync(response, HttpStatusCode.Unauthorized);
+        Assert.Equal(AuthenticationRegistration.UnauthorizedDetail, problem.Detail);
+    }
+
+    [Fact]
+    public async Task Create_POST_WithTokenOfDeletedUser_ShouldReturn401()
+    {
+        var roomId = await CreateRoomAsync();
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Пётр");
+        using var userClient = fixture.CreateClientAs(userId);
+        var deleted = await userClient.DeleteAsync($"/api/user?id={userId}", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, deleted.StatusCode);
+
+        var response = await userClient.PostAsJsonAsync(BaseUrl, new ChatCreateRequest { RoomId = roomId, Name = UniqueName() }, TestContext.Current.CancellationToken);
 
         var problem = await ReadProblemAsync(response, HttpStatusCode.Unauthorized);
         Assert.Contains(ChatCrudTexts.Messages.Validation.CurrentUserNotFound, problem.Detail);
@@ -295,7 +311,7 @@ public sealed class ChatApiTests(SociumApiFixture fixture)
     {
         var roomId = await CreateRoomAsync();
         var id = await CreateChatAsync(roomId, UniqueName());
-        var userId = await fixture.CreateUserAsync(Client, $"user.{Guid.NewGuid():N}", "Пётр");
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Пётр");
         using var userClient = fixture.CreateClientAs(userId);
         await userClient.PostAsJsonAsync("/api/participant", new ParticipantCreateRequest { ChatId = id }, TestContext.Current.CancellationToken);
 
@@ -312,7 +328,7 @@ public sealed class ChatApiTests(SociumApiFixture fixture)
     {
         var roomId = await CreateRoomAsync();
         var id = await CreateChatAsync(roomId, UniqueName());
-        var userId = await fixture.CreateUserAsync(Client, $"user.{Guid.NewGuid():N}", "Пётр");
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Пётр");
         using var userClient = fixture.CreateClientAs(userId);
 
         var creator = await ReadSuccessAsync<ChatInfoPageResponse>(await Client.GetAsync($"{BaseUrl}/info?id={id}", TestContext.Current.CancellationToken));

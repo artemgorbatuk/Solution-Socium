@@ -1,5 +1,7 @@
 using Datasource.Socium.Ef.Models;
 using Services.Socium.Mapping;
+using Services.Socium.Ports;
+using Services.Socium.Texts;
 
 namespace Tests.Units.Socium;
 
@@ -83,15 +85,28 @@ public sealed class MessageMapperTests
     public void ListModel_Map_WithExistingMessage_ShouldCopyIdTextCreatedAtAndSender()
     {
         var message = CreateMessage();
-        var user = new User { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван" };
-        message.Sender = new Sender { Id = Guid.CreateVersion7(), MessageId = message.Id, UserId = user.Id, User = user };
+        var user = new UserPortModel { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван" };
+        message.Sender = new Sender { Id = Guid.CreateVersion7(), MessageId = message.Id, UserId = user.Id };
 
-        var model = MessageMapper.ToListModel(message);
+        var model = MessageMapper.ToListModel(message, user);
 
         Assert.Equal(message.Id, model.Id);
         Assert.Equal(message.Text, model.Text);
         Assert.Equal(message.CreatedAt, model.CreatedAt);
         Assert.Equal(user.Id, model.SenderUserId);
         Assert.Equal(user.Name, model.SenderName);
+    }
+
+    [Fact]
+    public void ListModel_Map_WithMissingSenderUser_ShouldShowDeletedUser()
+    {
+        var message = CreateMessage();
+        var userId = Guid.CreateVersion7();
+        message.Sender = new Sender { Id = Guid.CreateVersion7(), MessageId = message.Id, UserId = userId };
+
+        var model = MessageMapper.ToListModel(message, null);
+
+        Assert.Equal(userId, model.SenderUserId);
+        Assert.Equal(UserPortTexts.DeletedUserName, model.SenderName);
     }
 }

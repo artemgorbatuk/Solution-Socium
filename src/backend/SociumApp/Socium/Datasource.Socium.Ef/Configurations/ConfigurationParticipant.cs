@@ -35,11 +35,5 @@ public class ConfigurationParticipant : IEntityTypeConfiguration<Participant>
             .WithMany(chat => chat.Participants)
             .HasForeignKey(participant => participant.ChatId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        // Пользователь удаляется мягко (IsDeleted), поэтому каскада от него нет.
-        builder.HasOne(participant => participant.User)
-            .WithMany()
-            .HasForeignKey(participant => participant.UserId)
-            .OnDelete(DeleteBehavior.Restrict);
     }
 }

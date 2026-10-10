@@ -1,0 +1,39 @@
+@if (open()) {
+  <div class="panel">
+    @if (editing()) {
+      <form class="edit-form" (submit)="save($event)">
+        <input
+          #nameInput
+          type="text"
+          name="name"
+          placeholder="Имя"
+          aria-label="Новое имя"
+          autocomplete="off"
+          [attr.maxlength]="nameMaxLength"
+          [value]="draftName()"
+          [disabled]="saving()"
+          (input)="onNameInput($event)"
+        />
+        <div class="buttons">
+          <button type="button" (click)="cancelEdit()" [disabled]="saving()">Отмена</button>
+          <button type="submit" class="primary" [disabled]="!canSave()">Сохранить</button>
+        </div>
+        @if (editError(); as error) {
+          <p class="error" role="alert">{{ error }}</p>
+        }
+      </form>
+    } @else {
+      <div class="profile">
+        <span class="name">{{ user()?.name }}</span>
+        <span class="login">{{ user()?.login }}</span>
+      </div>
+      <button type="button" class="item" (click)="startEdit()">Изменить имя</button>
+    }
+    <button type="button" class="item" (click)="logout()">Выйти</button>
+  </div>
+}
+
+<button type="button" class="trigger" title="Профиль" [attr.aria-expanded]="open()" (click)="toggle()">
+  <span class="avatar" aria-hidden="true">{{ initial() }}</span>
+  <span class="name">{{ user()?.name }}</span>
+</button>

@@ -1,5 +1,6 @@
-using Datasource.Socium.Ef.Models;
+﻿using Datasource.Socium.Ef.Models;
 using Services.Socium.Models;
+using Services.Socium.Ports;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
 
@@ -59,21 +60,10 @@ public sealed class ParticipantCrudValidatorsTests
     }
 
     [Fact]
-    public void CurrentUser_Validate_WithMissingOrDeletedUser_ShouldReturnCurrentUserNotFound()
+    public void CurrentUser_Validate_WithMissingOrFoundUser_ShouldRejectOnlyMissing()
     {
-        string[] expected = [ParticipantCrudTexts.Messages.Validation.CurrentUserNotFound];
-        var deleted = new User { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван", IsDeleted = true };
-
-        Assert.Equal(expected, ParticipantCrudValidators.ValidateCurrentUser(null));
-        Assert.Equal(expected, ParticipantCrudValidators.ValidateCurrentUser(deleted));
-    }
-
-    [Fact]
-    public void CurrentUser_Validate_WithActiveUser_ShouldReturnNoErrors()
-    {
-        var user = new User { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван" };
-
-        Assert.Empty(ParticipantCrudValidators.ValidateCurrentUser(user));
+        Assert.Equal([ParticipantCrudTexts.Messages.Validation.CurrentUserNotFound], ParticipantCrudValidators.ValidateCurrentUser(null));
+        Assert.Empty(ParticipantCrudValidators.ValidateCurrentUser(new UserPortModel { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван" }));
     }
 
     [Fact]

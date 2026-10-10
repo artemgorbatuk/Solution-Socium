@@ -1,0 +1,92 @@
+:host {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  padding-top: var(--sc-space-3);
+  border-top: 1px solid var(--sc-color-border);
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--sc-space-1);
+  border-color: transparent;
+  background: transparent;
+  text-align: left;
+}
+
+.avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--sc-color-active);
+  font-size: var(--sc-font-size-sm);
+}
+
+.name,
+.login {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.login {
+  color: var(--sc-color-text-muted);
+  font-size: var(--sc-font-size-sm);
+}
+
+.panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--sc-space-1));
+  left: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sc-space-1);
+  border: 1px solid var(--sc-color-border);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-surface-raised);
+  box-shadow: var(--sc-shadow-menu);
+}
+
+.profile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--sc-space-1) var(--sc-space-2) var(--sc-space-2);
+  border-bottom: 1px solid var(--sc-color-border);
+}
+
+.item {
+  padding: var(--sc-space-1) var(--sc-space-2);
+  border-color: transparent;
+  background: transparent;
+  text-align: left;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-1);
+}
+
+.buttons {
+  display: flex;
+  gap: var(--sc-space-2);
+}
+
+.error {
+  margin: 0;
+  color: var(--sc-color-danger);
+  white-space: pre-line;
+}

@@ -1,9 +1,12 @@
+using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Net.Sockets;
-using System.Text.Json;
 using Microsoft.Playwright;
-using Tests.E2Es.Socium;
+using Services.Security.Models;
 using Tests.Infrastructure;
+using WebApi.Controllers.Shared;
 
 namespace Tests.E2Es;
 
@@ -16,9 +19,11 @@ public sealed class E2eAppFixture : IAsyncLifetime
     private static readonly TimeSpan ApiStartTimeout = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan FrontendBuildTimeout = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan FrontendStartTimeout = TimeSpan.FromSeconds(30);
-    private const string CurrentUserHeader = "X-User-Id";
-    private const string CurrentUserStorageKey = "socium.currentUserId";
 
+    /// <summary>Пароль всех пользователей, созданных фикстурой.</summary>
+    public const string Password = "Password-123";
+
+    private readonly ConcurrentDictionary<Guid, (string Login, string AccessToken)> users = new();
     private PostgresTestHost? postgres;
     private TestProcess? api;
     private TestProcess? frontend;
@@ -32,7 +37,8 @@ public sealed class E2eAppFixture : IAsyncLifetime
     /// <summary>Клиент к тому же WebApi через прокси фронтенда от имени <see cref="DefaultUserId"/> — для подготовки и проверки данных.</summary>
     public HttpClient Api { get; private set; } = default!;
 
-    /// <summary>Имя пользователя <see cref="DefaultUserId"/>.</summary>
+    /// <summary>Логин и имя пользователя <see cref="DefaultUserId"/>.</summary>
+    public const string DefaultUserLogin = "e2e.default";
     public const string DefaultUserName = "Пользователь по умолчанию";
 
     /// <summary>Пользователь, от которого по умолчанию работают <see cref="Api"/> и браузер: создатель и админ подготовленных чатов.</summary>
@@ -45,7 +51,7 @@ public sealed class E2eAppFixture : IAsyncLifetime
 
         var apiUrl = $"http://127.0.0.1:{GetFreePort()}";
         api = StartApi(repoRoot, apiUrl, postgres.ConnectionString);
-        await WaitForUrlAsync($"{apiUrl}/api/room", api, ApiStartTimeout);
+        await WaitForUrlAsync($"{apiUrl}/api/user/create", api, ApiStartTimeout);
 
         var frontendDist = await BuildFrontendAsync(repoRoot);
         BaseUrl = $"http://127.0.0.1:{GetFreePort()}";
@@ -55,29 +61,60 @@ public sealed class E2eAppFixture : IAsyncLifetime
             repoRoot);
         await WaitForUrlAsync(BaseUrl, frontend, FrontendStartTimeout);
 
-        Api = new HttpClient { BaseAddress = new Uri(BaseUrl) };
-        DefaultUserId = await Api.CreateUserAsync("e2e.default", DefaultUserName);
-        Api.DefaultRequestHeaders.Add(CurrentUserHeader, DefaultUserId.ToString());
+        DefaultUserId = await CreateUserAsync(DefaultUserLogin, DefaultUserName);
+        Api = CreateApiAs(DefaultUserId);
         playwright = await Playwright.CreateAsync();
         browser = await LaunchChromiumAsync(playwright);
     }
 
-    /// <summary>Новый изолированный контекст браузера (свои cookies и localStorage) с выбранным <see cref="DefaultUserId"/>.</summary>
-    public Task<IBrowserContext> NewContextAsync() => NewContextAsAsync(DefaultUserId);
-
-    /// <summary>Новый изолированный контекст браузера с выбранным пользователем; <c>null</c> — пользователь не выбран.</summary>
-    public Task<IBrowserContext> NewContextAsAsync(Guid? userId)
+    /// <summary>Регистрирует пользователя с паролем <see cref="Password"/> и запоминает его access-токен.</summary>
+    public async Task<Guid> CreateUserAsync(string login, string name)
     {
-        var localStorage = userId is Guid id ? new[] { new { name = CurrentUserStorageKey, value = id.ToString() } } : [];
-        var storageState = JsonSerializer.Serialize(new { cookies = Array.Empty<object>(), origins = new[] { new { origin = BaseUrl, localStorage } } });
-        return browser!.NewContextAsync(new BrowserNewContextOptions { BaseURL = BaseUrl, Locale = "ru-RU", StorageState = storageState });
+        using var anonymous = new HttpClient { BaseAddress = new Uri(BaseUrl) };
+        var created = await anonymous.PostAsJsonAsync("/api/user", new UserCreateRequest { Login = login, Name = name, Password = Password }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+
+        var loggedIn = await anonymous.PostAsJsonAsync("/api/account/login", new AccountLoginRequest { Login = login, Password = Password }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, loggedIn.StatusCode);
+        var tokens = await loggedIn.Content.ReadFromJsonAsync<ApiSuccessResponse<AccountTokenResponseBody>>(TestContext.Current.CancellationToken);
+        var userId = tokens!.Response!.User.Id;
+        users[userId] = (login, tokens.Response.AccessToken);
+        return userId;
     }
 
-    /// <summary>Клиент к WebApi от имени другого пользователя; вызывающий освобождает его.</summary>
+    /// <summary>Новый изолированный контекст браузера (свои cookies и localStorage), вошедший как <see cref="DefaultUserId"/>.</summary>
+    public Task<IBrowserContext> NewContextAsync() => NewContextAsAsync(DefaultUserId);
+
+    /// <summary>
+    /// Новый изолированный контекст браузера, вошедший как <paramref name="userId"/>; <c>null</c> — без входа.
+    /// Вход — запросом со страницы того же origin: refresh-cookie браузер сохраняет по своим правилам, как в приложении.
+    /// </summary>
+    public async Task<IBrowserContext> NewContextAsAsync(Guid? userId)
+    {
+        var context = await browser!.NewContextAsync(new BrowserNewContextOptions { BaseURL = BaseUrl, Locale = "ru-RU" });
+        if (userId is Guid id)
+        {
+            var page = await context.NewPageAsync();
+            await page.GotoAsync("/favicon.ico");
+            var status = await page.EvaluateAsync<int>(
+                @"async ([login, password]) => (await fetch('/api/account/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login, password, rememberMe: false }),
+                })).status",
+                new[] { users[id].Login, Password });
+            Assert.Equal(200, status);
+            await page.CloseAsync();
+        }
+
+        return context;
+    }
+
+    /// <summary>Клиент к WebApi с access-токеном пользователя, созданного через <see cref="CreateUserAsync"/>; вызывающий освобождает его.</summary>
     public HttpClient CreateApiAs(Guid userId)
     {
         var client = new HttpClient { BaseAddress = new Uri(BaseUrl) };
-        client.DefaultRequestHeaders.Add(CurrentUserHeader, userId.ToString());
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", users[userId].AccessToken);
         return client;
     }
 
@@ -128,6 +165,11 @@ public sealed class E2eAppFixture : IAsyncLifetime
             {
                 ["ASPNETCORE_ENVIRONMENT"] = "Development",
                 ["ConnectionStrings__Socium"] = connectionString,
+                ["Security__Jwt__SigningKey"] = TestJwt.CreateSigningKey(),
+                // Access-токены клиентов фикстуры не обновляются — живут дольше прогона.
+                ["Security__Jwt__AccessTokenMinutes"] = "240",
+                // Все входы идут с одного IP.
+                ["Security__RateLimit__PermitLimit"] = "100000",
             });
     }
 

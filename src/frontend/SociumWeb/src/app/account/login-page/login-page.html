@@ -1,0 +1,71 @@
+<div class="corner">
+  <app-theme-toggle />
+</div>
+
+<form class="card" [attr.aria-label]="registering() ? 'Регистрация' : 'Вход'" (submit)="submit($event)">
+  <h1 class="brand">Socium</h1>
+
+  <label class="field">
+    <span>Логин</span>
+    <input
+      type="text"
+      name="login"
+      autocomplete="username"
+      [attr.maxlength]="loginMaxLength"
+      [value]="login()"
+      [disabled]="saving()"
+      (input)="onInput('login', $event)"
+    />
+  </label>
+
+  @if (registering()) {
+    <label class="field">
+      <span>Имя</span>
+      <input
+        type="text"
+        name="name"
+        autocomplete="name"
+        [attr.maxlength]="nameMaxLength"
+        [value]="name()"
+        [disabled]="saving()"
+        (input)="onInput('name', $event)"
+      />
+    </label>
+  }
+
+  <label class="field">
+    <span>Пароль</span>
+    <input
+      type="password"
+      name="password"
+      [attr.autocomplete]="registering() ? 'new-password' : 'current-password'"
+      [attr.maxlength]="passwordMaxLength"
+      [value]="password()"
+      [disabled]="saving()"
+      (input)="onInput('password', $event)"
+    />
+  </label>
+
+  <label class="remember">
+    <input type="checkbox" name="rememberMe" [checked]="rememberMe()" [disabled]="saving()" (change)="onRememberMeChange($event)" />
+    <span>Запомнить меня</span>
+  </label>
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  <button type="submit" class="primary submit" [disabled]="!canSubmit()">
+    {{ registering() ? 'Зарегистрироваться' : 'Войти' }}
+  </button>
+
+  <p class="switch">
+    @if (registering()) {
+      Уже есть аккаунт?
+      <button type="button" class="link" (click)="switchMode('login')">Войти</button>
+    } @else {
+      Нет аккаунта?
+      <button type="button" class="link" (click)="switchMode('register')">Регистрация</button>
+    }
+  </p>
+</form>

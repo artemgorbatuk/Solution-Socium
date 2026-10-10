@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { successBody } from '../../shared/api/api-response.testing';
-import { CurrentUser, currentUserStorageKey } from '../../users/current-user';
+import { signInAs } from '../../account/auth.testing';
 import { ChatChanges } from '../chat-changes';
 import { ChatListModel } from '../chat.models';
 import { RoomChats } from './room-chats';
@@ -55,7 +55,6 @@ describe('RoomChats', () => {
 
   afterEach(() => {
     http.verify();
-    localStorage.removeItem(currentUserStorageKey);
   });
 
   it('List_Load_WithRoomChats_ShouldShowChatsInOrder', () => {
@@ -192,7 +191,7 @@ describe('RoomChats', () => {
     expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: true }]));
     render();
 
-    TestBed.inject(CurrentUser).select('u2');
+    signInAs('u2');
     render();
     expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: false }]));
     render();

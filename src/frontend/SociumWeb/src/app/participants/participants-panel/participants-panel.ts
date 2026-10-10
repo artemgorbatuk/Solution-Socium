@@ -22,7 +22,8 @@ export class ParticipantsPanel {
   readonly chatId = input.required<string>();
   readonly chatName = input.required<string>();
 
-  protected readonly currentUserId = inject(CurrentUser).id;
+  private readonly currentUser = inject(CurrentUser);
+  protected readonly currentUserId = this.currentUser.id;
   protected readonly rows = signal<ParticipantListModel[]>([]);
   /** Текущий пользователь — админ чата: видит кнопки смены ролей. */
   protected readonly isAdmin = signal(false);
@@ -45,6 +46,7 @@ export class ParticipantsPanel {
       const chatId = this.chatId();
       this.chatChanges.version();
       this.currentUserId();
+      this.currentUser.name();
       untracked(() => onCleanup(this.load(chatId)));
     });
   }

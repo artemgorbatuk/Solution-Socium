@@ -6,7 +6,7 @@
         <app-participants-panel [chatId]="chat.id" [chatName]="chat.name" />
       }
     </div>
-  } @else if (currentUserId()) {
+  } @else {
     <div class="state">
       <p>Вы не участник этого чата</p>
       <button type="button" class="primary" [disabled]="joining()" (click)="join(chat.id)">Вступить в чат</button>
@@ -14,8 +14,6 @@
         <p class="error" role="alert">{{ error }}</p>
       }
     </div>
-  } @else {
-    <p class="state">Выберите пользователя внизу боковой панели, чтобы читать чат и писать в него</p>
   }
 } @else if (loading()) {
   <p class="state">Загрузка…</p>

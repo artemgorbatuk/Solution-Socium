@@ -1,5 +1,7 @@
 using Datasource.Socium.Ef.Models;
 using Services.Socium.Models;
+using Services.Socium.Ports;
+using Services.Socium.Texts;
 
 namespace Services.Socium.Mapping;
 
@@ -37,14 +39,14 @@ public static class ParticipantMapper
         };
     }
 
-    public static ParticipantListModel ToListModel(Participant model)
+    public static ParticipantListModel ToListModel(Participant model, UserPortModel? user)
     {
         return new ParticipantListModel
         {
             Id = model.Id,
             UserId = model.UserId,
-            Login = model.User.Login,
-            Name = model.User.Name,
+            Login = user?.Login ?? string.Empty,
+            Name = user?.Name ?? UserPortTexts.DeletedUserName,
             IsAdmin = model.IsAdmin,
         };
     }

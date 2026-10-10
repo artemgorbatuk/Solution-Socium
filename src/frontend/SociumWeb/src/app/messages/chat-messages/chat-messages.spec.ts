@@ -2,7 +2,8 @@ import { HttpRequest, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { successBody } from '../../shared/api/api-response.testing';
-import { CurrentUser, currentUserStorageKey } from '../../users/current-user';
+import { Auth } from '../../account/auth';
+import { signInAs } from '../../account/auth.testing';
 import { MessageListModel } from '../message.models';
 import { ChatMessages } from './chat-messages';
 
@@ -59,7 +60,7 @@ describe('ChatMessages', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     http = TestBed.inject(HttpTestingController);
-    TestBed.inject(CurrentUser).select('u1');
+    signInAs('u1');
     fixture = TestBed.createComponent(ChatMessages);
     fixture.componentRef.setInput('chatId', 'c1');
     fixture.componentRef.setInput('chatName', 'Общий');
@@ -69,7 +70,6 @@ describe('ChatMessages', () => {
 
   afterEach(() => {
     http.verify();
-    localStorage.removeItem(currentUserStorageKey);
   });
 
   it('Feed_Load_WithMessages_ShouldShowTextsInSendOrder', () => {
@@ -190,5 +190,17 @@ describe('ChatMessages', () => {
 
     expect(textarea().value).toBe('');
     expect(texts()).toEqual(['Второе']);
+  });
+
+  it('Feed_Reload_WithOwnNameChanged_ShouldReloadFeedAndKeepText', () => {
+    flushList('c1', [first]);
+    type('Черновик');
+
+    TestBed.inject(Auth).updateProfile({ id: 'u1', login: 'login-u1', name: 'Анна Новая' });
+    render();
+    flushList('c1', [{ ...first, senderName: 'Анна Новая' }]);
+
+    expect(element.querySelector('.sender')!.textContent).toContain('Анна Новая');
+    expect(textarea().value).toBe('Черновик');
   });
 });

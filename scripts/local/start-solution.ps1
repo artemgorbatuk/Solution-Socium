@@ -40,6 +40,20 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
     throw 'npm not found. Install Node.js first.'
 }
 
+# The JWT signing key is never stored in the repo: generate it once into user-secrets of WebApi.
+# The key value is not printed.
+$signingKeyName = 'Security:Jwt:SigningKey'
+$secrets = & dotnet user-secrets list --project $webApiDir 2>$null
+if (-not ($secrets | Where-Object { $_ -like "$signingKeyName = *" })) {
+    $bytes = New-Object byte[] 48
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    & dotnet user-secrets set $signingKeyName ([Convert]::ToBase64String($bytes)) --project $webApiDir | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to set user-secret $signingKeyName."
+    }
+    Write-Host ("Generated {0} in WebApi user-secrets." -f $signingKeyName)
+}
+
 if (Test-PortListening $backendPort) {
     Write-Host ("Backend already running on port {0} - skip." -f $backendPort)
 } else {

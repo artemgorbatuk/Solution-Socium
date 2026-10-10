@@ -33,7 +33,8 @@ export class ChatMessages {
   readonly chatId = input.required<string>();
   readonly chatName = input.required<string>();
 
-  protected readonly currentUserId = inject(CurrentUser).id;
+  private readonly currentUser = inject(CurrentUser);
+  protected readonly currentUserId = this.currentUser.id;
   protected readonly messages = signal<MessageListModel[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
@@ -45,11 +46,13 @@ export class ChatMessages {
 
   private readonly feed = viewChild<ElementRef<HTMLElement>>('feed');
   private loadSubscription?: Subscription;
+  private openedChatId?: string;
 
   constructor() {
     effect(() => {
-      this.chatId();
-      untracked(() => this.open());
+      const chatId = this.chatId();
+      this.currentUser.name();
+      untracked(() => (chatId === this.openedChatId ? this.load(false) : this.open(chatId)));
     });
     inject(DestroyRef).onDestroy(() => this.loadSubscription?.unsubscribe());
   }
@@ -97,7 +100,8 @@ export class ChatMessages {
     this.load(false);
   }
 
-  private open(): void {
+  private open(chatId: string): void {
+    this.openedChatId = chatId;
     this.messages.set([]);
     this.draft.set('');
     this.sendError.set(null);

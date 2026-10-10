@@ -86,7 +86,6 @@ public class RepositoryMessage : IRepositoryMessage
         var query = context.Messages
             .AsNoTracking()
             .Include(message => message.Sender)
-            .ThenInclude(sender => sender.User)
             .AsQueryable();
         if (options?.ChatId is Guid chatId)
         {

@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { AccountMenu } from '../../account/account-menu/account-menu';
 import { ChatChanges } from '../../chats/chat-changes';
 import { problemDetail } from '../../shared/api/api-response';
 import { ResizeHandle } from '../../shared/resize/resize-handle';
@@ -6,13 +7,12 @@ import { RoomApi } from '../../rooms/room-api';
 import { RoomExpansion } from '../../rooms/room-expansion';
 import { RoomListItem } from '../../rooms/room-list-item/room-list-item';
 import { RoomListModel, roomNameMaxLength } from '../../rooms/room.models';
-import { UserPicker } from '../../users/user-picker/user-picker';
 
 const widthStorageKey = 'socium.sidebar.width';
 
 @Component({
   selector: 'app-sidebar',
-  imports: [ResizeHandle, RoomListItem, UserPicker],
+  imports: [AccountMenu, ResizeHandle, RoomListItem],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.css',
   host: {
