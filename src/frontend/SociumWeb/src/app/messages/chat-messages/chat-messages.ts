@@ -29,6 +29,7 @@ import { MessageApi } from '../message-api';
 import { MessageItem } from '../message-item/message-item';
 import { MessageListModel } from '../message.models';
 import { isSubmitKey } from '../submit-key';
+import { formatNewMessagesLabel, isNearBottom } from '../feed-scroll';
 import {
   formatTypingLabel,
   typingExpireMs,
@@ -79,6 +80,8 @@ export class ChatMessages {
   protected readonly canAttach = computed(() => this.pending().length < MaxAttachments && !this.sending());
   protected readonly typingUsers = signal<TypingUser[]>([]);
   protected readonly typingLabel = computed(() => formatTypingLabel(this.typingUsers()));
+  protected readonly unseenCount = signal(0);
+  protected readonly newMessagesLabel = computed(() => formatNewMessagesLabel(this.unseenCount()));
 
   private readonly feed = viewChild<ElementRef<HTMLElement>>('feed');
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
@@ -125,13 +128,26 @@ export class ChatMessages {
 
   protected onFeedScroll(): void {
     const feed = this.feed()?.nativeElement;
-    if (!feed || this.loadingOlder() || !this.hasOlder() || this.loading()) {
+    if (!feed) {
+      return;
+    }
+
+    if (isNearBottom(feed)) {
+      this.clearUnseen();
+    }
+
+    if (this.loadingOlder() || !this.hasOlder() || this.loading()) {
       return;
     }
 
     if (feed.scrollTop < 80) {
       this.loadOlder();
     }
+  }
+
+  protected jumpToNewMessages(): void {
+    this.clearUnseen();
+    this.scrollToEnd();
   }
 
   protected async openFilePicker(): Promise<void> {
@@ -198,6 +214,8 @@ export class ChatMessages {
               this.draft.set('');
               this.clearPending();
               this.clearLocalTyping();
+              this.clearUnseen();
+              this.scrollToEnd();
             }
           },
           error: (error: unknown) => {
@@ -238,6 +256,7 @@ export class ChatMessages {
     const previous = this.openedChatId;
     this.clearLocalTyping();
     this.clearRemoteTyping();
+    this.clearUnseen();
     this.openedChatId = chatId;
     this.messages.set([]);
     this.hasOlder.set(false);
@@ -261,9 +280,19 @@ export class ChatMessages {
         if (payload.chatId !== chatId) {
           return;
         }
-        this.upsertMessage(toListModel(payload), true);
+        const own = payload.senderUserId === this.currentUserId();
+        const nearBottom = this.isFeedNearBottom();
+        const added = this.upsertMessage(toListModel(payload));
         this.removeRemoteTyper(payload.senderUserId);
-        if (payload.senderUserId !== this.currentUserId()) {
+        if (added) {
+          if (own || nearBottom) {
+            this.clearUnseen();
+            this.scrollToEnd();
+          } else {
+            this.unseenCount.update((count) => count + 1);
+          }
+        }
+        if (!own) {
           this.acknowledgeIncoming(chatId, payload.id);
         }
       }),
@@ -271,7 +300,7 @@ export class ChatMessages {
         if (payload.chatId !== chatId) {
           return;
         }
-        this.upsertMessage(toListModel(payload), false);
+        this.upsertMessage(toListModel(payload));
       }),
       this.chatHub.messageDeleted$.subscribe((payload) => {
         if (payload.chatId !== chatId) {
@@ -395,6 +424,7 @@ export class ChatMessages {
         this.hasOlder.set(body.response?.hasOlder ?? false);
         this.loading.set(false);
         if (scrollToEnd) {
+          this.clearUnseen();
           this.scrollToEnd();
         }
       },
@@ -444,7 +474,8 @@ export class ChatMessages {
     });
   }
 
-  private upsertMessage(message: MessageListModel, scrollIfNew: boolean): void {
+  /** @returns true, если сообщение добавлено впервые. */
+  private upsertMessage(message: MessageListModel): boolean {
     let added = false;
     this.messages.update((list) => {
       const index = list.findIndex((item) => item.id === message.id);
@@ -456,8 +487,20 @@ export class ChatMessages {
       added = true;
       return [...list, message];
     });
-    if (added && scrollIfNew) {
-      this.scrollToEnd();
+    return added;
+  }
+
+  private isFeedNearBottom(): boolean {
+    const feed = this.feed()?.nativeElement;
+    if (!feed) {
+      return true;
+    }
+    return isNearBottom(feed);
+  }
+
+  private clearUnseen(): void {
+    if (this.unseenCount() !== 0) {
+      this.unseenCount.set(0);
     }
   }
 

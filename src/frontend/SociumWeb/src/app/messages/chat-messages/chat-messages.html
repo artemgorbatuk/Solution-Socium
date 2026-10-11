@@ -25,6 +25,19 @@
   <p class="typing" aria-live="polite">{{ label }}</p>
 }
 
+@if (unseenCount() > 0) {
+  <div class="new-messages-bar">
+    <button
+      type="button"
+      class="new-messages"
+      [attr.aria-label]="'Перейти к новым сообщениям: ' + unseenCount()"
+      (click)="jumpToNewMessages()"
+    >
+      {{ newMessagesLabel() }}
+    </button>
+  </div>
+}
+
 <form class="composer" (submit)="send($event)">
   @if (sendError(); as error) {
     <p class="send-error" role="alert">{{ error }}</p>

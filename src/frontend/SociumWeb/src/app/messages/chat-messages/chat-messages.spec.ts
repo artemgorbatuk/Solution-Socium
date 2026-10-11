@@ -83,6 +83,35 @@ describe('ChatMessages', () => {
     return Array.from(element.querySelectorAll('.text')).map((item) => item.textContent!);
   }
 
+  function setFeedAwayFromBottom(): void {
+    const feed = element.querySelector('.feed') as HTMLElement;
+    Object.defineProperty(feed, 'scrollHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(feed, 'clientHeight', { configurable: true, value: 400 });
+    Object.defineProperty(feed, 'scrollTop', { configurable: true, writable: true, value: 0 });
+  }
+
+  function setFeedNearBottom(): void {
+    const feed = element.querySelector('.feed') as HTMLElement;
+    Object.defineProperty(feed, 'scrollHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(feed, 'clientHeight', { configurable: true, value: 400 });
+    Object.defineProperty(feed, 'scrollTop', { configurable: true, writable: true, value: 900 });
+  }
+
+  function incoming(id: string, text: string): void {
+    messageCreated$.next({
+      chatId: 'c1',
+      id,
+      text,
+      createdAt: '2020-01-15T12:10:00Z',
+      senderUserId: 'u2',
+      senderName: 'Борис',
+      attachments: [],
+    });
+    render();
+    http.expectOne({ method: 'POST', url: '/api/message/delivered' }).flush(successBody({ updatedCount: 1 }, 2));
+    http.expectOne({ method: 'POST', url: '/api/message/read' }).flush(successBody({ updatedCount: 1, unreadCount: 0 }, 2));
+  }
+
   beforeEach(() => {
     messageCreated$ = new Subject();
     messageUpdated$ = new Subject();
@@ -270,20 +299,38 @@ describe('ChatMessages', () => {
   it('Feed_Hub_WithMessageCreated_ShouldAppend', () => {
     flushList('c1', [first]);
 
-    messageCreated$.next({
-      chatId: 'c1',
-      id: 'm2',
-      text: 'Второе',
-      createdAt: '2020-01-15T12:01:00Z',
-      senderUserId: 'u2',
-      senderName: 'Борис',
-      attachments: [],
-    });
-    render();
-    http.expectOne({ method: 'POST', url: '/api/message/delivered' }).flush(successBody({ updatedCount: 1 }, 2));
-    http.expectOne({ method: 'POST', url: '/api/message/read' }).flush(successBody({ updatedCount: 1, unreadCount: 0 }, 2));
+    incoming('m2', 'Второе');
 
     expect(texts()).toEqual(['Первое', 'Второе']);
+  });
+
+  it('Feed_Hub_WithIncomingWhileScrolledUp_ShouldShowNewMessagesBadge', () => {
+    flushList('c1', [first]);
+    setFeedAwayFromBottom();
+
+    incoming('m2', 'Второе');
+    incoming('m3', 'Третье');
+
+    expect(texts()).toEqual(['Первое', 'Второе', 'Третье']);
+    expect(element.querySelector('.new-messages')!.textContent!.trim()).toBe('↓ 2 новых');
+
+    element.querySelector<HTMLButtonElement>('.new-messages')!.click();
+    render();
+
+    expect(element.querySelector('.new-messages')).toBeNull();
+  });
+
+  it('Feed_Scroll_ToBottom_ShouldClearNewMessagesBadge', () => {
+    flushList('c1', [first]);
+    setFeedAwayFromBottom();
+    incoming('m2', 'Второе');
+    expect(element.querySelector('.new-messages')).not.toBeNull();
+
+    setFeedNearBottom();
+    element.querySelector('.feed')!.dispatchEvent(new Event('scroll'));
+    render();
+
+    expect(element.querySelector('.new-messages')).toBeNull();
   });
 
   it('Typing_Hub_WithTypingStarted_ShouldShowLabel', () => {
