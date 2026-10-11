@@ -76,13 +76,24 @@ public class MessageInfoPageResponse
 public class MessageListPageRequest
 {
     public required Guid ChatId { get; set; }
+
+    /// <summary>
+    /// Подгрузка истории: сообщения старше этого id. Без значения — последние сообщения чата.
+    /// </summary>
+    public Guid? BeforeId { get; set; }
 }
 
 public class MessageListPageResponse
 {
     public required bool RowExists { get; set; }
     public required int RowCount { get; set; }
+    public required bool HasOlder { get; set; }
     public required ICollection<MessageListModel> Rows { get; set; } = [];
+}
+
+public static class MessageListPaging
+{
+    public const int PageSize = 50;
 }
 
 public class MessageListModel

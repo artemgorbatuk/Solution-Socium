@@ -83,6 +83,7 @@ public class RepositoryMessage : IRepositoryMessage
 
     public async Task<IEnumerable<Message>> GetListAsync(MessageQueryOptions? options = null, CancellationToken cancellationToken = default)
     {
+        var take = options?.Take > 0 ? options.Take : 50;
         var query = context.Messages
             .AsNoTracking()
             .Include(message => message.Sender)
@@ -92,9 +93,34 @@ public class RepositoryMessage : IRepositoryMessage
             query = query.Where(message => message.ChatId == chatId);
         }
 
-        return await query
-            .OrderBy(message => message.CreatedAt)
-            .ThenBy(message => message.Id)
+        if (options?.BeforeId is Guid beforeId)
+        {
+            var cursor = await context.Messages
+                .AsNoTracking()
+                .Where(message => message.Id == beforeId)
+                .Select(message => new { message.CreatedAt, message.Id, message.ChatId })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (cursor is null)
+            {
+                return [];
+            }
+
+            if (options.ChatId is Guid expectedChatId && cursor.ChatId != expectedChatId)
+            {
+                return [];
+            }
+
+            query = query.Where(message =>
+                message.CreatedAt < cursor.CreatedAt
+                || (message.CreatedAt == cursor.CreatedAt && message.Id.CompareTo(cursor.Id) < 0));
+        }
+
+        var page = await query
+            .OrderByDescending(message => message.CreatedAt)
+            .ThenByDescending(message => message.Id)
+            .Take(take)
             .ToListAsync(cancellationToken);
+        page.Reverse();
+        return page;
     }
 }

@@ -120,10 +120,17 @@ public static class MessageCrudValidators
         if (request == null)
         {
             yield return MessageCrudTexts.Messages.Validation.RequestCannotBeNull;
+            yield break;
         }
-        else if (request.ChatId == Guid.Empty)
+
+        if (request.ChatId == Guid.Empty)
         {
             yield return MessageCrudTexts.Messages.Validation.ChatIdCannotBeEmpty;
+        }
+
+        if (request.BeforeId == Guid.Empty)
+        {
+            yield return MessageCrudTexts.Messages.Validation.BeforeIdCannotBeEmpty;
         }
     }
 

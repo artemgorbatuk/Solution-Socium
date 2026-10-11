@@ -1,5 +1,7 @@
-import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { ChatChanges } from '../../chats/chat-changes';
+import { ChatHub } from '../../realtime/chat-hub';
 import { problemDetail } from '../../shared/api/api-response';
 import { CurrentUser } from '../../users/current-user';
 import { ParticipantApi } from '../participant-api';
@@ -17,6 +19,7 @@ type LeaveStep = 'idle' | 'checking' | 'confirm' | 'blocked' | 'leaving';
 export class ParticipantsPanel {
   private readonly participantApi = inject(ParticipantApi);
   private readonly chatChanges = inject(ChatChanges);
+  private readonly chatHub = inject(ChatHub);
   private readonly panelState = inject(ParticipantsPanelState);
 
   readonly chatId = input.required<string>();
@@ -39,6 +42,9 @@ export class ParticipantsPanel {
   protected readonly leaveReason = signal<string | null>(null);
   protected readonly leaveError = signal<string | null>(null);
 
+  private hubSubscriptions: Subscription[] = [];
+  private boundChatId?: string;
+
   constructor() {
     effect(() => {
       this.chatId();
@@ -49,8 +55,12 @@ export class ParticipantsPanel {
       this.chatChanges.version();
       this.currentUserId();
       this.currentUser.name();
-      untracked(() => onCleanup(this.load(chatId)));
+      untracked(() => {
+        this.bindHub(chatId);
+        onCleanup(this.load(chatId));
+      });
     });
+    inject(DestroyRef).onDestroy(() => this.unbindHub());
   }
 
   protected close(): void {
@@ -130,5 +140,69 @@ export class ParticipantsPanel {
       },
     });
     return () => subscription.unsubscribe();
+  }
+
+  private bindHub(chatId: string): void {
+    if (this.boundChatId === chatId) {
+      return;
+    }
+
+    this.unbindHub();
+    this.boundChatId = chatId;
+    this.hubSubscriptions = [
+      this.chatHub.participantJoined$.subscribe((payload) => {
+        if (payload.chatId !== chatId) {
+          return;
+        }
+        this.rows.update((list) => {
+          if (list.some((row) => row.id === payload.id)) {
+            return list;
+          }
+          return [
+            ...list,
+            {
+              id: payload.id,
+              userId: payload.userId,
+              login: payload.login,
+              name: payload.name,
+              isAdmin: payload.isAdmin,
+            },
+          ];
+        });
+      }),
+      this.chatHub.participantLeft$.subscribe((payload) => {
+        if (payload.chatId !== chatId) {
+          return;
+        }
+        this.rows.update((list) => list.filter((row) => row.id !== payload.id));
+        if (payload.userId === this.currentUserId()) {
+          this.isAdmin.set(false);
+        }
+      }),
+      this.chatHub.participantRoleChanged$.subscribe((payload) => {
+        if (payload.chatId !== chatId) {
+          return;
+        }
+        this.rows.update((list) =>
+          list.map((row) => (row.id === payload.id ? { ...row, isAdmin: payload.isAdmin } : row)),
+        );
+        if (payload.userId === this.currentUserId()) {
+          this.isAdmin.set(payload.isAdmin);
+        }
+      }),
+      this.chatHub.reconnected$.subscribe(() => {
+        if (this.chatId() === chatId) {
+          this.chatChanges.notify();
+        }
+      }),
+    ];
+  }
+
+  private unbindHub(): void {
+    for (const subscription of this.hubSubscriptions) {
+      subscription.unsubscribe();
+    }
+    this.hubSubscriptions = [];
+    this.boundChatId = undefined;
   }
 }

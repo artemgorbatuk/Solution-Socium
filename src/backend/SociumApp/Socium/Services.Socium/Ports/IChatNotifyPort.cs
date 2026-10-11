@@ -1,0 +1,44 @@
+namespace Services.Socium.Ports;
+
+/// <summary>
+/// Порт Socium к области Realtime: уведомления открытого чата.
+/// Адаптер в WebApi вызывает <c>IServiceChatNotify</c>.
+/// </summary>
+public interface IChatNotifyPort
+{
+    Task NotifyMessageCreatedAsync(ChatNotifyMessageModel message, CancellationToken cancellationToken = default);
+    Task NotifyMessageUpdatedAsync(ChatNotifyMessageModel message, CancellationToken cancellationToken = default);
+    Task NotifyMessageDeletedAsync(Guid chatId, Guid messageId, CancellationToken cancellationToken = default);
+    Task NotifyParticipantJoinedAsync(ChatNotifyParticipantModel participant, CancellationToken cancellationToken = default);
+    Task NotifyParticipantLeftAsync(Guid chatId, Guid participantId, Guid userId, CancellationToken cancellationToken = default);
+    Task NotifyParticipantRoleChangedAsync(ChatNotifyParticipantModel participant, CancellationToken cancellationToken = default);
+}
+
+public class ChatNotifyMessageModel
+{
+    public required Guid ChatId { get; set; }
+    public required Guid Id { get; set; }
+    public required string Text { get; set; }
+    public required DateTime CreatedAt { get; set; }
+    public required Guid SenderUserId { get; set; }
+    public required string SenderName { get; set; }
+    public IReadOnlyList<ChatNotifyAttachmentModel> Attachments { get; set; } = [];
+}
+
+public class ChatNotifyAttachmentModel
+{
+    public required Guid Id { get; set; }
+    public required string FileName { get; set; }
+    public required string ContentType { get; set; }
+    public required long SizeBytes { get; set; }
+}
+
+public class ChatNotifyParticipantModel
+{
+    public required Guid ChatId { get; set; }
+    public required Guid Id { get; set; }
+    public required Guid UserId { get; set; }
+    public required string Login { get; set; }
+    public required string Name { get; set; }
+    public required bool IsAdmin { get; set; }
+}

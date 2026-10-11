@@ -1,19 +1,42 @@
 import { HttpRequest, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Subject } from 'rxjs';
 import { successBody } from '../../shared/api/api-response.testing';
-import { Auth } from '../../account/auth';
 import { signInAs } from '../../account/auth.testing';
+import { ChatHub } from '../../realtime/chat-hub';
+import {
+  ChatMessageDeletedNotify,
+  ChatMessageNotify,
+  ChatParticipantLeftNotify,
+  ChatParticipantNotify,
+} from '../../realtime/chat-hub.models';
 import { MessageListModel } from '../message.models';
 import { ChatMessages } from './chat-messages';
 
 describe('ChatMessages', () => {
-  const first: MessageListModel = { id: 'm1', text: 'Первое', createdAt: '2020-01-15T12:00:00Z', senderUserId: 'u1', senderName: 'Анна' };
-  const second: MessageListModel = { id: 'm2', text: 'Второе', createdAt: '2020-01-15T12:01:00Z', senderUserId: 'u2', senderName: 'Борис' };
+  const first: MessageListModel = {
+    id: 'm1',
+    text: 'Первое',
+    createdAt: '2020-01-15T12:00:00Z',
+    senderUserId: 'u1',
+    senderName: 'Анна',
+  };
+  const second: MessageListModel = {
+    id: 'm2',
+    text: 'Второе',
+    createdAt: '2020-01-15T12:01:00Z',
+    senderUserId: 'u2',
+    senderName: 'Борис',
+  };
 
   let fixture: ComponentFixture<ChatMessages>;
   let http: HttpTestingController;
   let element: HTMLElement;
+  let messageCreated$: Subject<ChatMessageNotify>;
+  let messageUpdated$: Subject<ChatMessageNotify>;
+  let messageDeleted$: Subject<ChatMessageDeletedNotify>;
+  let reconnected$: Subject<void>;
 
   function render(): void {
     fixture.detectChanges();
@@ -24,8 +47,10 @@ describe('ChatMessages', () => {
       request.method === 'GET' && request.url === '/api/message' && request.params.get('chatId') === chatId;
   }
 
-  function flushList(chatId: string, rows: MessageListModel[]): void {
-    http.expectOne(isList(chatId)).flush(successBody({ rowExists: rows.length > 0, rowCount: rows.length, rows }));
+  function flushList(chatId: string, rows: MessageListModel[], hasOlder = false): void {
+    http
+      .expectOne(isList(chatId))
+      .flush(successBody({ rowExists: rows.length > 0, rowCount: rows.length, hasOlder, rows }));
     render();
   }
 
@@ -55,9 +80,31 @@ describe('ChatMessages', () => {
   }
 
   beforeEach(() => {
+    messageCreated$ = new Subject();
+    messageUpdated$ = new Subject();
+    messageDeleted$ = new Subject();
+    reconnected$ = new Subject();
+
     TestBed.configureTestingModule({
       imports: [ChatMessages],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ChatHub,
+          useValue: {
+            joinChat: () => Promise.resolve(),
+            leaveChat: () => Promise.resolve(),
+            messageCreated$,
+            messageUpdated$,
+            messageDeleted$,
+            participantJoined$: new Subject<ChatParticipantNotify>(),
+            participantLeft$: new Subject<ChatParticipantLeftNotify>(),
+            participantRoleChanged$: new Subject<ChatParticipantNotify>(),
+            reconnected$,
+          },
+        },
+      ],
     });
     http = TestBed.inject(HttpTestingController);
     signInAs('u1');
@@ -121,7 +168,7 @@ describe('ChatMessages', () => {
     expect(element.querySelector('input[type=file]')!.getAttribute('accept')).toContain('.cs');
   });
 
-  it('Composer_Enter_WithPaddedMultilineText_ShouldSendTrimmedTextClearAndReload', () => {
+  it('Composer_Enter_WithPaddedMultilineText_ShouldSendTrimmedTextAndClear', () => {
     flushList('c1', [first]);
     type('  Строка 1\nСтрока 2  ');
 
@@ -132,9 +179,19 @@ describe('ChatMessages', () => {
     expect(request.request.body).toEqual({ chatId: 'c1', text: 'Строка 1\nСтрока 2' });
     request.flush(successBody(null, 2));
     render();
-    flushList('c1', [first, { ...first, id: 'm3', text: 'Строка 1\nСтрока 2', createdAt: '2020-01-15T12:05:00Z' }]);
 
     expect(textarea().value).toBe('');
+    messageCreated$.next({
+      chatId: 'c1',
+      id: 'm3',
+      text: 'Строка 1\nСтрока 2',
+      createdAt: '2020-01-15T12:05:00Z',
+      senderUserId: 'u1',
+      senderName: 'Анна',
+      attachments: [],
+    });
+    render();
+
     expect(texts()).toEqual(['Первое', 'Строка 1\nСтрока 2']);
   });
 
@@ -171,7 +228,7 @@ describe('ChatMessages', () => {
     expect(textarea().value).toBe('Привет');
   });
 
-  it('Message_Delete_WithConfirm_ShouldReloadFeed', () => {
+  it('Message_Delete_WithConfirm_ShouldRemoveViaHub', () => {
     flushList('c1', [first]);
     element.querySelector<HTMLButtonElement>('[aria-label="Удалить сообщение"]')!.click();
     render();
@@ -181,7 +238,8 @@ describe('ChatMessages', () => {
     element.querySelector<HTMLButtonElement>('[role=group] .danger')!.click();
     http.expectOne({ method: 'DELETE', url: '/api/message?id=m1' }).flush(successBody({ isDeleted: true }, 2));
     render();
-    flushList('c1', []);
+    messageDeleted$.next({ chatId: 'c1', id: 'm1' });
+    render();
 
     expect(element.querySelector('[role=group]')).toBeNull();
     expect(element.textContent).toContain('Сообщений пока нет');
@@ -199,15 +257,29 @@ describe('ChatMessages', () => {
     expect(texts()).toEqual(['Второе']);
   });
 
-  it('Feed_Reload_WithOwnNameChanged_ShouldReloadFeedAndKeepText', () => {
+  it('Feed_Hub_WithMessageCreated_ShouldAppend', () => {
     flushList('c1', [first]);
-    type('Черновик');
 
-    TestBed.inject(Auth).updateProfile({ id: 'u1', login: 'login-u1', email: 'u1@example.com', name: 'Анна Новая' });
+    messageCreated$.next({
+      chatId: 'c1',
+      id: 'm2',
+      text: 'Второе',
+      createdAt: '2020-01-15T12:01:00Z',
+      senderUserId: 'u2',
+      senderName: 'Борис',
+      attachments: [],
+    });
     render();
-    flushList('c1', [{ ...first, senderName: 'Анна Новая' }]);
 
-    expect(element.querySelector('.sender')!.textContent).toContain('Анна Новая');
-    expect(textarea().value).toBe('Черновик');
+    expect(texts()).toEqual(['Первое', 'Второе']);
+  });
+
+  it('Feed_Reconnect_ShouldReloadLatestPage', () => {
+    flushList('c1', [first, second]);
+
+    reconnected$.next();
+    flushList('c1', [second]);
+
+    expect(texts()).toEqual(['Второе']);
   });
 });

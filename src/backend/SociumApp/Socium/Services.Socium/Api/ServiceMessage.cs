@@ -1,3 +1,4 @@
+using Datasource.Socium.Ef.Models;
 using Microsoft.Extensions.Logging;
 using Repositories.Socium.Ef.Api;
 using Repositories.Socium.Ef.Options;
@@ -31,6 +32,7 @@ public class ServiceMessage : IServiceMessage
     private readonly ICurrentUser currentUser;
     private readonly IUserPort userPort;
     private readonly IFilePort filePort;
+    private readonly IChatNotifyPort chatNotifyPort;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<ServiceMessage> logger;
 
@@ -39,6 +41,7 @@ public class ServiceMessage : IServiceMessage
         ICurrentUser currentUser,
         IUserPort userPort,
         IFilePort filePort,
+        IChatNotifyPort chatNotifyPort,
         TimeProvider timeProvider,
         ILogger<ServiceMessage> logger)
     {
@@ -46,6 +49,7 @@ public class ServiceMessage : IServiceMessage
         this.currentUser = currentUser;
         this.userPort = userPort;
         this.filePort = filePort;
+        this.chatNotifyPort = chatNotifyPort;
         this.timeProvider = timeProvider;
         this.logger = logger;
     }
@@ -225,6 +229,11 @@ public class ServiceMessage : IServiceMessage
                 }
             }
 
+            var createdAttachments = await filePort.GetByMessageIdsAsync([model.Id], cancellationToken);
+            await chatNotifyPort.NotifyMessageCreatedAsync(
+                ToNotifyMessage(model, user.Name, createdAttachments.GetValueOrDefault(model.Id) ?? []),
+                cancellationToken);
+
             logger.LogInformation(MessageCrudTexts.Messages.Success.CreateCompleted);
             return ResponseInfo.Success<MessageCreatePageResponse>(MessageType.SAVED, MessageCrudTexts.Messages.Success.CreateCompleted);
         }
@@ -374,6 +383,11 @@ public class ServiceMessage : IServiceMessage
             await unitOfWork.Messages.UpdateAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
+            var updatedAttachments = await filePort.GetByMessageIdsAsync([model.Id], cancellationToken);
+            await chatNotifyPort.NotifyMessageUpdatedAsync(
+                ToNotifyMessage(model, user.Name, updatedAttachments.GetValueOrDefault(model.Id) ?? []),
+                cancellationToken);
+
             logger.LogInformation(MessageCrudTexts.Messages.Success.UpdateCompleted);
             return ResponseInfo.Success<MessageUpdatePageResponse>(MessageType.SAVED, MessageCrudTexts.Messages.Success.UpdateCompleted);
         }
@@ -509,9 +523,13 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.Forbidden<MessageDeleteResponse>(MessageType.FORBIDDEN, messageText);
             }
 
+            var deletedChatId = model.ChatId;
+            var deletedMessageId = model.Id;
             await filePort.DeleteForMessageAsync(model.Id, cancellationToken);
             await unitOfWork.Messages.DeleteAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await chatNotifyPort.NotifyMessageDeletedAsync(deletedChatId, deletedMessageId, cancellationToken);
 
             var response = new MessageDeleteResponse { IsDeleted = true };
             logger.LogInformation(MessageCrudTexts.Messages.Success.DeleteCompleted);
@@ -649,11 +667,31 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.Forbidden<MessageListPageResponse>(MessageType.FORBIDDEN, messageText);
             }
 
+            if (request.BeforeId is Guid beforeId)
+            {
+                var cursor = await unitOfWork.Messages.GetSingleOrDefaultAsync(beforeId, cancellationToken);
+                if (cursor is null || cursor.ChatId != request.ChatId)
+                {
+                    var messageText =
+                        $"{MessageCrudTexts.Messages.Error.DisplayListError}{Environment.NewLine}{MessageCrudTexts.Messages.Validation.MessageNotFoundById}";
+                    logger.LogError("{Message}", messageText);
+                    return ResponseInfo.NotFound<MessageListPageResponse>(MessageType.NOT_FOUND, messageText);
+                }
+            }
+
             var messageOptions = new MessageQueryOptions
             {
                 ChatId = request.ChatId,
+                BeforeId = request.BeforeId,
+                Take = MessageListPaging.PageSize + 1,
             };
-            var models = await unitOfWork.Messages.GetListAsync(messageOptions, cancellationToken);
+            var models = (await unitOfWork.Messages.GetListAsync(messageOptions, cancellationToken)).ToList();
+            var hasOlder = models.Count > MessageListPaging.PageSize;
+            if (hasOlder)
+            {
+                models = [.. models.Skip(1)];
+            }
+
             var senders = await userPort.GetListAsync(models.Select(model => model.Sender.UserId).Distinct(), cancellationToken);
             var attachmentsByMessage = await filePort.GetByMessageIdsAsync(models.Select(model => model.Id), cancellationToken);
             ICollection<MessageListModel> rows =
@@ -671,7 +709,8 @@ public class ServiceMessage : IServiceMessage
             {
                 Rows = rows,
                 RowExists = rows.Count > 0,
-                RowCount = rows.Count
+                RowCount = rows.Count,
+                HasOlder = hasOlder,
             };
 
             logger.LogInformation(MessageCrudTexts.Messages.Success.DisplayListCompleted);
@@ -687,5 +726,31 @@ public class ServiceMessage : IServiceMessage
             logger.LogError(exception, "{Message}", MessageCrudTexts.Messages.Error.DisplayListError);
             return ResponseInfo.Error<MessageListPageResponse>(MessageType.ERROR, MessageCrudTexts.Messages.Error.DisplayListError);
         }
+    }
+
+    private static ChatNotifyMessageModel ToNotifyMessage(
+        Message model,
+        string senderName,
+        IReadOnlyList<FilePortAttachment> attachments)
+    {
+        return new ChatNotifyMessageModel
+        {
+            ChatId = model.ChatId,
+            Id = model.Id,
+            Text = model.Text,
+            CreatedAt = model.CreatedAt,
+            SenderUserId = model.Sender.UserId,
+            SenderName = senderName,
+            Attachments =
+            [
+                .. attachments.Select(attachment => new ChatNotifyAttachmentModel
+                {
+                    Id = attachment.Id,
+                    FileName = attachment.FileName,
+                    ContentType = attachment.ContentType,
+                    SizeBytes = attachment.SizeBytes,
+                }),
+            ],
+        };
     }
 }

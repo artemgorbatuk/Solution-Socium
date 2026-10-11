@@ -15,8 +15,12 @@ export class MessageApi {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = '/api/message';
 
-  getList(chatId: string): Observable<ApiSuccessResponse<MessageListPageResponse>> {
-    return this.http.get<ApiSuccessResponse<MessageListPageResponse>>(this.baseUrl, { params: { chatId } });
+  getList(chatId: string, beforeId?: string): Observable<ApiSuccessResponse<MessageListPageResponse>> {
+    const params: Record<string, string> = { chatId };
+    if (beforeId) {
+      params['beforeId'] = beforeId;
+    }
+    return this.http.get<ApiSuccessResponse<MessageListPageResponse>>(this.baseUrl, { params });
   }
 
   create(request: MessageCreateRequest): Observable<ApiSuccessResponse<null>> {

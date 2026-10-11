@@ -1,4 +1,4 @@
-<section #feed class="feed" aria-label="Сообщения">
+<section #feed class="feed" aria-label="Сообщения" (scroll)="onFeedScroll()">
   @if (loading() && !messages().length) {
     <p class="state">Загрузка…</p>
   } @else if (loadError(); as error) {
@@ -6,13 +6,15 @@
   } @else if (!messages().length) {
     <p class="state">Сообщений пока нет</p>
   } @else {
+    @if (loadingOlder()) {
+      <p class="state">Загрузка истории…</p>
+    }
     <ol class="list" [attr.aria-label]="'Сообщения чата ' + chatName()">
       @for (message of messages(); track message.id) {
         <li>
           <app-message-item
             [message]="message"
-            [own]="message.senderUserId === currentUserId()"
-            (changed)="onMessageChanged()" (deleted)="onMessageDeleted()" />
+            [own]="message.senderUserId === currentUserId()" />
         </li>
       }
     </ol>

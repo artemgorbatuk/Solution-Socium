@@ -3,6 +3,7 @@ using Datasource.Messaging.Ef.Contexts;
 using Datasource.Security.Ef.Contexts;
 using Datasource.Socium.Ef.Contexts;
 using Microsoft.EntityFrameworkCore;
+using SignalR.Realtime.Hubs;
 using WebApi.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -45,6 +46,7 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat");
 
 await app.RunAsync();
 

@@ -14,6 +14,8 @@ using Services.Files.Middleware;
 using Services.Messaging.Middleware;
 using Services.Messaging.Tokens.Api;
 using Services.Messaging.Tokens.Providers;
+using Services.Realtime.Api;
+using Services.Realtime.Middleware;
 using Services.Security.Api;
 using Services.Security.Passwords.Providers;
 using Services.Security.Ports;
@@ -23,6 +25,7 @@ using Services.Security.Tokens.Validation;
 using Services.Shared.Api;
 using Services.Socium.Api;
 using Services.Socium.Ports;
+using SignalR.Realtime.Middleware;
 using WebApi.Ports;
 
 namespace WebApi.Middleware;
@@ -59,12 +62,16 @@ public static class ServiceRegistration
         }
 
         services.AddFiles(configuration);
+        services.AddSignalRRealtime();
+        services.AddRealtime();
 
         services.AddScoped<IServiceEmailToken, ServiceEmailToken>();
         services.AddScoped<IEmailPort, EmailPort>();
         services.AddScoped<IServiceStoredFile, ServiceStoredFile>();
         services.AddScoped<IFileOwnerAccess, MessageFileOwnerAccess>();
         services.AddScoped<IFilePort, FilePort>();
+        services.AddScoped<IChatMembership, ChatMembershipPort>();
+        services.AddScoped<IChatNotifyPort, ChatNotifyPort>();
 
         services.AddScoped<IServiceUser, ServiceUser>();
         services.AddScoped<IServiceAccount, ServiceAccount>();

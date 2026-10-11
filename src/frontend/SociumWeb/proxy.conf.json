@@ -2,5 +2,10 @@
   "/api": {
     "target": "https://localhost:7026",
     "secure": false
+  },
+  "/hubs": {
+    "target": "https://localhost:7026",
+    "secure": false,
+    "ws": true
   }
 }

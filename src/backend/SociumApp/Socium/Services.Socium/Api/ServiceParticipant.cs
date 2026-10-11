@@ -26,13 +26,20 @@ public class ServiceParticipant : IServiceParticipant
     private readonly IUnitOfWorkSocium unitOfWork;
     private readonly ICurrentUser currentUser;
     private readonly IUserPort userPort;
+    private readonly IChatNotifyPort chatNotifyPort;
     private readonly ILogger<ServiceParticipant> logger;
 
-    public ServiceParticipant(IUnitOfWorkSocium unitOfWork, ICurrentUser currentUser, IUserPort userPort, ILogger<ServiceParticipant> logger)
+    public ServiceParticipant(
+        IUnitOfWorkSocium unitOfWork,
+        ICurrentUser currentUser,
+        IUserPort userPort,
+        IChatNotifyPort chatNotifyPort,
+        ILogger<ServiceParticipant> logger)
     {
         this.unitOfWork = unitOfWork;
         this.currentUser = currentUser;
         this.userPort = userPort;
+        this.chatNotifyPort = chatNotifyPort;
         this.logger = logger;
     }
 
@@ -97,6 +104,18 @@ public class ServiceParticipant : IServiceParticipant
             var model = unitOfWork.Participants.GetNew(newOptions);
             await unitOfWork.Participants.CreateAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await chatNotifyPort.NotifyParticipantJoinedAsync(
+                new ChatNotifyParticipantModel
+                {
+                    ChatId = model.ChatId,
+                    Id = model.Id,
+                    UserId = user.Id,
+                    Login = user.Login,
+                    Name = user.Name,
+                    IsAdmin = model.IsAdmin,
+                },
+                cancellationToken);
 
             var response = ParticipantMapper.ToCreateResponse(model);
             logger.LogInformation(ParticipantCrudTexts.Messages.Success.CreateCompleted);
@@ -178,6 +197,19 @@ public class ServiceParticipant : IServiceParticipant
             ParticipantMapper.Apply(model, request.IsAdmin);
             await unitOfWork.Participants.UpdateAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var targetUser = await userPort.GetSingleOrDefaultAsync(model.UserId, cancellationToken);
+            await chatNotifyPort.NotifyParticipantRoleChangedAsync(
+                new ChatNotifyParticipantModel
+                {
+                    ChatId = model.ChatId,
+                    Id = model.Id,
+                    UserId = model.UserId,
+                    Login = targetUser?.Login ?? string.Empty,
+                    Name = targetUser?.Name ?? string.Empty,
+                    IsAdmin = model.IsAdmin,
+                },
+                cancellationToken);
 
             var response = ParticipantMapper.ToUpdateResponse(model);
             logger.LogInformation(ParticipantCrudTexts.Messages.Success.UpdateCompleted);
@@ -326,8 +358,13 @@ public class ServiceParticipant : IServiceParticipant
             }
 
             var model = await unitOfWork.Participants.GetSingleOrDefaultAsync(currentParticipant!.Id, cancellationToken);
-            await unitOfWork.Participants.DeleteAsync(model!, cancellationToken);
+            var leftChatId = model!.ChatId;
+            var leftParticipantId = model.Id;
+            var leftUserId = model.UserId;
+            await unitOfWork.Participants.DeleteAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await chatNotifyPort.NotifyParticipantLeftAsync(leftChatId, leftParticipantId, leftUserId, cancellationToken);
 
             var response = new ParticipantDeleteResponse { IsDeleted = true };
             logger.LogInformation(ParticipantCrudTexts.Messages.Success.DeleteCompleted);

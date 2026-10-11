@@ -148,6 +148,7 @@ public sealed class ServiceMessageTests(SociumServiceFixture fixture)
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
         Assert.True(result.Response!.RowExists);
         Assert.Equal(3, result.Response.RowCount);
+        Assert.False(result.Response.HasOlder);
         Assert.Equal(["Первое", "Второе", "Третье"], result.Response.Rows.Select(row => row.Text));
     }
 
@@ -161,7 +162,29 @@ public sealed class ServiceMessageTests(SociumServiceFixture fixture)
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
         Assert.False(result.Response!.RowExists);
         Assert.Equal(0, result.Response.RowCount);
+        Assert.False(result.Response.HasOlder);
         Assert.Empty(result.Response.Rows);
+    }
+
+    [Fact]
+    public async Task List_Load_WithBeforeId_ShouldReturnOlderPage()
+    {
+        var chatId = await CreateChatAsync();
+        await fixture.CreateMessageAsync(chatId, "Первое");
+        await fixture.CreateMessageAsync(chatId, "Второе");
+        await fixture.CreateMessageAsync(chatId, "Третье");
+        var latest = await GetListAsync(chatId);
+        var newestId = latest.Response!.Rows.Last().Id;
+
+        var older = await RunAsync(service => service.DisplayListPageAsync(new MessageListPageRequest
+        {
+            ChatId = chatId,
+            BeforeId = newestId,
+        }));
+
+        Assert.Equal(MessageType.LOADED, older.MessageInfo.MessageType);
+        Assert.Equal(["Первое", "Второе"], older.Response!.Rows.Select(row => row.Text));
+        Assert.False(older.Response.HasOlder);
     }
 
     [Fact]

@@ -18,6 +18,7 @@ export interface MessageListModel {
 export interface MessageListPageResponse {
   rowExists: boolean;
   rowCount: number;
+  hasOlder: boolean;
   rows: MessageListModel[];
 }
 

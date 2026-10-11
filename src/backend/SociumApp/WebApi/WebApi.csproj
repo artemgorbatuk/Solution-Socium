@@ -25,6 +25,8 @@
     <ProjectReference Include="..\Files\Services.Files\Services.Files.csproj" />
     <ProjectReference Include="..\Messaging\Datasource.Messaging.Ef\Datasource.Messaging.Ef.csproj" />
     <ProjectReference Include="..\Messaging\Services.Messaging.Tokens\Services.Messaging.Tokens.csproj" />
+    <ProjectReference Include="..\Realtime\Services.Realtime\Services.Realtime.csproj" />
+    <ProjectReference Include="..\Realtime\SignalR.Realtime\SignalR.Realtime.csproj" />
     <ProjectReference Include="..\Security\Datasource.Security.Ef\Datasource.Security.Ef.csproj" />
     <ProjectReference Include="..\Security\Services.Security\Services.Security.csproj" />
     <ProjectReference Include="..\Messaging\Services.Messaging\Services.Messaging.csproj" />

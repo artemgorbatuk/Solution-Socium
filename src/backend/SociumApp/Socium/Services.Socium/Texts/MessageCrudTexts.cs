@@ -67,6 +67,7 @@ public static class MessageCrudTexts
             public const string TooManyAttachments = "Слишком много вложений на одно сообщение.";
             public const string FileIdCannotBeEmpty = "Идентификатор файла не может быть пустым.";
             public const string AttachmentsFailed = "Не удалось привязать вложения к сообщению.";
+            public const string BeforeIdCannotBeEmpty = "Идентификатор курсора подгрузки не может быть пустым.";
         }
     }
 }

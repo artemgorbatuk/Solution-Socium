@@ -20,6 +20,8 @@ import {
   openAttachmentPicker,
   supportsShowOpenFilePicker,
 } from '../../files/file-picker-categories';
+import { ChatHub } from '../../realtime/chat-hub';
+import { ChatMessageNotify } from '../../realtime/chat-hub.models';
 import { problemDetail } from '../../shared/api/api-response';
 import { Icon } from '../../shared/icon/icon';
 import { CurrentUser } from '../../users/current-user';
@@ -45,6 +47,7 @@ const MaxAttachments = 5;
 export class ChatMessages {
   private readonly messageApi = inject(MessageApi);
   private readonly fileApi = inject(FileApi);
+  private readonly chatHub = inject(ChatHub);
   private readonly injector = inject(Injector);
 
   readonly chatId = input.required<string>();
@@ -53,7 +56,9 @@ export class ChatMessages {
   private readonly currentUser = inject(CurrentUser);
   protected readonly currentUserId = this.currentUser.id;
   protected readonly messages = signal<MessageListModel[]>([]);
+  protected readonly hasOlder = signal(false);
   protected readonly loading = signal(true);
+  protected readonly loadingOlder = signal(false);
   protected readonly loadError = signal<string | null>(null);
 
   protected readonly draft = signal('');
@@ -69,16 +74,24 @@ export class ChatMessages {
   private readonly feed = viewChild<ElementRef<HTMLElement>>('feed');
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   private loadSubscription?: Subscription;
+  private olderSubscription?: Subscription;
+  private hubSubscriptions: Subscription[] = [];
   private openedChatId?: string;
 
   constructor() {
     effect(() => {
       const chatId = this.chatId();
       this.currentUser.name();
-      untracked(() => (chatId === this.openedChatId ? this.load(false) : this.open(chatId)));
+      untracked(() => (chatId === this.openedChatId ? undefined : this.open(chatId)));
     });
     inject(DestroyRef).onDestroy(() => {
       this.loadSubscription?.unsubscribe();
+      this.olderSubscription?.unsubscribe();
+      this.unbindHub();
+      const chatId = this.openedChatId;
+      if (chatId) {
+        void this.chatHub.leaveChat(chatId);
+      }
       this.clearPending();
     });
   }
@@ -90,6 +103,17 @@ export class ChatMessages {
   protected onComposerKeydown(event: KeyboardEvent): void {
     if (isSubmitKey(event)) {
       this.send(event);
+    }
+  }
+
+  protected onFeedScroll(): void {
+    const feed = this.feed()?.nativeElement;
+    if (!feed || this.loadingOlder() || !this.hasOlder() || this.loading()) {
+      return;
+    }
+
+    if (feed.scrollTop < 80) {
+      this.loadOlder();
     }
   }
 
@@ -108,7 +132,6 @@ export class ChatMessages {
         if (isAbortError(error)) {
           return;
         }
-        // Нет разрешения / сбой API — запасной input.
       }
     }
 
@@ -157,7 +180,6 @@ export class ChatMessages {
             if (chatId === this.chatId()) {
               this.draft.set('');
               this.clearPending();
-              this.load(true);
             }
           },
           error: (error: unknown) => {
@@ -171,14 +193,6 @@ export class ChatMessages {
         this.sendError.set(problemDetail(error, 'Не удалось загрузить файл'));
       },
     });
-  }
-
-  protected onMessageChanged(): void {
-    this.load(false);
-  }
-
-  protected onMessageDeleted(): void {
-    this.load(false);
   }
 
   private addPendingFiles(files: File[]): void {
@@ -203,21 +217,67 @@ export class ChatMessages {
   }
 
   private open(chatId: string): void {
+    const previous = this.openedChatId;
     this.openedChatId = chatId;
     this.messages.set([]);
+    this.hasOlder.set(false);
     this.draft.set('');
     this.clearPending();
     this.sendError.set(null);
-    this.load(true);
+    this.unbindHub();
+    if (previous) {
+      void this.chatHub.leaveChat(previous);
+    }
+    this.bindHub(chatId);
+    void this.chatHub.joinChat(chatId).catch(() => {
+      this.loadError.set('Не удалось подключить realtime чата');
+    });
+    this.loadLatest(true);
   }
 
-  private load(scrollToEnd: boolean): void {
+  private bindHub(chatId: string): void {
+    this.hubSubscriptions = [
+      this.chatHub.messageCreated$.subscribe((payload) => {
+        if (payload.chatId !== chatId) {
+          return;
+        }
+        this.upsertMessage(toListModel(payload), true);
+      }),
+      this.chatHub.messageUpdated$.subscribe((payload) => {
+        if (payload.chatId !== chatId) {
+          return;
+        }
+        this.upsertMessage(toListModel(payload), false);
+      }),
+      this.chatHub.messageDeleted$.subscribe((payload) => {
+        if (payload.chatId !== chatId) {
+          return;
+        }
+        this.messages.update((list) => list.filter((message) => message.id !== payload.id));
+      }),
+      this.chatHub.reconnected$.subscribe(() => {
+        if (this.chatId() === chatId) {
+          this.loadLatest(true);
+        }
+      }),
+    ];
+  }
+
+  private unbindHub(): void {
+    for (const subscription of this.hubSubscriptions) {
+      subscription.unsubscribe();
+    }
+    this.hubSubscriptions = [];
+  }
+
+  private loadLatest(scrollToEnd: boolean): void {
     this.loadSubscription?.unsubscribe();
     this.loading.set(true);
     this.loadError.set(null);
     this.loadSubscription = this.messageApi.getList(this.chatId()).subscribe({
       next: (body) => {
         this.messages.set(body.response?.rows ?? []);
+        this.hasOlder.set(body.response?.hasOlder ?? false);
         this.loading.set(false);
         if (scrollToEnd) {
           this.scrollToEnd();
@@ -228,6 +288,62 @@ export class ChatMessages {
         this.loading.set(false);
       },
     });
+  }
+
+  private loadOlder(): void {
+    const oldest = this.messages()[0];
+    if (!oldest || this.loadingOlder()) {
+      return;
+    }
+
+    const feed = this.feed()?.nativeElement;
+    const previousHeight = feed?.scrollHeight ?? 0;
+    const previousTop = feed?.scrollTop ?? 0;
+
+    this.loadingOlder.set(true);
+    this.olderSubscription?.unsubscribe();
+    this.olderSubscription = this.messageApi.getList(this.chatId(), oldest.id).subscribe({
+      next: (body) => {
+        const older = body.response?.rows ?? [];
+        this.hasOlder.set(body.response?.hasOlder ?? false);
+        if (older.length) {
+          this.messages.update((list) => {
+            const known = new Set(list.map((message) => message.id));
+            return [...older.filter((message) => !known.has(message.id)), ...list];
+          });
+          afterNextRender(
+            () => {
+              const element = this.feed()?.nativeElement;
+              if (element) {
+                element.scrollTop = previousTop + (element.scrollHeight - previousHeight);
+              }
+            },
+            { injector: this.injector },
+          );
+        }
+        this.loadingOlder.set(false);
+      },
+      error: () => {
+        this.loadingOlder.set(false);
+      },
+    });
+  }
+
+  private upsertMessage(message: MessageListModel, scrollIfNew: boolean): void {
+    let added = false;
+    this.messages.update((list) => {
+      const index = list.findIndex((item) => item.id === message.id);
+      if (index >= 0) {
+        const next = [...list];
+        next[index] = message;
+        return next;
+      }
+      added = true;
+      return [...list, message];
+    });
+    if (added && scrollIfNew) {
+      this.scrollToEnd();
+    }
   }
 
   private clearPending(): void {
@@ -250,6 +366,17 @@ export class ChatMessages {
       { injector: this.injector },
     );
   }
+}
+
+function toListModel(payload: ChatMessageNotify): MessageListModel {
+  return {
+    id: payload.id,
+    text: payload.text,
+    createdAt: payload.createdAt,
+    senderUserId: payload.senderUserId,
+    senderName: payload.senderName,
+    attachments: payload.attachments ?? [],
+  };
 }
 
 function isAbortError(error: unknown): boolean {

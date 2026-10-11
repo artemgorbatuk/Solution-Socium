@@ -5,6 +5,10 @@
     <Project Path="Files/Services.Files/Services.Files.csproj" />
     <Project Path="Files/Services.Files.Stored/Services.Files.Stored.csproj" />
   </Folder>
+  <Folder Name="/Realtime/">
+    <Project Path="Realtime/Services.Realtime/Services.Realtime.csproj" />
+    <Project Path="Realtime/SignalR.Realtime/SignalR.Realtime.csproj" />
+  </Folder>
   <Folder Name="/Messaging/">
     <Project Path="Messaging/Datasource.Messaging.Ef/Datasource.Messaging.Ef.csproj" />
     <Project Path="Messaging/Repositories.Messaging.Ef/Repositories.Messaging.Ef.csproj" />
