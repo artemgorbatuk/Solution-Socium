@@ -101,5 +101,39 @@ public sealed class ChatMapperTests
         Assert.Equal(chat.Id, model.Id);
         Assert.Equal(chat.Name, model.Name);
         Assert.Equal(isAdmin, model.IsAdmin);
+        Assert.Equal(0, model.UnreadCount);
+    }
+
+    [Fact]
+    public void ListModel_Map_WithPreviewAndUnread_ShouldCopyFields()
+    {
+        var chat = CreateChat();
+        var at = new DateTime(2020, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+
+        var model = ChatMapper.ToListModel(chat, isAdmin: false, unreadCount: 4, "привет", at, "Анна", lastMessageHasAttachments: true);
+
+        Assert.Equal(4, model.UnreadCount);
+        Assert.Equal("привет", model.LastMessageText);
+        Assert.Equal(at, model.LastMessageAt);
+        Assert.Equal("Анна", model.LastMessageSenderName);
+        Assert.True(model.LastMessageHasAttachments);
+    }
+
+    [Theory]
+    [InlineData("короткий", "короткий")]
+    [InlineData("  a\nb  ", "a b")]
+    public void TruncatePreview_WithShortText_ShouldNormalizeWhitespace(string input, string expected)
+    {
+        Assert.Equal(expected, ChatMapper.TruncatePreview(input));
+    }
+
+    [Fact]
+    public void TruncatePreview_WithLongText_ShouldEllipsize()
+    {
+        var text = new string('я', 100);
+
+        var preview = ChatMapper.TruncatePreview(text, maxLength: 10);
+
+        Assert.Equal(new string('я', 10) + "…", preview);
     }
 }

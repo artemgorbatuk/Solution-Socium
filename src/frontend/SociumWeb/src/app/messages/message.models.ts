@@ -43,3 +43,21 @@ export interface MessageDeletePageResponse {
 export interface MessageDeleteResponse {
   isDeleted: boolean;
 }
+
+export interface MessageDeliveredRequest {
+  chatId: string;
+  messageIds: string[];
+}
+
+export interface MessageDeliveredResponse {
+  updatedCount: number;
+}
+
+export interface MessageReadRequest {
+  chatId: string;
+}
+
+export interface MessageReadResponse {
+  updatedCount: number;
+  unreadCount: number;
+}

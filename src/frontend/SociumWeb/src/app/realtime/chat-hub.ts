@@ -8,6 +8,7 @@ import {
 import { Subject } from 'rxjs';
 import { Auth } from '../account/auth';
 import {
+  ChatListNotify,
   ChatMessageDeletedNotify,
   ChatMessageNotify,
   ChatParticipantLeftNotify,
@@ -16,6 +17,7 @@ import {
 
 /**
  * Клиент ChatHub: одно соединение на вкладку, Join/Leave по открытому чату.
+ * Группа `user:{userId}` подключается автоматически на OnConnected (список чатов).
  */
 @Injectable({ providedIn: 'root' })
 export class ChatHub {
@@ -30,8 +32,14 @@ export class ChatHub {
   readonly participantJoined$ = new Subject<ChatParticipantNotify>();
   readonly participantLeft$ = new Subject<ChatParticipantLeftNotify>();
   readonly participantRoleChanged$ = new Subject<ChatParticipantNotify>();
+  readonly chatListUpdated$ = new Subject<ChatListNotify>();
   /** После успешного reconnect — сбросить ленту к свежим 50. */
   readonly reconnected$ = new Subject<void>();
+
+  /** Поднять соединение (user-группа на сервере) без JoinChat — для списка чатов. */
+  async ensureConnected(): Promise<void> {
+    await this.ensureStarted();
+  }
 
   async joinChat(chatId: string): Promise<void> {
     await this.ensureStarted();
@@ -88,6 +96,7 @@ export class ChatHub {
       this.connection.on('participantRoleChanged', (payload: ChatParticipantNotify) =>
         this.participantRoleChanged$.next(payload),
       );
+      this.connection.on('chatListUpdated', (payload: ChatListNotify) => this.chatListUpdated$.next(payload));
 
       this.connection.onreconnected(async () => {
         const chatId = this.joinedChatId;

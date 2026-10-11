@@ -353,4 +353,47 @@ public sealed class MessageApiTests(SociumApiFixture fixture)
         var problem = await ReadProblemAsync(response, HttpStatusCode.Forbidden);
         Assert.Contains(MessageCrudTexts.Messages.Validation.NotSender, problem.Detail);
     }
+
+    [Fact]
+    public async Task DeliveredAndRead_POST_WithIncomingMessage_ShouldMarkRecipientAndClearUnread()
+    {
+        var roomId = await CreateRoomAsync();
+        var chatId = await CreateChatAsync(roomId);
+        var peerId = await fixture.CreateUserAsync($"peer.{Guid.NewGuid():N}", "Пётр");
+        using var peer = fixture.CreateClientAs(peerId);
+        await peer.PostAsJsonAsync("/api/participant", new ParticipantCreateRequest { ChatId = chatId }, TestContext.Current.CancellationToken);
+
+        var text = UniqueText();
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await peer.PostAsJsonAsync(BaseUrl, new MessageCreateRequest { ChatId = chatId, Text = text }, TestContext.Current.CancellationToken)).StatusCode);
+
+        var chatsBefore = await ReadSuccessAsync<ChatListPageResponse>(
+            await Client.GetAsync($"{ChatUrl}?roomId={roomId}", TestContext.Current.CancellationToken));
+        Assert.Equal(1, chatsBefore.Response!.Rows.Single(row => row.Id == chatId).UnreadCount);
+
+        // Id берём со стороны отправителя: GET list у получателя сам проставляет Read.
+        var peerList = await ReadSuccessAsync<MessageListPageResponse>(
+            await peer.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken));
+        var messageId = peerList.Response!.Rows.Single(row => row.Text == text).Id;
+
+        var delivered = await ReadSuccessAsync<MessageDeliveredResponse>(
+            await Client.PostAsJsonAsync(
+                $"{BaseUrl}/delivered",
+                new MessageDeliveredRequest { ChatId = chatId, MessageIds = [messageId] },
+                TestContext.Current.CancellationToken));
+        Assert.True(delivered.Response!.UpdatedCount >= 1);
+
+        var read = await ReadSuccessAsync<MessageReadResponse>(
+            await Client.PostAsJsonAsync(
+                $"{BaseUrl}/read",
+                new MessageReadRequest { ChatId = chatId },
+                TestContext.Current.CancellationToken));
+        Assert.True(read.Response!.UpdatedCount >= 1);
+        Assert.Equal(0, read.Response.UnreadCount);
+
+        var chatsAfter = await ReadSuccessAsync<ChatListPageResponse>(
+            await Client.GetAsync($"{ChatUrl}?roomId={roomId}", TestContext.Current.CancellationToken));
+        Assert.Equal(0, chatsAfter.Response!.Rows.Single(row => row.Id == chatId).UnreadCount);
+    }
 }

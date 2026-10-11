@@ -38,6 +38,22 @@ public class ChatNotifyPort : IChatNotifyPort
     public Task NotifyParticipantRoleChangedAsync(ChatNotifyParticipantModel participant, CancellationToken cancellationToken = default)
         => serviceChatNotify.NotifyParticipantRoleChangedAsync(ToRealtime(participant), cancellationToken);
 
+    public Task NotifyChatListUpdatedAsync(ChatNotifyListModel update, CancellationToken cancellationToken = default)
+        => serviceChatNotify.NotifyChatListUpdatedAsync(
+            new ChatListNotifyModel
+            {
+                ChatId = update.ChatId,
+                RoomId = update.RoomId,
+                TargetUserId = update.TargetUserId,
+                UnreadCount = update.UnreadCount,
+                LastMessageText = update.LastMessageText,
+                LastMessageAt = update.LastMessageAt,
+                LastMessageSenderName = update.LastMessageSenderName,
+                LastMessageHasAttachments = update.LastMessageHasAttachments,
+                LastMessageCleared = update.LastMessageCleared,
+            },
+            cancellationToken);
+
     private static ChatMessageNotifyModel ToRealtime(ChatNotifyMessageModel message) => new()
     {
         ChatId = message.ChatId,

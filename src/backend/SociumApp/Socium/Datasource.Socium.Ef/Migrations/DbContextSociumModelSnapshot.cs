@@ -97,8 +97,17 @@ namespace Datasource.Socium.Ef.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("MessageDelivered")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("MessageId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("MessageRead")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("MessageSent")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
@@ -109,6 +118,8 @@ namespace Datasource.Socium.Ef.Migrations
                         .IsUnique();
 
                     b.HasIndex(new[] { "UserId" }, "IX_Recipients_UserId");
+
+                    b.HasIndex(new[] { "UserId", "MessageRead" }, "IX_Recipients_UserId_MessageRead");
 
                     b.ToTable("Recipients", (string)null);
                 });

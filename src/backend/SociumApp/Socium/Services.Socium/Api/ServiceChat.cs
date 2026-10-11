@@ -30,13 +30,20 @@ public class ServiceChat : IServiceChat
     private readonly IUnitOfWorkSocium unitOfWork;
     private readonly ICurrentUser currentUser;
     private readonly IUserPort userPort;
+    private readonly IFilePort filePort;
     private readonly ILogger<ServiceChat> logger;
 
-    public ServiceChat(IUnitOfWorkSocium unitOfWork, ICurrentUser currentUser, IUserPort userPort, ILogger<ServiceChat> logger)
+    public ServiceChat(
+        IUnitOfWorkSocium unitOfWork,
+        ICurrentUser currentUser,
+        IUserPort userPort,
+        IFilePort filePort,
+        ILogger<ServiceChat> logger)
     {
         this.unitOfWork = unitOfWork;
         this.currentUser = currentUser;
         this.userPort = userPort;
+        this.filePort = filePort;
         this.logger = logger;
     }
 
@@ -549,8 +556,51 @@ public class ServiceChat : IServiceChat
             {
                 RoomId = request.RoomId,
             };
-            var models = await unitOfWork.Chats.GetListAsync(chatOptions, cancellationToken);
-            ICollection<ChatListModel> rows = [.. models.Select(model => ChatMapper.ToListModel(model, adminChatIds.Contains(model.Id)))];
+            var models = (await unitOfWork.Chats.GetListAsync(chatOptions, cancellationToken)).ToList();
+            var chatIds = models.Select(model => model.Id).ToList();
+            var lastByChat = await unitOfWork.Messages.GetLastByChatIdsAsync(chatIds, cancellationToken);
+            var unreadByChat = user is null
+                ? new Dictionary<Guid, int>()
+                : await unitOfWork.Recipients.GetUnreadCountsByChatIdsAsync(user.Id, chatIds, cancellationToken);
+            var senderIds = lastByChat.Values.Select(row => row.SenderUserId).Distinct().ToList();
+            var senders = senderIds.Count == 0
+                ? new Dictionary<Guid, UserPortModel>()
+                : await userPort.GetListAsync(senderIds, cancellationToken);
+            var attachmentMessageIds = lastByChat.Values.Select(row => row.MessageId).ToList();
+            var attachmentsByMessage = attachmentMessageIds.Count == 0
+                ? new Dictionary<Guid, IReadOnlyList<FilePortAttachment>>()
+                : await filePort.GetByMessageIdsAsync(attachmentMessageIds, cancellationToken);
+
+            ICollection<ChatListModel> rows =
+            [
+                .. models
+                    .Select(model =>
+                    {
+                        lastByChat.TryGetValue(model.Id, out var last);
+                        unreadByChat.TryGetValue(model.Id, out var unread);
+                        var hasAttachments = last is not null
+                            && (attachmentsByMessage.GetValueOrDefault(last.MessageId)?.Count ?? 0) > 0;
+                        var previewText = last is null
+                            ? null
+                            : string.IsNullOrWhiteSpace(last.Text)
+                                ? (hasAttachments ? "Вложение" : null)
+                                : ChatMapper.TruncatePreview(last.Text);
+                        var senderName = last is null
+                            ? null
+                            : senders.GetValueOrDefault(last.SenderUserId)?.Name;
+                        return ChatMapper.ToListModel(
+                            model,
+                            adminChatIds.Contains(model.Id),
+                            unread,
+                            previewText,
+                            last?.CreatedAt,
+                            senderName,
+                            hasAttachments);
+                    })
+                    // Пустой чат — сверху (MaxValue); среди них новее Id (v7) выше. С сообщениями — по lastMessageAt.
+                    .OrderByDescending(row => row.LastMessageAt ?? DateTime.MaxValue)
+                    .ThenByDescending(row => row.Id),
+            ];
             var response = new ChatListPageResponse
             {
                 Rows = rows,

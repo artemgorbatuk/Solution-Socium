@@ -6,7 +6,11 @@ import {
   MessageCreateRequest,
   MessageDeletePageResponse,
   MessageDeleteResponse,
+  MessageDeliveredRequest,
+  MessageDeliveredResponse,
   MessageListPageResponse,
+  MessageReadRequest,
+  MessageReadResponse,
   MessageUpdateRequest,
 } from './message.models';
 
@@ -37,5 +41,13 @@ export class MessageApi {
 
   delete(id: string): Observable<ApiSuccessResponse<MessageDeleteResponse>> {
     return this.http.delete<ApiSuccessResponse<MessageDeleteResponse>>(this.baseUrl, { params: { id } });
+  }
+
+  markDelivered(request: MessageDeliveredRequest): Observable<ApiSuccessResponse<MessageDeliveredResponse>> {
+    return this.http.post<ApiSuccessResponse<MessageDeliveredResponse>>(`${this.baseUrl}/delivered`, request);
+  }
+
+  markRead(request: MessageReadRequest): Observable<ApiSuccessResponse<MessageReadResponse>> {
+    return this.http.post<ApiSuccessResponse<MessageReadResponse>>(`${this.baseUrl}/read`, request);
   }
 }

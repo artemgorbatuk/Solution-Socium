@@ -29,3 +29,15 @@ export interface ChatParticipantLeftNotify {
   id: string;
   userId: string;
 }
+
+export interface ChatListNotify {
+  chatId: string;
+  roomId: string;
+  targetUserId: string;
+  unreadCount: number;
+  lastMessageText?: string | null;
+  lastMessageAt?: string | null;
+  lastMessageSenderName?: string | null;
+  lastMessageHasAttachments?: boolean;
+  lastMessageCleared?: boolean;
+}

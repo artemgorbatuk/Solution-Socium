@@ -1,11 +1,13 @@
 import { Component, DestroyRef, ElementRef, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
+import { ChatHub } from '../../realtime/chat-hub';
+import { ChatListNotify } from '../../realtime/chat-hub.models';
 import { problemDetail } from '../../shared/api/api-response';
 import { CurrentUser } from '../../users/current-user';
 import { ChatApi } from '../chat-api';
 import { ChatChanges } from '../chat-changes';
 import { ChatListItem } from '../chat-list-item/chat-list-item';
-import { ChatListModel, chatNameMaxLength } from '../chat.models';
+import { ChatListModel, chatNameMaxLength, sortChatList } from '../chat.models';
 
 @Component({
   selector: 'app-room-chats',
@@ -16,6 +18,7 @@ import { ChatListModel, chatNameMaxLength } from '../chat.models';
 export class RoomChats {
   private readonly chatApi = inject(ChatApi);
   private readonly chatChanges = inject(ChatChanges);
+  private readonly chatHub = inject(ChatHub);
   private readonly currentUser = inject(CurrentUser);
 
   readonly roomId = input.required<string>();
@@ -35,14 +38,23 @@ export class RoomChats {
 
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
   private loadSubscription?: Subscription;
+  private hubSubscription?: Subscription;
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => this.loadSubscription?.unsubscribe());
+    inject(DestroyRef).onDestroy(() => {
+      this.loadSubscription?.unsubscribe();
+      this.hubSubscription?.unsubscribe();
+    });
     effect(() => this.nameInput()?.nativeElement.focus());
     effect(() => {
       this.currentUser.id();
       this.chatChanges.version();
       untracked(() => this.loadChats());
+    });
+    effect(() => {
+      this.roomId();
+      this.currentUser.id();
+      untracked(() => this.bindHub());
     });
   }
 
@@ -92,13 +104,62 @@ export class RoomChats {
     this.loadError.set(null);
     this.loadSubscription = this.chatApi.getList(this.roomId()).subscribe({
       next: (body) => {
-        this.chats.set(body.response?.rows ?? []);
+        this.chats.set(sortChatList(body.response?.rows ?? []));
         this.loading.set(false);
       },
       error: (error: unknown) => {
         this.loadError.set(problemDetail(error, 'Не удалось загрузить чаты'));
         this.loading.set(false);
       },
+    });
+  }
+
+  private bindHub(): void {
+    this.hubSubscription?.unsubscribe();
+    const roomId = this.roomId();
+    void this.chatHub.ensureConnected().catch(() => {
+      // Список остаётся на REST; realtime — best effort.
+    });
+    this.hubSubscription = this.chatHub.chatListUpdated$.subscribe((update) => this.applyListUpdate(roomId, update));
+  }
+
+  private applyListUpdate(roomId: string, update: ChatListNotify): void {
+    if (update.roomId !== roomId) {
+      return;
+    }
+
+    this.chats.update((rows) => {
+      const index = rows.findIndex((row) => row.id === update.chatId);
+      if (index < 0) {
+        return rows;
+      }
+
+      const current = rows[index];
+      const next: ChatListModel = {
+        ...current,
+        unreadCount: update.unreadCount,
+      };
+
+      if (update.lastMessageCleared) {
+        next.lastMessageText = null;
+        next.lastMessageAt = null;
+        next.lastMessageSenderName = null;
+        next.lastMessageHasAttachments = false;
+      } else if (
+        update.lastMessageAt != null ||
+        update.lastMessageText != null ||
+        update.lastMessageHasAttachments ||
+        update.lastMessageSenderName != null
+      ) {
+        next.lastMessageText = update.lastMessageText ?? null;
+        next.lastMessageAt = update.lastMessageAt ?? null;
+        next.lastMessageSenderName = update.lastMessageSenderName ?? null;
+        next.lastMessageHasAttachments = update.lastMessageHasAttachments ?? false;
+      }
+
+      const copy = [...rows];
+      copy[index] = next;
+      return sortChatList(copy);
     });
   }
 }

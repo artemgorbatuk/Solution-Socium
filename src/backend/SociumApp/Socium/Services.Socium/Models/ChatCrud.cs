@@ -88,4 +88,9 @@ public class ChatListModel
     public required Guid Id { get; set; }
     public required string Name { get; set; }
     public required bool IsAdmin { get; set; }
+    public required int UnreadCount { get; set; }
+    public string? LastMessageText { get; set; }
+    public DateTime? LastMessageAt { get; set; }
+    public string? LastMessageSenderName { get; set; }
+    public bool LastMessageHasAttachments { get; set; }
 }

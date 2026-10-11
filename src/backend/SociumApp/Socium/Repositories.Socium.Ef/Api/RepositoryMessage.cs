@@ -1,6 +1,7 @@
 using Datasource.Socium.Ef.Contexts;
 using Datasource.Socium.Ef.Models;
 using Microsoft.EntityFrameworkCore;
+using Repositories.Socium.Ef.Models;
 using Repositories.Socium.Ef.Options;
 
 namespace Repositories.Socium.Ef.Api;
@@ -14,6 +15,7 @@ public interface IRepositoryMessage
     Message GetNew(MessageGetNewOptions options);
     Task<Message?> GetSingleOrDefaultAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IEnumerable<Message>> GetListAsync(MessageQueryOptions? options = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<Guid, ChatLastMessageRow>> GetLastByChatIdsAsync(IEnumerable<Guid> chatIds, CancellationToken cancellationToken = default);
 }
 
 public class RepositoryMessage : IRepositoryMessage
@@ -70,6 +72,7 @@ public class RepositoryMessage : IRepositoryMessage
             Id = Guid.Empty,
             MessageId = Guid.Empty,
             UserId = userId,
+            MessageSent = options.CreatedAt,
         })];
         return model;
     }
@@ -122,5 +125,36 @@ public class RepositoryMessage : IRepositoryMessage
             .ToListAsync(cancellationToken);
         page.Reverse();
         return page;
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, ChatLastMessageRow>> GetLastByChatIdsAsync(
+        IEnumerable<Guid> chatIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = chatIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return new Dictionary<Guid, ChatLastMessageRow>();
+        }
+
+        var rows = await context.Messages
+            .AsNoTracking()
+            .Where(message => ids.Contains(message.ChatId))
+            .GroupBy(message => message.ChatId)
+            .Select(group => group
+                .OrderByDescending(message => message.CreatedAt)
+                .ThenByDescending(message => message.Id)
+                .Select(message => new ChatLastMessageRow
+                {
+                    ChatId = message.ChatId,
+                    MessageId = message.Id,
+                    Text = message.Text,
+                    CreatedAt = message.CreatedAt,
+                    SenderUserId = message.Sender.UserId,
+                })
+                .First())
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(row => row.ChatId);
     }
 }

@@ -242,6 +242,9 @@ export class ChatMessages {
           return;
         }
         this.upsertMessage(toListModel(payload), true);
+        if (payload.senderUserId !== this.currentUserId()) {
+          this.acknowledgeIncoming(chatId, payload.id);
+        }
       }),
       this.chatHub.messageUpdated$.subscribe((payload) => {
         if (payload.chatId !== chatId) {
@@ -261,6 +264,12 @@ export class ChatMessages {
         }
       }),
     ];
+  }
+
+  /** Доставка + прочтение входящего в открытой ленте (список чатов обновится через chatListUpdated). */
+  private acknowledgeIncoming(chatId: string, messageId: string): void {
+    this.messageApi.markDelivered({ chatId, messageIds: [messageId] }).subscribe({ error: () => undefined });
+    this.messageApi.markRead({ chatId }).subscribe({ error: () => undefined });
   }
 
   private unbindHub(): void {

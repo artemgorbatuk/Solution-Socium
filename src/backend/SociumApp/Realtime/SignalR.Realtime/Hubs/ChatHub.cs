@@ -18,6 +18,17 @@ public class ChatHub : Hub
         this.membership = membership;
     }
 
+    public override async Task OnConnectedAsync()
+    {
+        var userId = GetUserId();
+        if (userId is Guid id)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, ChatHubMethods.UserGroup(id), Context.ConnectionAborted);
+        }
+
+        await base.OnConnectedAsync();
+    }
+
     public async Task JoinChat(Guid chatId)
     {
         var userId = GetUserId();

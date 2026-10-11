@@ -61,7 +61,9 @@ describe('RoomListItem', () => {
     fixture.componentInstance.deleted.subscribe(() => deleted++);
     element = fixture.nativeElement;
     render();
-    expectChatList().flush(successBody({ rowExists: true, rowCount: 1, rows: [{ id: 'c1', name: 'Общий' }] }));
+    expectChatList().flush(
+      successBody({ rowExists: true, rowCount: 1, rows: [{ id: 'c1', name: 'Общий', isAdmin: true, unreadCount: 0 }] }),
+    );
     render();
   });
 

@@ -35,21 +35,50 @@
   color: var(--sc-color-text);
 }
 
-.chat-link.active {
+.chat-link.active .chat-name {
   font-weight: 600;
 }
 
 .chat-icon {
+  align-self: flex-start;
+  margin-top: 0.35em;
   color: var(--sc-color-text-subtle);
 }
 
-.chat-name {
+.chat-main {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
   padding: var(--sc-space-1) 0;
+}
+
+.chat-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.chat-preview {
+  overflow: hidden;
+  color: var(--sc-color-text-subtle);
+  font-size: var(--sc-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unread {
+  flex-shrink: 0;
+  min-width: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--sc-color-accent);
+  color: var(--sc-color-on-accent);
+  font-size: var(--sc-font-size-sm);
+  font-weight: 600;
+  line-height: 1.25rem;
+  text-align: center;
 }
 
 /* Скрыты прозрачностью, а не display: none, чтобы до кнопок можно было дойти по Tab. */

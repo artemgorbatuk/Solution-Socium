@@ -113,3 +113,25 @@ public class MessageAttachmentModel
     public required string ContentType { get; set; }
     public required long SizeBytes { get; set; }
 }
+
+public class MessageDeliveredRequest
+{
+    public required Guid ChatId { get; set; }
+    public required IReadOnlyList<Guid> MessageIds { get; set; }
+}
+
+public class MessageDeliveredResponse
+{
+    public required int UpdatedCount { get; set; }
+}
+
+public class MessageReadRequest
+{
+    public required Guid ChatId { get; set; }
+}
+
+public class MessageReadResponse
+{
+    public required int UpdatedCount { get; set; }
+    public required int UnreadCount { get; set; }
+}

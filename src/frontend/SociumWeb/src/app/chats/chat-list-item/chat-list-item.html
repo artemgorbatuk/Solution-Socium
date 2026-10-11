@@ -31,7 +31,15 @@
       [title]="chat().name"
     >
       <span class="chat-icon" aria-hidden="true">#</span>
-      <span class="chat-name">{{ chat().name }}</span>
+      <span class="chat-main">
+        <span class="chat-name">{{ chat().name }}</span>
+        @if (preview(); as text) {
+          <span class="chat-preview">{{ text }}</span>
+        }
+      </span>
+      @if (chat().unreadCount > 0) {
+        <span class="unread" [attr.aria-label]="'Непрочитанных: ' + chat().unreadCount">{{ chat().unreadCount }}</span>
+      }
     </a>
     @if (chat().isAdmin) {
       <div class="actions">

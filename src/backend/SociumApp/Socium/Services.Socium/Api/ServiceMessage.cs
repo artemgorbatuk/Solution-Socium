@@ -24,6 +24,8 @@ public interface IServiceMessage
     Task<ResponseInfo<MessageDeleteResponse>> DeleteAsync(MessageDeleteRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<MessageInfoPageResponse>> DisplayInfoPageAsync(MessageInfoPageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<MessageListPageResponse>> DisplayListPageAsync(MessageListPageRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<MessageDeliveredResponse>> MarkDeliveredAsync(MessageDeliveredRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<MessageReadResponse>> MarkReadAsync(MessageReadRequest request, CancellationToken cancellationToken = default);
 }
 
 public class ServiceMessage : IServiceMessage
@@ -230,8 +232,21 @@ public class ServiceMessage : IServiceMessage
             }
 
             var createdAttachments = await filePort.GetByMessageIdsAsync([model.Id], cancellationToken);
+            var createdAttachmentList = createdAttachments.GetValueOrDefault(model.Id) ?? [];
             await chatNotifyPort.NotifyMessageCreatedAsync(
-                ToNotifyMessage(model, user.Name, createdAttachments.GetValueOrDefault(model.Id) ?? []),
+                ToNotifyMessage(model, user.Name, createdAttachmentList),
+                cancellationToken);
+            var createdPreview = string.IsNullOrWhiteSpace(model.Text)
+                ? (createdAttachmentList.Count > 0 ? "Вложение" : null)
+                : ChatMapper.TruncatePreview(model.Text);
+            await NotifyChatListForParticipantsAsync(
+                model.ChatId,
+                user.Id,
+                createdPreview,
+                model.CreatedAt,
+                user.Name,
+                createdAttachmentList.Count > 0,
+                lastMessageCleared: false,
                 cancellationToken);
 
             logger.LogInformation(MessageCrudTexts.Messages.Success.CreateCompleted);
@@ -384,9 +399,27 @@ public class ServiceMessage : IServiceMessage
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var updatedAttachments = await filePort.GetByMessageIdsAsync([model.Id], cancellationToken);
+            var updatedAttachmentList = updatedAttachments.GetValueOrDefault(model.Id) ?? [];
             await chatNotifyPort.NotifyMessageUpdatedAsync(
-                ToNotifyMessage(model, user.Name, updatedAttachments.GetValueOrDefault(model.Id) ?? []),
+                ToNotifyMessage(model, user.Name, updatedAttachmentList),
                 cancellationToken);
+            var last = (await unitOfWork.Messages.GetLastByChatIdsAsync([model.ChatId], cancellationToken))
+                .GetValueOrDefault(model.ChatId);
+            if (last is not null && last.MessageId == model.Id)
+            {
+                var updatedPreview = string.IsNullOrWhiteSpace(model.Text)
+                    ? (updatedAttachmentList.Count > 0 ? "Вложение" : null)
+                    : ChatMapper.TruncatePreview(model.Text);
+                await NotifyChatListForParticipantsAsync(
+                    model.ChatId,
+                    senderUserId: null,
+                    updatedPreview,
+                    model.CreatedAt,
+                    user.Name,
+                    updatedAttachmentList.Count > 0,
+                    lastMessageCleared: false,
+                    cancellationToken);
+            }
 
             logger.LogInformation(MessageCrudTexts.Messages.Success.UpdateCompleted);
             return ResponseInfo.Success<MessageUpdatePageResponse>(MessageType.SAVED, MessageCrudTexts.Messages.Success.UpdateCompleted);
@@ -530,6 +563,37 @@ public class ServiceMessage : IServiceMessage
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await chatNotifyPort.NotifyMessageDeletedAsync(deletedChatId, deletedMessageId, cancellationToken);
+            var lastAfterDelete = (await unitOfWork.Messages.GetLastByChatIdsAsync([deletedChatId], cancellationToken))
+                .GetValueOrDefault(deletedChatId);
+            if (lastAfterDelete is null)
+            {
+                await NotifyChatListForParticipantsAsync(
+                    deletedChatId,
+                    senderUserId: null,
+                    lastMessageText: null,
+                    lastMessageAt: null,
+                    lastMessageSenderName: null,
+                    lastMessageHasAttachments: false,
+                    lastMessageCleared: true,
+                    cancellationToken);
+            }
+            else
+            {
+                var lastAttachments = await filePort.GetByMessageIdsAsync([lastAfterDelete.MessageId], cancellationToken);
+                var lastAttachmentList = lastAttachments.GetValueOrDefault(lastAfterDelete.MessageId) ?? [];
+                var lastSender = await userPort.GetSingleOrDefaultAsync(lastAfterDelete.SenderUserId, cancellationToken);
+                await NotifyChatListForParticipantsAsync(
+                    deletedChatId,
+                    senderUserId: null,
+                    ChatMapper.TruncatePreview(string.IsNullOrWhiteSpace(lastAfterDelete.Text)
+                        ? (lastAttachmentList.Count > 0 ? "Вложение" : string.Empty)
+                        : lastAfterDelete.Text),
+                    lastAfterDelete.CreatedAt,
+                    lastSender?.Name,
+                    lastAttachmentList.Count > 0,
+                    lastMessageCleared: false,
+                    cancellationToken);
+            }
 
             var response = new MessageDeleteResponse { IsDeleted = true };
             logger.LogInformation(MessageCrudTexts.Messages.Success.DeleteCompleted);
@@ -713,6 +777,35 @@ public class ServiceMessage : IServiceMessage
                 HasOlder = hasOlder,
             };
 
+            if (request.BeforeId is null)
+            {
+                var now = timeProvider.GetUtcNow().UtcDateTime;
+                await unitOfWork.Recipients.MarkDeliveredAsync(
+                    user.Id,
+                    request.ChatId,
+                    rows.Select(row => row.Id).ToList(),
+                    now,
+                    cancellationToken);
+                var markedRead = await unitOfWork.Recipients.MarkReadForChatAsync(
+                    user.Id,
+                    request.ChatId,
+                    now,
+                    cancellationToken);
+                if (markedRead > 0)
+                {
+                    var unread = await unitOfWork.Recipients.GetUnreadCountAsync(user.Id, request.ChatId, cancellationToken);
+                    await chatNotifyPort.NotifyChatListUpdatedAsync(
+                        new ChatNotifyListModel
+                        {
+                            ChatId = chat!.Id,
+                            RoomId = chat.RoomId,
+                            UnreadCount = unread,
+                            TargetUserId = user.Id,
+                        },
+                        cancellationToken);
+                }
+            }
+
             logger.LogInformation(MessageCrudTexts.Messages.Success.DisplayListCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, MessageCrudTexts.Messages.Success.DisplayListCompleted);
         }
@@ -725,6 +818,112 @@ public class ServiceMessage : IServiceMessage
         {
             logger.LogError(exception, "{Message}", MessageCrudTexts.Messages.Error.DisplayListError);
             return ResponseInfo.Error<MessageListPageResponse>(MessageType.ERROR, MessageCrudTexts.Messages.Error.DisplayListError);
+        }
+    }
+
+    public async Task<ResponseInfo<MessageDeliveredResponse>> MarkDeliveredAsync(
+        MessageDeliveredRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (request.ChatId == Guid.Empty || request.MessageIds is null || request.MessageIds.Count == 0)
+            {
+                return ResponseInfo.BadRequest<MessageDeliveredResponse>(
+                    MessageType.BAD_REQUEST,
+                    MessageCrudTexts.Messages.Error.DisplayListError);
+            }
+
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            if (MessageCrudValidators.ValidateCurrentUser(user).Any())
+            {
+                return ResponseInfo.Unauthorized<MessageDeliveredResponse>(
+                    MessageType.UNAUTHORIZED,
+                    MessageCrudTexts.Messages.Validation.CurrentUserNotFound);
+            }
+
+            var updated = await unitOfWork.Recipients.MarkDeliveredAsync(
+                user!.Id,
+                request.ChatId,
+                request.MessageIds.Where(id => id != Guid.Empty).Distinct().ToList(),
+                timeProvider.GetUtcNow().UtcDateTime,
+                cancellationToken);
+
+            return ResponseInfo.Success(
+                new MessageDeliveredResponse { UpdatedCount = updated },
+                MessageType.SAVED,
+                MessageCrudTexts.Messages.Success.DisplayListCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "MarkDelivered failed");
+            return ResponseInfo.Error<MessageDeliveredResponse>(MessageType.ERROR, MessageCrudTexts.Messages.Error.DisplayListError);
+        }
+    }
+
+    public async Task<ResponseInfo<MessageReadResponse>> MarkReadAsync(
+        MessageReadRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (request.ChatId == Guid.Empty)
+            {
+                return ResponseInfo.BadRequest<MessageReadResponse>(
+                    MessageType.BAD_REQUEST,
+                    MessageCrudTexts.Messages.Validation.ChatIdCannotBeEmpty);
+            }
+
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            if (MessageCrudValidators.ValidateCurrentUser(user).Any())
+            {
+                return ResponseInfo.Unauthorized<MessageReadResponse>(
+                    MessageType.UNAUTHORIZED,
+                    MessageCrudTexts.Messages.Validation.CurrentUserNotFound);
+            }
+
+            var updated = await unitOfWork.Recipients.MarkReadForChatAsync(
+                user!.Id,
+                request.ChatId,
+                timeProvider.GetUtcNow().UtcDateTime,
+                cancellationToken);
+            var unread = await unitOfWork.Recipients.GetUnreadCountAsync(user.Id, request.ChatId, cancellationToken);
+
+            var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(request.ChatId, cancellationToken);
+            if (chat is not null)
+            {
+                await chatNotifyPort.NotifyChatListUpdatedAsync(
+                    new ChatNotifyListModel
+                    {
+                        ChatId = chat.Id,
+                        RoomId = chat.RoomId,
+                        UnreadCount = unread,
+                        TargetUserId = user.Id,
+                    },
+                    cancellationToken);
+            }
+
+            return ResponseInfo.Success(
+                new MessageReadResponse { UpdatedCount = updated, UnreadCount = unread },
+                MessageType.SAVED,
+                MessageCrudTexts.Messages.Success.DisplayListCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "MarkRead failed");
+            return ResponseInfo.Error<MessageReadResponse>(MessageType.ERROR, MessageCrudTexts.Messages.Error.DisplayListError);
         }
     }
 
@@ -752,5 +951,50 @@ public class ServiceMessage : IServiceMessage
                 }),
             ],
         };
+    }
+
+    private async Task NotifyChatListForParticipantsAsync(
+        Guid chatId,
+        Guid? senderUserId,
+        string? lastMessageText,
+        DateTime? lastMessageAt,
+        string? lastMessageSenderName,
+        bool lastMessageHasAttachments,
+        bool lastMessageCleared,
+        CancellationToken cancellationToken)
+    {
+        var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(chatId, cancellationToken);
+        if (chat is null)
+        {
+            return;
+        }
+
+        var participants = await unitOfWork.Participants.GetListAsync(
+            new ParticipantQueryOptions { ChatId = chatId },
+            cancellationToken);
+
+        foreach (var participant in participants)
+        {
+            var unread = await unitOfWork.Recipients.GetUnreadCountAsync(participant.UserId, chatId, cancellationToken);
+            if (senderUserId is Guid sender && participant.UserId == sender)
+            {
+                // отправителю превью обновляем, unread свой не трогаем смыслом — считаем из БД
+            }
+
+            await chatNotifyPort.NotifyChatListUpdatedAsync(
+                new ChatNotifyListModel
+                {
+                    ChatId = chat.Id,
+                    RoomId = chat.RoomId,
+                    TargetUserId = participant.UserId,
+                    UnreadCount = unread,
+                    LastMessageText = lastMessageCleared ? null : lastMessageText,
+                    LastMessageAt = lastMessageCleared ? null : lastMessageAt,
+                    LastMessageSenderName = lastMessageCleared ? null : lastMessageSenderName,
+                    LastMessageHasAttachments = !lastMessageCleared && lastMessageHasAttachments,
+                    LastMessageCleared = lastMessageCleared,
+                },
+                cancellationToken);
+        }
     }
 }

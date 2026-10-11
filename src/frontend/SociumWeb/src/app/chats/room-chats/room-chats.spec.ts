@@ -2,8 +2,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { Subject } from 'rxjs';
 import { successBody } from '../../shared/api/api-response.testing';
 import { signInAs } from '../../account/auth.testing';
+import { ChatHub } from '../../realtime/chat-hub';
+import { ChatListNotify } from '../../realtime/chat-hub.models';
 import { ChatChanges } from '../chat-changes';
 import { ChatListModel } from '../chat.models';
 import { RoomChats } from './room-chats';
@@ -12,9 +15,14 @@ describe('RoomChats', () => {
   let fixture: ComponentFixture<RoomChats>;
   let http: HttpTestingController;
   let element: HTMLElement;
+  let chatListUpdated$: Subject<ChatListNotify>;
 
   function render(): void {
     fixture.detectChanges();
+  }
+
+  function row(partial: Partial<ChatListModel> & Pick<ChatListModel, 'id' | 'name'>): ChatListModel {
+    return { isAdmin: true, unreadCount: 0, ...partial };
   }
 
   function listBody(rows: ChatListModel[]) {
@@ -46,9 +54,21 @@ describe('RoomChats', () => {
   }
 
   beforeEach(() => {
+    chatListUpdated$ = new Subject();
     TestBed.configureTestingModule({
       imports: [RoomChats],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: ChatHub,
+          useValue: {
+            ensureConnected: () => Promise.resolve(),
+            chatListUpdated$,
+          },
+        },
+      ],
     });
     http = TestBed.inject(HttpTestingController);
   });
@@ -61,11 +81,12 @@ describe('RoomChats', () => {
     create(false);
     expect(element.textContent).toContain('Загрузка…');
 
-    expectList().flush(listBody([{ id: 'c1', name: 'Арт', isAdmin: true }, { id: 'c2', name: 'Общий', isAdmin: true }]));
+    expectList().flush(listBody([row({ id: 'c1', name: 'Арт' }), row({ id: 'c2', name: 'Общий' })]));
     render();
 
+    // Без lastMessageAt — сортировка по Id убыв. (c2 «Общий» выше c1 «Арт»).
     const names = Array.from(element.querySelectorAll('.chat-name')).map((item) => item.textContent!.trim());
-    expect(names).toEqual(['Арт', 'Общий']);
+    expect(names).toEqual(['Общий', 'Арт']);
     expect(element.querySelector('ul')!.getAttribute('aria-label')).toBe('Чаты комнаты Кухня');
   });
 
@@ -97,7 +118,7 @@ describe('RoomChats', () => {
     const request = http.expectOne({ method: 'POST', url: '/api/chat' });
     expect(request.request.body).toEqual({ roomId: '1', name: 'Общий' });
     request.flush(successBody(null, 2));
-    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: true }]));
+    expectList().flush(listBody([row({ id: 'c1', name: 'Общий' })]));
     render();
 
     expect(fixture.componentInstance.creating()).toBe(false);
@@ -146,7 +167,7 @@ describe('RoomChats', () => {
 
   it('ChatRename_Save_WithNewName_ShouldNotifyChangesAndReloadList', () => {
     create(false);
-    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: true }]));
+    expectList().flush(listBody([row({ id: 'c1', name: 'Общий' })]));
     render();
 
     element.querySelector<HTMLButtonElement>('[aria-label="Переименовать чат Общий"]')!.click();
@@ -157,7 +178,7 @@ describe('RoomChats', () => {
     element.querySelector('.rename-form')!.dispatchEvent(new Event('submit'));
     http.expectOne({ method: 'PUT', url: '/api/chat' }).flush(successBody(null, 2));
     render();
-    expectList().flush(listBody([{ id: 'c1', name: 'Объявления', isAdmin: true }]));
+    expectList().flush(listBody([row({ id: 'c1', name: 'Объявления' })]));
     render();
 
     expect(TestBed.inject(ChatChanges).version()).toBe(1);
@@ -166,7 +187,7 @@ describe('RoomChats', () => {
 
   it('ChatDelete_Confirm_WithExistingChat_ShouldDeleteNotifyChangesAndReloadList', () => {
     create(false);
-    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: true }]));
+    expectList().flush(listBody([row({ id: 'c1', name: 'Общий' })]));
     render();
 
     element.querySelector<HTMLButtonElement>('[aria-label="Удалить чат Общий"]')!.click();
@@ -188,12 +209,12 @@ describe('RoomChats', () => {
 
   it('List_Reload_WithCurrentUserChanged_ShouldLoadAdminFlagsOfNewUser', () => {
     create(false);
-    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: true }]));
+    expectList().flush(listBody([row({ id: 'c1', name: 'Общий' })]));
     render();
 
     signInAs('u2');
     render();
-    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: false }]));
+    expectList().flush(listBody([row({ id: 'c1', name: 'Общий', isAdmin: false })]));
     render();
 
     expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');
@@ -207,9 +228,47 @@ describe('RoomChats', () => {
 
     TestBed.inject(ChatChanges).notify();
     render();
-    expectList().flush(listBody([{ id: 'c1', name: 'Общий', isAdmin: false }]));
+    expectList().flush(listBody([row({ id: 'c1', name: 'Общий', isAdmin: false })]));
     render();
 
     expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');
+  });
+
+  it('List_Realtime_WithChatListUpdated_ShouldPatchPreviewUnreadAndReorder', () => {
+    create(false);
+    expectList().flush(
+      listBody([
+        row({
+          id: 'c2',
+          name: 'Свежий',
+          lastMessageAt: '2020-01-01T12:00:00Z',
+          lastMessageText: 'середина',
+        }),
+        row({
+          id: 'c1',
+          name: 'Старый',
+          lastMessageAt: '2020-01-01T00:00:00Z',
+          lastMessageText: 'было',
+        }),
+      ]),
+    );
+    render();
+
+    chatListUpdated$.next({
+      chatId: 'c1',
+      roomId: '1',
+      targetUserId: 'u1',
+      unreadCount: 2,
+      lastMessageText: 'привет',
+      lastMessageAt: '2020-01-02T00:00:00Z',
+      lastMessageSenderName: 'Анна',
+      lastMessageHasAttachments: false,
+    });
+    render();
+
+    const names = Array.from(element.querySelectorAll('.chat-name')).map((item) => item.textContent!.trim());
+    expect(names).toEqual(['Старый', 'Свежий']);
+    expect(element.querySelector('.chat-preview')!.textContent).toContain('Анна: привет');
+    expect(element.querySelector('.unread')!.textContent).toBe('2');
   });
 });

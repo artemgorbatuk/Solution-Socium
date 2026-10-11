@@ -1,4 +1,4 @@
-import { Component, ElementRef, Injector, afterNextRender, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { problemDetail } from '../../shared/api/api-response';
 import { Icon } from '../../shared/icon/icon';
@@ -28,6 +28,19 @@ export class ChatListItem {
   protected readonly draftName = signal('');
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly preview = computed(() => {
+    const row = this.chat();
+    const text = row.lastMessageText?.trim();
+    if (text) {
+      const sender = row.lastMessageSenderName?.trim();
+      return sender ? `${sender}: ${text}` : text;
+    }
+    if (row.lastMessageHasAttachments) {
+      const sender = row.lastMessageSenderName?.trim();
+      return sender ? `${sender}: Вложение` : 'Вложение';
+    }
+    return null;
+  });
 
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
 

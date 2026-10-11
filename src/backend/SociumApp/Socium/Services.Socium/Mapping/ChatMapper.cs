@@ -41,14 +41,37 @@ public static class ChatMapper
         };
     }
 
-    public static ChatListModel ToListModel(Chat model, bool isAdmin)
+    public static ChatListModel ToListModel(
+        Chat model,
+        bool isAdmin,
+        int unreadCount = 0,
+        string? lastMessageText = null,
+        DateTime? lastMessageAt = null,
+        string? lastMessageSenderName = null,
+        bool lastMessageHasAttachments = false)
     {
         return new ChatListModel
         {
             Id = model.Id,
             Name = model.Name,
             IsAdmin = isAdmin,
+            UnreadCount = unreadCount,
+            LastMessageText = lastMessageText,
+            LastMessageAt = lastMessageAt,
+            LastMessageSenderName = lastMessageSenderName,
+            LastMessageHasAttachments = lastMessageHasAttachments,
         };
+    }
+
+    public static string TruncatePreview(string text, int maxLength = 80)
+    {
+        var normalized = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        if (normalized.Length <= maxLength)
+        {
+            return normalized;
+        }
+
+        return normalized[..maxLength].TrimEnd() + "…";
     }
 
     public static ChatDeletePageResponse ToDeletePageResponse(Chat model)

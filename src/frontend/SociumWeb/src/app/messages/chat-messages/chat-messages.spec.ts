@@ -270,6 +270,8 @@ describe('ChatMessages', () => {
       attachments: [],
     });
     render();
+    http.expectOne({ method: 'POST', url: '/api/message/delivered' }).flush(successBody({ updatedCount: 1 }, 2));
+    http.expectOne({ method: 'POST', url: '/api/message/read' }).flush(successBody({ updatedCount: 1, unreadCount: 0 }, 2));
 
     expect(texts()).toEqual(['Первое', 'Второе']);
   });

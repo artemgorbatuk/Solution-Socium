@@ -6,6 +6,12 @@ export interface ChatListModel {
   name: string;
   /** Текущий пользователь — админ чата: ему доступны переименование и удаление. */
   isAdmin: boolean;
+  unreadCount: number;
+  lastMessageText?: string | null;
+  /** UTC в формате ISO 8601. */
+  lastMessageAt?: string | null;
+  lastMessageSenderName?: string | null;
+  lastMessageHasAttachments?: boolean;
 }
 
 export interface ChatListPageResponse {
@@ -40,4 +46,16 @@ export interface ChatDeletePageResponse {
 
 export interface ChatDeleteResponse {
   isDeleted: boolean;
+}
+
+/** Как на бекенде: пустой чат сверху (MaxValue), иначе по lastMessageAt, затем Id. */
+export function sortChatList(rows: ChatListModel[]): ChatListModel[] {
+  return [...rows].sort((left, right) => {
+    const leftAt = left.lastMessageAt ? Date.parse(left.lastMessageAt) : Number.POSITIVE_INFINITY;
+    const rightAt = right.lastMessageAt ? Date.parse(right.lastMessageAt) : Number.POSITIVE_INFINITY;
+    if (leftAt !== rightAt) {
+      return rightAt - leftAt;
+    }
+    return right.id.localeCompare(left.id);
+  });
 }

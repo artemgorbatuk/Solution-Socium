@@ -50,6 +50,41 @@ public sealed class ChatApiTests(SociumApiFixture fixture)
         var row = Assert.Single(body.Response!.Rows);
         Assert.Equal(id, row.Id);
         Assert.Equal(name, row.Name);
+        Assert.Equal(0, row.UnreadCount);
+        Assert.Null(row.LastMessageText);
+    }
+
+    [Fact]
+    public async Task List_GET_WithMessagesFromOtherParticipant_ShouldReturnPreviewUnreadAndSortByActivity()
+    {
+        var roomId = await CreateRoomAsync();
+        var quietName = UniqueName();
+        var activeName = UniqueName();
+        var quietId = await CreateChatAsync(roomId, quietName);
+        var activeId = await CreateChatAsync(roomId, activeName);
+
+        var peerId = await fixture.CreateUserAsync($"peer.{Guid.NewGuid():N}", "Пётр");
+        using var peer = fixture.CreateClientAs(peerId);
+        await peer.PostAsJsonAsync("/api/participant", new ParticipantCreateRequest { ChatId = activeId }, TestContext.Current.CancellationToken);
+
+        var text = $"Hi {Guid.NewGuid():N}";
+        var created = await peer.PostAsJsonAsync(
+            "/api/message",
+            new MessageCreateRequest { ChatId = activeId, Text = text },
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+
+        var body = await ReadSuccessAsync<ChatListPageResponse>(
+            await Client.GetAsync($"{BaseUrl}?roomId={roomId}", TestContext.Current.CancellationToken));
+
+        Assert.Equal(2, body.Response!.RowCount);
+        Assert.Equal(quietId, body.Response.Rows.First().Id);
+        Assert.Equal(0, body.Response.Rows.First().UnreadCount);
+        var active = body.Response.Rows.Single(row => row.Id == activeId);
+        Assert.Equal(1, active.UnreadCount);
+        Assert.Equal(text, active.LastMessageText);
+        Assert.Equal("Пётр", active.LastMessageSenderName);
+        Assert.NotNull(active.LastMessageAt);
     }
 
     [Fact]

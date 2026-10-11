@@ -87,4 +87,22 @@ public class MessageController : ApiControllerBase
         var responseInfo = await serviceMessage.DisplayListPageAsync(request, cancellationToken);
         return FromResponse(responseInfo);
     }
+
+    [HttpPost("delivered")]
+    public async Task<IActionResult> Delivered(
+        [FromBody] MessageDeliveredRequest request,
+        CancellationToken cancellationToken)
+    {
+        var responseInfo = await serviceMessage.MarkDeliveredAsync(request, cancellationToken);
+        return FromResponse(responseInfo);
+    }
+
+    [HttpPost("read")]
+    public async Task<IActionResult> Read(
+        [FromBody] MessageReadRequest request,
+        CancellationToken cancellationToken)
+    {
+        var responseInfo = await serviceMessage.MarkReadAsync(request, cancellationToken);
+        return FromResponse(responseInfo);
+    }
 }

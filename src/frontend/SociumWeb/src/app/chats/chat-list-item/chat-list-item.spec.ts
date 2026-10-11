@@ -7,7 +7,7 @@ import { ChatListModel } from '../chat.models';
 import { ChatListItem } from './chat-list-item';
 
 describe('ChatListItem', () => {
-  const chat: ChatListModel = { id: 'c1', name: 'Общий', isAdmin: true };
+  const chat: ChatListModel = { id: 'c1', name: 'Общий', isAdmin: true, unreadCount: 0 };
 
   let fixture: ComponentFixture<ChatListItem>;
   let http: HttpTestingController;
@@ -72,6 +72,20 @@ describe('ChatListItem', () => {
 
     expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');
     expect(element.querySelector('.actions')).toBeNull();
+  });
+
+  it('Row_Render_WithPreviewAndUnread_ShouldShowPreviewAndBadge', () => {
+    fixture.componentRef.setInput('chat', {
+      ...chat,
+      unreadCount: 3,
+      lastMessageText: 'привет',
+      lastMessageSenderName: 'Анна',
+    });
+    render();
+
+    expect(element.querySelector('.chat-preview')!.textContent).toContain('Анна: привет');
+    expect(element.querySelector('.unread')!.textContent).toBe('3');
+    expect(element.querySelector('.unread')!.getAttribute('aria-label')).toBe('Непрочитанных: 3');
   });
 
   it('Link_Render_WithOtherChatOpen_ShouldPointToChatWithoutHighlight', () => {

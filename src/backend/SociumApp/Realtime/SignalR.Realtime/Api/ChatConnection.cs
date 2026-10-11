@@ -19,4 +19,11 @@ public class ChatConnection : IChatConnection
             .Group(ChatHubMethods.ChatGroup(chatId))
             .SendAsync(method, payload, cancellationToken);
     }
+
+    public Task SendToUserAsync(Guid userId, string method, object payload, CancellationToken cancellationToken = default)
+    {
+        return hubContext.Clients
+            .Group(ChatHubMethods.UserGroup(userId))
+            .SendAsync(method, payload, cancellationToken);
+    }
 }
