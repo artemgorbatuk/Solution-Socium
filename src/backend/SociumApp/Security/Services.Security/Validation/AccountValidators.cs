@@ -15,14 +15,60 @@ public static class AccountValidators
     }
 
     /// <summary>
-    /// Одна ошибка на неизвестный логин, удалённого пользователя и неверный пароль — чтобы по ответу нельзя было подобрать логины.
+    /// Одна ошибка на неизвестный логин, удалённого, неподтверждённый email и неверный пароль —
+    /// чтобы по ответу нельзя было подобрать логины или узнать статус почты.
     /// </summary>
     public static IEnumerable<string> ValidateCredentials(User? user, bool isPasswordValid)
     {
-        if (user == null || user.IsDeleted || !isPasswordValid)
+        if (user == null || user.IsDeleted || !user.IsEmailConfirmed || !isPasswordValid)
         {
             yield return AccountTexts.Messages.Validation.InvalidCredentials;
         }
+    }
+
+    public static IEnumerable<string> ValidatePrimaryConfirmEmailRequest(AccountConfirmEmailRequest? request)
+    {
+        if (request == null)
+        {
+            yield return AccountTexts.Messages.Validation.RequestCannotBeNull;
+        }
+        else if (string.IsNullOrWhiteSpace(request.Token))
+        {
+            yield return AccountTexts.Messages.Validation.TokenRequired;
+        }
+    }
+
+    public static IEnumerable<string> ValidatePrimaryResendConfirmationRequest(AccountResendConfirmationRequest? request)
+    {
+        if (request == null)
+        {
+            yield return AccountTexts.Messages.Validation.RequestCannotBeNull;
+        }
+    }
+
+    public static IEnumerable<string> ValidatePrimaryForgotPasswordRequest(AccountForgotPasswordRequest? request)
+    {
+        if (request == null)
+        {
+            yield return AccountTexts.Messages.Validation.RequestCannotBeNull;
+        }
+    }
+
+    public static IEnumerable<string> ValidatePrimaryResetPasswordRequest(AccountResetPasswordRequest? request)
+    {
+        if (request == null)
+        {
+            yield return AccountTexts.Messages.Validation.RequestCannotBeNull;
+        }
+        else if (string.IsNullOrWhiteSpace(request.Token))
+        {
+            yield return AccountTexts.Messages.Validation.TokenRequired;
+        }
+    }
+
+    public static IEnumerable<string> ValidateDomainResetPasswordRequest(AccountResetPasswordRequest request)
+    {
+        return UserCrudValidators.ValidatePassword(request.Password);
     }
 
     public static IEnumerable<string> ValidatePrimaryProfilePageRequest(AccountProfilePageRequest? request)

@@ -1,3 +1,4 @@
+using Datasource.Messaging.Ef.Contexts;
 using Datasource.Security.Ef.Contexts;
 using Datasource.Socium.Ef.Contexts;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,7 @@ namespace Tests.Infrastructure;
 public static class TestDatabase
 {
     /// <summary>
-    /// Порядок как в WebApi: миграция Socium Task0011 удаляет старую таблицу Users, Security создаёт новую.
+    /// Порядок как в WebApi: Socium → Security → Messaging.
     /// </summary>
     public static async Task MigrateAsync(IServiceProvider services)
     {
@@ -22,6 +23,12 @@ public static class TestDatabase
         await using (var security = await securityFactory.CreateDbContextAsync())
         {
             await security.Database.MigrateAsync();
+        }
+
+        var messagingFactory = services.GetRequiredService<IDbContextFactory<DbContextMessaging>>();
+        await using (var messaging = await messagingFactory.CreateDbContextAsync())
+        {
+            await messaging.Database.MigrateAsync();
         }
     }
 }

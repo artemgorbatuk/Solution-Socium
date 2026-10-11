@@ -5,9 +5,10 @@ namespace Services.Security.Mapping;
 
 public static class UserMapper
 {
-    public static void Apply(User model, string login, string name)
+    public static void Apply(User model, string login, string email, string name)
     {
         model.Login = login;
+        model.Email = email;
         model.Name = name;
     }
 
@@ -15,6 +16,7 @@ public static class UserMapper
     {
         return new UserCreatePageResponse
         {
+            Email = model.Email,
             Login = model.Login,
             Name = model.Name,
         };
@@ -66,6 +68,7 @@ public static class UserMapper
         {
             Id = model.Id,
             Login = model.Login,
+            Email = model.Email,
             Name = model.Name,
         };
     }

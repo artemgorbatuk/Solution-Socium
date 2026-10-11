@@ -34,7 +34,7 @@ describe('ParticipantsPanel', () => {
 
   function rowTexts(): string[] {
     return Array.from(element.querySelectorAll('.participant')).map((item) =>
-      Array.from(item.querySelectorAll('.name, .login, .badge'))
+      Array.from(item.querySelectorAll('.name, .badge'))
         .map((part) => part.textContent!.replace(/\s+/g, ' ').trim())
         .join(' | '),
     );
@@ -65,15 +65,17 @@ describe('ParticipantsPanel', () => {
     localStorage.removeItem(participantsPanelOpenStorageKey);
   });
 
-  it('List_Load_WithParticipants_ShouldShowNamesLoginsAdminMarkAndSelf', () => {
+  it('List_Load_WithParticipants_ShouldShowNamesAdminMarkAndSelfWithoutLogin', () => {
     expect(element.textContent).toContain('Загрузка…');
 
     flushList([anna, boris], false);
 
     expect(element.querySelector('ul')!.getAttribute('aria-label')).toBe('Участники чата Общий');
     expect(element.querySelector('.count')!.textContent).toBe('2');
-    expect(rowTexts()).toEqual(['Анна (вы) | anna | админ', 'Борис | boris']);
+    expect(rowTexts()).toEqual(['Анна (вы) | админ', 'Борис']);
     expect(element.querySelector('.avatar')!.textContent).toBe('А');
+    expect(element.textContent).not.toContain('anna');
+    expect(element.textContent).not.toContain('boris');
   });
 
   it('List_Load_WithNotAdmin_ShouldHideRoleButtons', () => {
@@ -89,6 +91,17 @@ describe('ParticipantsPanel', () => {
     expect(labels).toEqual(['Снять роль админа: Анна', 'Сделать админом: Борис']);
     expect(button('Снять роль')).toBeDefined();
     expect(button('Сделать админом')).toBeDefined();
+    expect(button('Снять роль')!.disabled).toBe(false);
+  });
+
+  it('List_Load_WithSingleParticipant_ShouldDisableRoleButton', () => {
+    flushList([anna], true);
+
+    const role = button('Снять роль')!;
+    expect(role).toBeDefined();
+    expect(role.disabled).toBe(true);
+    role.click();
+    http.expectNone({ method: 'PUT', url: '/api/participant' });
   });
 
   it('List_Load_WithServerError_ShouldShowProblem', () => {
@@ -227,7 +240,7 @@ describe('ParticipantsPanel', () => {
   it('List_Reload_WithOwnNameChanged_ShouldReloadList', () => {
     flushList([anna, boris], false);
 
-    TestBed.inject(Auth).updateProfile({ id: 'u1', login: 'anna', name: 'Анна Новая' });
+    TestBed.inject(Auth).updateProfile({ id: 'u1', login: 'anna', email: 'anna@example.com', name: 'Анна Новая' });
     render();
     flushList([{ ...anna, name: 'Анна Новая' }, boris], false);
 

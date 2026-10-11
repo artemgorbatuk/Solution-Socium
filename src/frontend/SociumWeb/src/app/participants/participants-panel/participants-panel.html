@@ -23,7 +23,6 @@
                 <span class="self">(вы)</span>
               }
             </span>
-            <span class="login" [title]="participant.login">{{ participant.login }}</span>
           </span>
           @if (participant.isAdmin) {
             <span class="badge">админ</span>
@@ -32,7 +31,7 @@
             <button
               type="button"
               class="role"
-              [disabled]="!!updatingId()"
+              [disabled]="!!updatingId() || !canChangeRole()"
               [attr.aria-label]="(participant.isAdmin ? 'Снять роль админа: ' : 'Сделать админом: ') + participant.name"
               (click)="setAdmin(participant, !participant.isAdmin)"
             >

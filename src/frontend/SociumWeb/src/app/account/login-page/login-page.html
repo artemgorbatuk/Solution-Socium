@@ -5,6 +5,25 @@
 <form class="card" [attr.aria-label]="registering() ? 'Регистрация' : 'Вход'" (submit)="submit($event)">
   <h1 class="brand">Socium</h1>
 
+  @if (info(); as message) {
+    <p class="success" role="status">{{ message }}</p>
+  }
+
+  @if (registering()) {
+    <label class="field">
+      <span>Email</span>
+      <input
+        type="email"
+        name="email"
+        autocomplete="email"
+        [attr.maxlength]="emailMaxLength"
+        [value]="email()"
+        [disabled]="saving()"
+        (input)="onInput('email', $event)"
+      />
+    </label>
+  }
+
   <label class="field">
     <span>Логин</span>
     <input
@@ -46,10 +65,12 @@
     />
   </label>
 
-  <label class="remember">
-    <input type="checkbox" name="rememberMe" [checked]="rememberMe()" [disabled]="saving()" (change)="onRememberMeChange($event)" />
-    <span>Запомнить меня</span>
-  </label>
+  @if (!registering()) {
+    <label class="remember">
+      <input type="checkbox" name="rememberMe" [checked]="rememberMe()" [disabled]="saving()" (change)="onRememberMeChange($event)" />
+      <span>Запомнить меня</span>
+    </label>
+  }
 
   @if (error(); as message) {
     <p class="error" role="alert">{{ message }}</p>
@@ -58,6 +79,16 @@
   <button type="submit" class="primary submit" [disabled]="!canSubmit()">
     {{ registering() ? 'Зарегистрироваться' : 'Войти' }}
   </button>
+
+  @if (!registering()) {
+    <p class="switch">
+      <a class="link" routerLink="/forgot-password">Забыли пароль?</a>
+    </p>
+    <p class="switch">
+      Не пришло письмо?
+      <a class="link" routerLink="/check-email">Выслать ещё раз</a>
+    </p>
+  }
 
   <p class="switch">
     @if (registering()) {

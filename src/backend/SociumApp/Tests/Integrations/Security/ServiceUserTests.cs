@@ -42,7 +42,7 @@ public sealed class ServiceUserTests(SecurityServiceFixture fixture)
     {
         var login = UniqueLogin();
 
-        var result = await RunAsAsync(null, service => service.CreateAsync(new UserCreateRequest { Login = $"  {login.ToUpperInvariant()} ", Name = "  Иван Петров  ", Password = Password }));
+        var result = await RunAsAsync(null, service => service.CreateAsync(new UserCreateRequest { Email = "user@example.com", Login = $"  {login.ToUpperInvariant()} ", Name = "  Иван Петров  ", Password = Password }));
 
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
         Assert.Equal(UserCrudTexts.Messages.Success.CreateCompleted, result.MessageInfo.MessageText);
@@ -70,7 +70,7 @@ public sealed class ServiceUserTests(SecurityServiceFixture fixture)
     [Fact]
     public async Task Create_Submit_WithTooShortPassword_ShouldReturnInvalid()
     {
-        var result = await RunAsAsync(null, service => service.CreateAsync(new UserCreateRequest { Login = UniqueLogin(), Name = "Иван", Password = "1234567" }));
+        var result = await RunAsAsync(null, service => service.CreateAsync(new UserCreateRequest { Email = "user@example.com", Login = UniqueLogin(), Name = "Иван", Password = "1234567" }));
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(UserCrudTexts.Messages.Validation.PasswordLength(8, 128), result.MessageInfo.MessageText);
@@ -82,7 +82,7 @@ public sealed class ServiceUserTests(SecurityServiceFixture fixture)
         var login = UniqueLogin();
         await fixture.CreateUserAsync(login, "Иван");
 
-        var result = await RunAsAsync(null, service => service.CreateAsync(new UserCreateRequest { Login = login.ToUpperInvariant(), Name = "Другой Иван", Password = Password }));
+        var result = await RunAsAsync(null, service => service.CreateAsync(new UserCreateRequest { Email = "user@example.com", Login = login.ToUpperInvariant(), Name = "Другой Иван", Password = Password }));
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(UserCrudTexts.Messages.Validation.LoginAlreadyExists, result.MessageInfo.MessageText);
@@ -95,7 +95,7 @@ public sealed class ServiceUserTests(SecurityServiceFixture fixture)
         var id = await fixture.CreateUserAsync(login, "Иван");
         await DeleteUserAsync(id);
 
-        var result = await RunAsAsync(null, service => service.CreateAsync(new UserCreateRequest { Login = login, Name = "Иван", Password = Password }));
+        var result = await RunAsAsync(null, service => service.CreateAsync(new UserCreateRequest { Email = "user@example.com", Login = login, Name = "Иван", Password = Password }));
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(UserCrudTexts.Messages.Validation.LoginAlreadyExists, result.MessageInfo.MessageText);
@@ -104,7 +104,7 @@ public sealed class ServiceUserTests(SecurityServiceFixture fixture)
     [Fact]
     public async Task Create_Submit_WithForbiddenLoginEmptyNameAndEmptyPassword_ShouldReturnInvalidWithAllErrors()
     {
-        var result = await RunAsAsync(null, service => service.CreateAsync(new UserCreateRequest { Login = "иван петров", Name = " ", Password = "" }));
+        var result = await RunAsAsync(null, service => service.CreateAsync(new UserCreateRequest { Email = "user@example.com", Login = "иван петров", Name = " ", Password = "" }));
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(UserCrudTexts.Messages.Validation.LoginFormat, result.MessageInfo.MessageText);

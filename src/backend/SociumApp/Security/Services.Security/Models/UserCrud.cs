@@ -9,6 +9,7 @@ public class UserCreatePageRequest
 /// </summary>
 public class UserCreateRequest
 {
+    public required string Email { get; set; }
     public required string Login { get; set; }
     public required string Name { get; set; }
     public required string Password { get; set; }
@@ -16,6 +17,7 @@ public class UserCreateRequest
 
 public class UserCreatePageResponse
 {
+    public required string Email { get; set; }
     public required string Login { get; set; }
     public required string Name { get; set; }
 }

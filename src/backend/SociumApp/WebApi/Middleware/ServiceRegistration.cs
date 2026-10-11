@@ -1,11 +1,17 @@
+using Datasource.Messaging.Ef.Contexts;
 using Datasource.Security.Ef.Contexts;
 using Datasource.Socium.Ef.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Repositories.Messaging.Ef.Api;
 using Repositories.Security.Ef.Api;
 using Repositories.Socium.Ef.Api;
+using Services.Messaging.Middleware;
+using Services.Messaging.Tokens.Api;
+using Services.Messaging.Tokens.Providers;
 using Services.Security.Api;
 using Services.Security.Passwords.Providers;
+using Services.Security.Ports;
 using Services.Security.Tokens.Options;
 using Services.Security.Tokens.Providers;
 using Services.Security.Tokens.Validation;
@@ -18,11 +24,12 @@ namespace WebApi.Middleware;
 
 public static class ServiceRegistration
 {
-    public static IServiceCollection AddDependencyInjectionExt(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddDependencyInjectionExt(this IServiceCollection services, IConfiguration configuration, bool captureMail = false)
     {
         // Репозитории, которые работают с DbContext, создаются в UoW - в DI не требуются.
         services.AddScoped<IUnitOfWorkSocium, UnitOfWorkSocium>();
         services.AddScoped<IUnitOfWorkSecurity, UnitOfWorkSecurity>();
+        services.AddScoped<IUnitOfWorkMessaging, UnitOfWorkMessaging>();
         services.AddSingleton(TimeProvider.System);
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, CurrentUserFromClaims>();
@@ -34,6 +41,19 @@ public static class ServiceRegistration
         services.AddSingleton<IAccessTokenProvider, AccessTokenProvider>();
         services.AddSingleton<IRefreshTokenProvider, RefreshTokenProvider>();
         services.AddSingleton<IPasswordHasher, AspNetIdentityPasswordHasher>();
+        services.AddSingleton<IEmailTokenHasher, EmailTokenHasher>();
+
+        if (captureMail)
+        {
+            services.AddMessagingCapture(configuration);
+        }
+        else
+        {
+            services.AddMessaging(configuration);
+        }
+
+        services.AddScoped<IServiceEmailToken, ServiceEmailToken>();
+        services.AddScoped<IEmailPort, EmailPort>();
 
         services.AddScoped<IServiceUser, ServiceUser>();
         services.AddScoped<IServiceAccount, ServiceAccount>();
@@ -48,7 +68,7 @@ public static class ServiceRegistration
     }
 
     /// <summary>
-    /// Таблицы обеих областей лежат в одной БД Socium, но у каждой области свой контекст и своя таблица истории миграций.
+    /// Таблицы областей лежат в одной БД Socium, у каждой — свой контекст и своя таблица истории миграций.
     /// </summary>
     public static IServiceCollection AddDbContextExt(this IServiceCollection services, IConfiguration configuration)
     {
@@ -83,6 +103,22 @@ public static class ServiceRegistration
 
         services.AddScoped(provider =>
             provider.GetRequiredService<IDbContextFactory<DbContextSecurity>>().CreateDbContext());
+
+        services.AddDbContextFactory<DbContextMessaging>(options =>
+        {
+            if (!options.IsConfigured)
+            {
+                var connectionString = configuration.GetConnectionString("Socium") ?? default!;
+
+                options.EnableSensitiveDataLogging(false);
+                options.UseNpgsql(
+                    connectionString,
+                    npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory_Messaging"));
+            }
+        });
+
+        services.AddScoped(provider =>
+            provider.GetRequiredService<IDbContextFactory<DbContextMessaging>>().CreateDbContext());
 
         return services;
     }

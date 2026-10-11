@@ -168,4 +168,58 @@ public sealed class AccountApiTests(SecurityApiFixture fixture)
         Assert.Equal(HttpStatusCode.Unauthorized, second.StatusCode);
         Assert.Equal(HttpStatusCode.TooManyRequests, third.StatusCode);
     }
+
+    [Fact]
+    public async Task RegisterConfirmLogin_POST_WithCapturedMailToken_ShouldBlockUntilConfirmed()
+    {
+        var login = UniqueLogin();
+        var email = $"{login}@example.com";
+        using var client = fixture.CreateAnonymousClient();
+        fixture.Mail.Clear();
+
+        var created = await client.PostAsJsonAsync(
+            "/api/user",
+            new UserCreateRequest { Email = email, Login = login, Name = "Анна", Password = Password },
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+
+        var before = await LoginAsync(client, login);
+        Assert.Equal(HttpStatusCode.Unauthorized, before.StatusCode);
+
+        var token = MailTestHelpers.LastToken(fixture.Mail);
+        var confirmed = await client.PostAsJsonAsync(
+            $"{BaseUrl}/confirm-email",
+            new AccountConfirmEmailRequest { Token = token },
+            TestContext.Current.CancellationToken);
+        await ReadSuccessAsync<AccountConfirmEmailResponse>(confirmed);
+
+        var after = await LoginAsync(client, login);
+        await ReadSuccessAsync<AccountTokenResponseBody>(after);
+    }
+
+    [Fact]
+    public async Task ForgotAndReset_POST_WithCapturedMailToken_ShouldChangePassword()
+    {
+        var login = UniqueLogin();
+        var email = $"{login}@example.com";
+        await fixture.CreateUserAsync(login, "Анна", email);
+        using var client = fixture.CreateAnonymousClient();
+        fixture.Mail.Clear();
+
+        var forgot = await client.PostAsJsonAsync(
+            $"{BaseUrl}/forgot-password",
+            new AccountForgotPasswordRequest { Email = email },
+            TestContext.Current.CancellationToken);
+        await ReadSuccessAsync<AccountForgotPasswordResponse>(forgot);
+        var token = MailTestHelpers.LastToken(fixture.Mail);
+
+        var reset = await client.PostAsJsonAsync(
+            $"{BaseUrl}/reset-password",
+            new AccountResetPasswordRequest { Token = token, Password = "Password-456" },
+            TestContext.Current.CancellationToken);
+        await ReadSuccessAsync<AccountResetPasswordResponse>(reset);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await LoginAsync(client, login)).StatusCode);
+        await ReadSuccessAsync<AccountTokenResponseBody>(await LoginAsync(client, login, "Password-456"));
+    }
 }

@@ -35,7 +35,7 @@ public sealed class UserApiTests(SecurityApiFixture fixture)
     {
         using var anonymous = fixture.CreateAnonymousClient();
 
-        var response = await anonymous.PostAsJsonAsync(BaseUrl, new UserCreateRequest { Login = UniqueLogin(), Name = "Иван", Password = Password }, TestContext.Current.CancellationToken);
+        var response = await anonymous.PostAsJsonAsync(BaseUrl, new UserCreateRequest { Email = "user@example.com", Login = UniqueLogin(), Name = "Иван", Password = Password }, TestContext.Current.CancellationToken);
 
         var body = await ReadSuccessAsync<UserCreatePageResponse>(response);
         Assert.Equal(MessageType.SAVED, body.MessageInfo.MessageType);
@@ -48,7 +48,7 @@ public sealed class UserApiTests(SecurityApiFixture fixture)
         var login = UniqueLogin();
         await fixture.CreateUserAsync(login, "Иван");
 
-        var response = await Client.PostAsJsonAsync(BaseUrl, new UserCreateRequest { Login = login.ToUpperInvariant(), Name = "Иван", Password = Password }, TestContext.Current.CancellationToken);
+        var response = await Client.PostAsJsonAsync(BaseUrl, new UserCreateRequest { Email = "user@example.com", Login = login.ToUpperInvariant(), Name = "Иван", Password = Password }, TestContext.Current.CancellationToken);
 
         var problem = await ReadProblemAsync(response, HttpStatusCode.UnprocessableEntity);
         Assert.Contains(UserCrudTexts.Messages.Validation.LoginAlreadyExists, problem.Detail);
@@ -57,7 +57,7 @@ public sealed class UserApiTests(SecurityApiFixture fixture)
     [Fact]
     public async Task Create_POST_WithForbiddenLoginAndShortPassword_ShouldReturn422()
     {
-        var response = await Client.PostAsJsonAsync(BaseUrl, new UserCreateRequest { Login = "ivan petrov", Name = "Иван", Password = "short" }, TestContext.Current.CancellationToken);
+        var response = await Client.PostAsJsonAsync(BaseUrl, new UserCreateRequest { Email = "user@example.com", Login = "ivan petrov", Name = "Иван", Password = "short" }, TestContext.Current.CancellationToken);
 
         var problem = await ReadProblemAsync(response, HttpStatusCode.UnprocessableEntity);
         Assert.Contains(UserCrudTexts.Messages.Validation.LoginFormat, problem.Detail);

@@ -15,6 +15,7 @@ public interface IRepositoryUser
     User GetNew();
     Task<User?> GetSingleOrDefaultAsync(Guid id, CancellationToken cancellationToken = default);
     Task<User?> GetSingleByLoginOrDefaultAsync(string login, CancellationToken cancellationToken = default);
+    Task<User?> GetSingleByEmailOrDefaultAsync(string email, CancellationToken cancellationToken = default);
     Task<IEnumerable<User>> GetListAsync(UserQueryOptions? options = null, CancellationToken cancellationToken = default);
 }
 
@@ -45,6 +46,7 @@ public class RepositoryUser : IRepositoryUser
         {
             Id = Guid.Empty,
             Login = string.Empty,
+            Email = string.Empty,
             Name = string.Empty,
             PasswordHash = string.Empty,
         };
@@ -60,6 +62,11 @@ public class RepositoryUser : IRepositoryUser
         return await context.Users.FirstOrDefaultAsync(user => user.Login == login, cancellationToken);
     }
 
+    public async Task<User?> GetSingleByEmailOrDefaultAsync(string email, CancellationToken cancellationToken = default)
+    {
+        return await context.Users.FirstOrDefaultAsync(user => user.Email == email, cancellationToken);
+    }
+
     public async Task<IEnumerable<User>> GetListAsync(UserQueryOptions? options = null, CancellationToken cancellationToken = default)
     {
         var query = context.Users.AsNoTracking();
@@ -72,6 +79,11 @@ public class RepositoryUser : IRepositoryUser
         if (!string.IsNullOrWhiteSpace(options?.Login))
         {
             query = query.Where(user => user.Login == options.Login);
+        }
+
+        if (!string.IsNullOrWhiteSpace(options?.Email))
+        {
+            query = query.Where(user => user.Email == options.Email);
         }
 
         if (options?.ExcludeId is Guid excludeId)

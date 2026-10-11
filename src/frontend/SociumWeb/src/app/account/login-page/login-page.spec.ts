@@ -12,6 +12,7 @@ describe('LoginPage', () => {
   let http: HttpTestingController;
   let element: HTMLElement;
   let navigate: ReturnType<typeof vi.spyOn>;
+  let navigateCommands: ReturnType<typeof vi.spyOn>;
 
   function render(): void {
     fixture.detectChanges();
@@ -47,6 +48,7 @@ describe('LoginPage', () => {
     });
     http = TestBed.inject(HttpTestingController);
     navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    navigateCommands = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     fixture = TestBed.createComponent(LoginPage);
     element = fixture.nativeElement;
     render();
@@ -54,15 +56,25 @@ describe('LoginPage', () => {
 
   afterEach(() => http.verify());
 
-  it('Form_Render_WithLoginMode_ShouldShowLoginPasswordRememberMeAndRegisterLink', () => {
+  it('Form_Render_WithLoginMode_ShouldShowLoginPasswordRememberMeForgotAndRegisterLink', () => {
     expect(element.querySelector('form')!.getAttribute('aria-label')).toBe('Вход');
     expect(element.querySelector('[name=login]')).not.toBeNull();
+    expect(element.querySelector('[name=email]')).toBeNull();
     expect(element.querySelector('[name=name]')).toBeNull();
     expect(element.querySelector<HTMLInputElement>('[name=password]')!.type).toBe('password');
     expect(element.textContent).toContain('Запомнить меня');
+    expect(element.textContent).toContain('Забыли пароль?');
+    expect(element.textContent).toContain('Выслать ещё раз');
     expect(button('Войти').disabled).toBe(true);
     expect(button('Регистрация')).toBeDefined();
     expect(element.querySelector('app-theme-toggle')).not.toBeNull();
+  });
+
+  it('Form_Render_WithConfirmedQuery_ShouldShowConfirmedMessage', () => {
+    fixture.componentRef.setInput('confirmed', '1');
+    render();
+
+    expect(element.querySelector('[role=status]')!.textContent).toContain('Почта подтверждена, войдите');
   });
 
   it('Login_Submit_WithCredentialsAndReturnUrl_ShouldStartSessionAndOpenReturnUrl', () => {
@@ -107,30 +119,35 @@ describe('LoginPage', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it('Register_Submit_WithNewUser_ShouldCreateUserThenLogIn', () => {
+  it('Register_Submit_WithNewUser_ShouldCreateUserAndOpenCheckEmailWithoutLogin', () => {
     button('Регистрация').click();
     render();
     expect(element.querySelector('form')!.getAttribute('aria-label')).toBe('Регистрация');
     expect(element.querySelector<HTMLInputElement>('[name=password]')!.getAttribute('autocomplete')).toBe('new-password');
+    input('email', '  anna@example.com  ');
     input('login', 'anna');
     input('name', '  Анна  ');
     input('password', 'Password-123');
 
     submit();
     const created = http.expectOne({ method: 'POST', url: '/api/user' });
-    expect(created.request.body).toEqual({ login: 'anna', name: 'Анна', password: 'Password-123' });
+    expect(created.request.body).toEqual({
+      email: 'anna@example.com',
+      login: 'anna',
+      name: 'Анна',
+      password: 'Password-123',
+    });
     created.flush(successBody(null, 2));
-    const login = http.expectOne('/api/account/login');
-    expect(login.request.body).toEqual({ login: 'anna', password: 'Password-123', rememberMe: false });
-    login.flush(successBody(tokenResponse('u3', 'Анна')));
 
-    expect(TestBed.inject(Auth).user()!.name).toBe('Анна');
-    expect(navigate).toHaveBeenCalledWith('/');
+    expect(navigateCommands).toHaveBeenCalledWith(['/check-email'], { queryParams: { email: 'anna@example.com' } });
+    http.expectNone('/api/account/login');
+    expect(TestBed.inject(Auth).isAuthenticated()).toBe(false);
   });
 
   it('Register_Submit_WithBlankName_ShouldKeepSubmitDisabled', () => {
     button('Регистрация').click();
     render();
+    input('email', 'anna@example.com');
     input('login', 'anna');
     input('name', '   ');
     input('password', 'Password-123');
@@ -141,6 +158,7 @@ describe('LoginPage', () => {
   it('Register_Submit_WithShortPassword_ShouldShowProblemWithoutLogin', () => {
     button('Регистрация').click();
     render();
+    input('email', 'anna@example.com');
     input('login', 'anna');
     input('name', 'Анна');
     input('password', 'short');

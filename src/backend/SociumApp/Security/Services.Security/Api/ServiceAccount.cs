@@ -6,6 +6,7 @@ using Services.Security.Mapping;
 using Services.Security.Models;
 using Services.Security.Normalizers;
 using Services.Security.Passwords.Providers;
+using Services.Security.Ports;
 using Services.Security.Texts;
 using Services.Security.Tokens.Providers;
 using Services.Security.Validation;
@@ -27,6 +28,10 @@ public interface IServiceAccount
     Task<ResponseInfo<AccountLogoutResponse>> LogoutAsync(AccountLogoutRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<AccountProfileResponse>> DisplayProfilePageAsync(AccountProfilePageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<AccountProfileResponse>> UpdateProfileAsync(AccountProfileUpdateRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<AccountConfirmEmailResponse>> ConfirmEmailAsync(AccountConfirmEmailRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<AccountResendConfirmationResponse>> ResendConfirmationAsync(AccountResendConfirmationRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<AccountForgotPasswordResponse>> ForgotPasswordAsync(AccountForgotPasswordRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<AccountResetPasswordResponse>> ResetPasswordAsync(AccountResetPasswordRequest request, CancellationToken cancellationToken = default);
 }
 
 public class ServiceAccount : IServiceAccount
@@ -36,6 +41,7 @@ public class ServiceAccount : IServiceAccount
     private readonly IPasswordHasher passwordHasher;
     private readonly IAccessTokenProvider accessTokenProvider;
     private readonly IRefreshTokenProvider refreshTokenProvider;
+    private readonly IEmailPort emailPort;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<ServiceAccount> logger;
 
@@ -45,6 +51,7 @@ public class ServiceAccount : IServiceAccount
         IPasswordHasher passwordHasher,
         IAccessTokenProvider accessTokenProvider,
         IRefreshTokenProvider refreshTokenProvider,
+        IEmailPort emailPort,
         TimeProvider timeProvider,
         ILogger<ServiceAccount> logger)
     {
@@ -53,6 +60,7 @@ public class ServiceAccount : IServiceAccount
         this.passwordHasher = passwordHasher;
         this.accessTokenProvider = accessTokenProvider;
         this.refreshTokenProvider = refreshTokenProvider;
+        this.emailPort = emailPort;
         this.timeProvider = timeProvider;
         this.logger = logger;
     }
@@ -265,7 +273,7 @@ public class ServiceAccount : IServiceAccount
                 return ResponseInfo.Invalid<AccountProfileResponse>(MessageType.INVALID, messageText);
             }
 
-            UserMapper.Apply(user!, user!.Login, UserNormalizer.Name(request.Name));
+            UserMapper.Apply(user!, user!.Login, user.Email, UserNormalizer.Name(request.Name));
             await unitOfWork.Users.UpdateAsync(user, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -282,6 +290,188 @@ public class ServiceAccount : IServiceAccount
         {
             logger.LogError(exception, "{Message}", AccountTexts.Messages.Error.ProfileUpdateError);
             return ResponseInfo.Error<AccountProfileResponse>(MessageType.ERROR, AccountTexts.Messages.Error.ProfileUpdateError);
+        }
+    }
+
+    public async Task<ResponseInfo<AccountConfirmEmailResponse>> ConfirmEmailAsync(AccountConfirmEmailRequest request, CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(AccountTexts.Messages.Start.ConfirmingEmail);
+
+        try
+        {
+            var primaryErrors = AccountValidators.ValidatePrimaryConfirmEmailRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{AccountTexts.Messages.Error.ConfirmEmailError}{Environment.NewLine}{errors}";
+                return ResponseInfo.BadRequest<AccountConfirmEmailResponse>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var accept = await emailPort.AcceptConfirmationAsync(request.Token, cancellationToken);
+            if (accept.MessageInfo.MessageType != MessageType.SAVED || accept.Response is null)
+            {
+                var messageText = $"{AccountTexts.Messages.Error.ConfirmEmailError}{Environment.NewLine}{AccountTexts.Messages.Validation.TokenInvalid}";
+                return ResponseInfo.Unauthorized<AccountConfirmEmailResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
+            var user = await unitOfWork.Users.GetSingleOrDefaultAsync(accept.Response.UserId, cancellationToken);
+            if (user is null || user.IsDeleted)
+            {
+                var messageText = $"{AccountTexts.Messages.Error.ConfirmEmailError}{Environment.NewLine}{AccountTexts.Messages.Validation.TokenInvalid}";
+                return ResponseInfo.Unauthorized<AccountConfirmEmailResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
+            user.IsEmailConfirmed = true;
+            await unitOfWork.Users.UpdateAsync(user, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(AccountTexts.Messages.Success.ConfirmEmailCompleted);
+            return ResponseInfo.Success(new AccountConfirmEmailResponse { IsConfirmed = true }, MessageType.SAVED, AccountTexts.Messages.Success.ConfirmEmailCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(AccountTexts.Messages.Canceled.ConfirmEmail);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", AccountTexts.Messages.Error.ConfirmEmailError);
+            return ResponseInfo.Error<AccountConfirmEmailResponse>(MessageType.ERROR, AccountTexts.Messages.Error.ConfirmEmailError);
+        }
+    }
+
+    /// <summary>
+    /// Всегда успех: не раскрывает, существует ли email и подтверждён ли он.
+    /// </summary>
+    public async Task<ResponseInfo<AccountResendConfirmationResponse>> ResendConfirmationAsync(AccountResendConfirmationRequest request, CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(AccountTexts.Messages.Start.ResendingConfirmation);
+
+        try
+        {
+            var primaryErrors = AccountValidators.ValidatePrimaryResendConfirmationRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{AccountTexts.Messages.Error.ResendConfirmationError}{Environment.NewLine}{errors}";
+                return ResponseInfo.BadRequest<AccountResendConfirmationResponse>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var email = UserNormalizer.Email(request.Email);
+            var user = await unitOfWork.Users.GetSingleByEmailOrDefaultAsync(email, cancellationToken);
+            if (user is { IsDeleted: false, IsEmailConfirmed: false })
+            {
+                await emailPort.SendConfirmationAsync(user.Id, user.Email, user.Name, cancellationToken);
+            }
+
+            logger.LogInformation(AccountTexts.Messages.Success.ResendConfirmationCompleted);
+            return ResponseInfo.Success(new AccountResendConfirmationResponse { IsSent = true }, MessageType.SAVED, AccountTexts.Messages.Success.ResendConfirmationCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(AccountTexts.Messages.Canceled.ResendConfirmation);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", AccountTexts.Messages.Error.ResendConfirmationError);
+            return ResponseInfo.Error<AccountResendConfirmationResponse>(MessageType.ERROR, AccountTexts.Messages.Error.ResendConfirmationError);
+        }
+    }
+
+    /// <summary>
+    /// Всегда успех: не раскрывает, существует ли email.
+    /// </summary>
+    public async Task<ResponseInfo<AccountForgotPasswordResponse>> ForgotPasswordAsync(AccountForgotPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(AccountTexts.Messages.Start.ForgettingPassword);
+
+        try
+        {
+            var primaryErrors = AccountValidators.ValidatePrimaryForgotPasswordRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{AccountTexts.Messages.Error.ForgotPasswordError}{Environment.NewLine}{errors}";
+                return ResponseInfo.BadRequest<AccountForgotPasswordResponse>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var email = UserNormalizer.Email(request.Email);
+            var user = await unitOfWork.Users.GetSingleByEmailOrDefaultAsync(email, cancellationToken);
+            if (user is { IsDeleted: false, IsEmailConfirmed: true })
+            {
+                await emailPort.SendPasswordResetAsync(user.Id, user.Email, user.Name, cancellationToken);
+            }
+
+            logger.LogInformation(AccountTexts.Messages.Success.ForgotPasswordCompleted);
+            return ResponseInfo.Success(new AccountForgotPasswordResponse { IsSent = true }, MessageType.SAVED, AccountTexts.Messages.Success.ForgotPasswordCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(AccountTexts.Messages.Canceled.ForgotPassword);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", AccountTexts.Messages.Error.ForgotPasswordError);
+            return ResponseInfo.Error<AccountForgotPasswordResponse>(MessageType.ERROR, AccountTexts.Messages.Error.ForgotPasswordError);
+        }
+    }
+
+    public async Task<ResponseInfo<AccountResetPasswordResponse>> ResetPasswordAsync(AccountResetPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(AccountTexts.Messages.Start.ResettingPassword);
+
+        try
+        {
+            var primaryErrors = AccountValidators.ValidatePrimaryResetPasswordRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{AccountTexts.Messages.Error.ResetPasswordError}{Environment.NewLine}{errors}";
+                return ResponseInfo.BadRequest<AccountResetPasswordResponse>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var domainErrors = AccountValidators.ValidateDomainResetPasswordRequest(request);
+            if (domainErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, domainErrors);
+                var messageText = $"{AccountTexts.Messages.Error.ResetPasswordError}{Environment.NewLine}{errors}";
+                return ResponseInfo.Invalid<AccountResetPasswordResponse>(MessageType.INVALID, messageText);
+            }
+
+            var accept = await emailPort.AcceptPasswordResetAsync(request.Token, cancellationToken);
+            if (accept.MessageInfo.MessageType != MessageType.SAVED || accept.Response is null)
+            {
+                var messageText = $"{AccountTexts.Messages.Error.ResetPasswordError}{Environment.NewLine}{AccountTexts.Messages.Validation.TokenInvalid}";
+                return ResponseInfo.Unauthorized<AccountResetPasswordResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
+            var user = await unitOfWork.Users.GetSingleOrDefaultAsync(accept.Response.UserId, cancellationToken);
+            if (user is null || user.IsDeleted)
+            {
+                var messageText = $"{AccountTexts.Messages.Error.ResetPasswordError}{Environment.NewLine}{AccountTexts.Messages.Validation.TokenInvalid}";
+                return ResponseInfo.Unauthorized<AccountResetPasswordResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
+            var now = timeProvider.GetUtcNow().UtcDateTime;
+            user.PasswordHash = passwordHasher.Hash(request.Password);
+            await unitOfWork.Users.UpdateAsync(user, cancellationToken);
+            await RevokeAllAsync(user.Id, now, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(AccountTexts.Messages.Success.ResetPasswordCompleted);
+            return ResponseInfo.Success(new AccountResetPasswordResponse { IsReset = true }, MessageType.SAVED, AccountTexts.Messages.Success.ResetPasswordCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(AccountTexts.Messages.Canceled.ResetPassword);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", AccountTexts.Messages.Error.ResetPasswordError);
+            return ResponseInfo.Error<AccountResetPasswordResponse>(MessageType.ERROR, AccountTexts.Messages.Error.ResetPasswordError);
         }
     }
 

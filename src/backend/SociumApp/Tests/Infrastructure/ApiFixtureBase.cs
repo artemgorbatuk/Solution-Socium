@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Services.Messaging.Providers;
 using Services.Security.Models;
 using Services.Security.Tokens.Providers;
 using WebApi.Controllers.Shared;
@@ -34,6 +35,8 @@ public abstract class ApiFixtureBase : IAsyncLifetime
 
     public Guid DefaultUserId { get; private set; }
 
+    public CapturingMessageChannel Mail => Factory.Services.GetRequiredService<CapturingMessageChannel>();
+
     public async ValueTask InitializeAsync()
     {
         postgres = await PostgresTestHost.StartAsync(databasePrefix);
@@ -47,6 +50,7 @@ public abstract class ApiFixtureBase : IAsyncLifetime
             builder.UseSetting("ConnectionStrings:Socium", connectionString);
             builder.UseSetting(TestJwt.SigningKeySetting, signingKey);
             builder.UseSetting("Security:RateLimit:PermitLimit", "100000");
+            builder.UseSetting("Messaging:RateLimit:PermitLimit", "100000");
         });
 
         await using (var scope = Factory.Services.CreateAsyncScope())
@@ -54,7 +58,7 @@ public abstract class ApiFixtureBase : IAsyncLifetime
             await TestDatabase.MigrateAsync(scope.ServiceProvider);
         }
 
-        DefaultUserId = await CreateUserAsync(ServiceFixtureBase.DefaultUserLogin, ServiceFixtureBase.DefaultUserName);
+        DefaultUserId = await CreateUserAsync(ServiceFixtureBase.DefaultUserLogin, ServiceFixtureBase.DefaultUserName, ServiceFixtureBase.DefaultUserEmail);
         Client = CreateAnonymousClient();
         var login = await Client.PostAsJsonAsync("/api/account/login", new AccountLoginRequest { Login = ServiceFixtureBase.DefaultUserLogin, Password = DefaultPassword });
         login.EnsureSuccessStatusCode();
@@ -85,12 +89,28 @@ public abstract class ApiFixtureBase : IAsyncLifetime
         return client;
     }
 
-    /// <summary>Регистрирует пользователя через <c>POST /api/user</c> и возвращает его Id.</summary>
-    public async Task<Guid> CreateUserAsync(string login, string name, string password = DefaultPassword)
+    /// <summary>Регистрирует пользователя, подтверждает email и возвращает Id.</summary>
+    public async Task<Guid> CreateUserAsync(string login, string name, string? email = null, string password = DefaultPassword)
     {
+        email ??= $"{login.Trim().ToLowerInvariant()}@example.com";
         using var client = CreateAnonymousClient();
-        var created = await client.PostAsJsonAsync("/api/user", new UserCreateRequest { Login = login, Name = name, Password = password });
+        var created = await client.PostAsJsonAsync("/api/user", new UserCreateRequest
+        {
+            Email = email,
+            Login = login,
+            Name = name,
+            Password = password,
+        });
         created.EnsureSuccessStatusCode();
+
+        await using (var scope = Factory.Services.CreateAsyncScope())
+        {
+            var unitOfWork = scope.ServiceProvider.GetRequiredService<Repositories.Security.Ef.Api.IUnitOfWorkSecurity>();
+            var user = await unitOfWork.Users.GetSingleByLoginOrDefaultAsync(login.Trim().ToLowerInvariant());
+            user!.IsEmailConfirmed = true;
+            await unitOfWork.Users.UpdateAsync(user);
+            await unitOfWork.SaveChangesAsync();
+        }
 
         var loggedIn = await client.PostAsJsonAsync("/api/account/login", new AccountLoginRequest { Login = login, Password = password });
         loggedIn.EnsureSuccessStatusCode();

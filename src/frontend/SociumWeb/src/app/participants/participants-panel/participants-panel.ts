@@ -1,4 +1,4 @@
-import { Component, effect, inject, input, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { ChatChanges } from '../../chats/chat-changes';
 import { problemDetail } from '../../shared/api/api-response';
 import { CurrentUser } from '../../users/current-user';
@@ -32,6 +32,8 @@ export class ParticipantsPanel {
 
   protected readonly updatingId = signal<string | null>(null);
   protected readonly roleError = signal<string | null>(null);
+  /** Один участник — смену роли отключаем (нельзя снять последнего админа). */
+  protected readonly canChangeRole = computed(() => this.rows().length > 1);
 
   protected readonly leaveStep = signal<LeaveStep>('idle');
   protected readonly leaveReason = signal<string | null>(null);
@@ -56,7 +58,7 @@ export class ParticipantsPanel {
   }
 
   protected setAdmin(participant: ParticipantListModel, isAdmin: boolean): void {
-    if (this.updatingId()) {
+    if (this.updatingId() || !this.canChangeRole()) {
       return;
     }
 

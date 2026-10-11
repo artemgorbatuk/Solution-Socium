@@ -20,8 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Messaging\Datasource.Messaging.Ef\Datasource.Messaging.Ef.csproj" />
+    <ProjectReference Include="..\Messaging\Services.Messaging.Tokens\Services.Messaging.Tokens.csproj" />
     <ProjectReference Include="..\Security\Datasource.Security.Ef\Datasource.Security.Ef.csproj" />
     <ProjectReference Include="..\Security\Services.Security\Services.Security.csproj" />
+    <ProjectReference Include="..\Messaging\Services.Messaging\Services.Messaging.csproj" />
     <ProjectReference Include="..\Socium\Datasource.Socium.Ef\Datasource.Socium.Ef.csproj" />
     <ProjectReference Include="..\Socium\Services.Socium\Services.Socium.csproj" />
   </ItemGroup>

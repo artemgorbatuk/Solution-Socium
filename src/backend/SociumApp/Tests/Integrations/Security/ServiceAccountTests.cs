@@ -6,6 +6,7 @@ using Services.Security.Texts;
 using Services.Security.Tokens.Providers;
 using Services.Shared.Enums;
 using Services.Shared.Models;
+using Tests.Infrastructure;
 
 namespace Tests.Integrations.Security;
 
@@ -194,13 +195,15 @@ public sealed class ServiceAccountTests(SecurityServiceFixture fixture)
     public async Task Profile_Load_WithCurrentUser_ShouldReturnProfile()
     {
         var login = UniqueLogin();
-        var id = await fixture.CreateUserAsync(login, "Иван");
+        var email = $"{login}@example.com";
+        var id = await fixture.CreateUserAsync(login, "Иван", email);
 
         var result = await RunAsAsync(id, service => service.DisplayProfilePageAsync(new AccountProfilePageRequest()));
 
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
         Assert.Equal(id, result.Response!.Id);
         Assert.Equal(login, result.Response.Login);
+        Assert.Equal(email, result.Response.Email);
         Assert.Equal("Иван", result.Response.Name);
     }
 
@@ -238,5 +241,70 @@ public sealed class ServiceAccountTests(SecurityServiceFixture fixture)
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(UserCrudTexts.Messages.Validation.NameNotEmpty, result.MessageInfo.MessageText);
+    }
+
+    [Fact]
+    public async Task Login_Submit_WithUnconfirmedEmail_ShouldReturnSameUnauthorizedAsWrongPassword()
+    {
+        var login = UniqueLogin();
+        await fixture.CreateUnconfirmedUserAsync(login, "Иван");
+        var wrong = await LoginAsync(login, "wrong-password");
+
+        var result = await LoginAsync(login);
+
+        Assert.Equal(MessageType.UNAUTHORIZED, result.MessageInfo.MessageType);
+        Assert.Equal(wrong.MessageInfo.MessageText, result.MessageInfo.MessageText);
+        Assert.Contains(AccountTexts.Messages.Validation.InvalidCredentials, result.MessageInfo.MessageText);
+    }
+
+    [Fact]
+    public async Task ConfirmEmail_Submit_WithTokenFromRegistrationMail_ShouldAllowLogin()
+    {
+        var login = UniqueLogin();
+        await fixture.CreateUnconfirmedUserAsync(login, "Иван");
+        var token = MailTestHelpers.LastToken(fixture.Mail);
+
+        var confirmed = await RunAsAsync(null, service => service.ConfirmEmailAsync(new AccountConfirmEmailRequest { Token = token }));
+        var loggedIn = await LoginAsync(login);
+
+        Assert.Equal(MessageType.SAVED, confirmed.MessageInfo.MessageType);
+        Assert.True(confirmed.Response!.IsConfirmed);
+        Assert.Equal(MessageType.LOADED, loggedIn.MessageInfo.MessageType);
+    }
+
+    [Fact]
+    public async Task ResendAndForgot_Submit_WithUnknownEmail_ShouldSucceedWithoutRevealing()
+    {
+        var resend = await RunAsAsync(null, service => service.ResendConfirmationAsync(new AccountResendConfirmationRequest { Email = "nobody@example.com" }));
+        var forgot = await RunAsAsync(null, service => service.ForgotPasswordAsync(new AccountForgotPasswordRequest { Email = "nobody@example.com" }));
+
+        Assert.Equal(MessageType.SAVED, resend.MessageInfo.MessageType);
+        Assert.Equal(MessageType.SAVED, forgot.MessageInfo.MessageType);
+        Assert.Equal(AccountTexts.Messages.Success.ResendConfirmationCompleted, resend.MessageInfo.MessageText);
+        Assert.Equal(AccountTexts.Messages.Success.ForgotPasswordCompleted, forgot.MessageInfo.MessageText);
+    }
+
+    [Fact]
+    public async Task ResetPassword_Submit_WithTokenFromMail_ShouldChangePasswordAndRevokeRefresh()
+    {
+        var login = UniqueLogin();
+        var email = $"{login}@example.com";
+        var id = await fixture.CreateUserAsync(login, "Иван", email);
+        var loggedIn = await LoginAsync(login);
+        fixture.Mail.Clear();
+        await RunAsAsync(null, service => service.ForgotPasswordAsync(new AccountForgotPasswordRequest { Email = email }));
+        var token = MailTestHelpers.LastToken(fixture.Mail);
+
+        var reset = await RunAsAsync(null, service => service.ResetPasswordAsync(new AccountResetPasswordRequest
+        {
+            Token = token,
+            Password = "Password-456",
+        }));
+
+        Assert.Equal(MessageType.SAVED, reset.MessageInfo.MessageType);
+        Assert.All(await GetTokensAsync(id), item => Assert.NotNull(item.RevokedAt));
+        Assert.Equal(MessageType.UNAUTHORIZED, (await RefreshAsync(loggedIn.Response!.RefreshToken)).MessageInfo.MessageType);
+        Assert.Equal(MessageType.UNAUTHORIZED, (await LoginAsync(login)).MessageInfo.MessageType);
+        Assert.Equal(MessageType.LOADED, (await LoginAsync(login, "Password-456")).MessageInfo.MessageType);
     }
 }

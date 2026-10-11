@@ -1,0 +1,16 @@
+<div class="corner">
+  <app-theme-toggle />
+</div>
+
+<div class="card" aria-label="Подтверждение email">
+  <h1 class="brand">Socium</h1>
+
+  @if (loading()) {
+    <p class="hint">Подтверждаем email…</p>
+  } @else if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+    <p class="switch">
+      <a class="link" routerLink="/login">На экран входа</a>
+    </p>
+  }
+</div>

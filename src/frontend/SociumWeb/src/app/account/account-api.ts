@@ -6,6 +6,23 @@ import { AccountLoginRequest, AccountProfile, AccountProfileUpdateRequest, Accou
 
 export const accountBaseUrl = '/api/account';
 
+export interface AccountConfirmEmailRequest {
+  token: string;
+}
+
+export interface AccountResendConfirmationRequest {
+  email: string;
+}
+
+export interface AccountForgotPasswordRequest {
+  email: string;
+}
+
+export interface AccountResetPasswordRequest {
+  token: string;
+  password: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AccountApi {
   private readonly http = inject(HttpClient);
@@ -25,5 +42,21 @@ export class AccountApi {
 
   updateProfile(request: AccountProfileUpdateRequest): Observable<ApiSuccessResponse<AccountProfile>> {
     return this.http.put<ApiSuccessResponse<AccountProfile>>(`${accountBaseUrl}/profile`, request);
+  }
+
+  confirmEmail(request: AccountConfirmEmailRequest): Observable<ApiSuccessResponse<{ isConfirmed: boolean }>> {
+    return this.http.post<ApiSuccessResponse<{ isConfirmed: boolean }>>(`${accountBaseUrl}/confirm-email`, request);
+  }
+
+  resendConfirmation(request: AccountResendConfirmationRequest): Observable<ApiSuccessResponse<{ isSent: boolean }>> {
+    return this.http.post<ApiSuccessResponse<{ isSent: boolean }>>(`${accountBaseUrl}/resend-confirmation`, request);
+  }
+
+  forgotPassword(request: AccountForgotPasswordRequest): Observable<ApiSuccessResponse<{ isSent: boolean }>> {
+    return this.http.post<ApiSuccessResponse<{ isSent: boolean }>>(`${accountBaseUrl}/forgot-password`, request);
+  }
+
+  resetPassword(request: AccountResetPasswordRequest): Observable<ApiSuccessResponse<{ isReset: boolean }>> {
+    return this.http.post<ApiSuccessResponse<{ isReset: boolean }>>(`${accountBaseUrl}/reset-password`, request);
   }
 }

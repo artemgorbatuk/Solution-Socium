@@ -1,0 +1,8 @@
+a.link {
+  display: inline;
+  text-decoration: none;
+}
+
+a.link:hover {
+  text-decoration: underline;
+}

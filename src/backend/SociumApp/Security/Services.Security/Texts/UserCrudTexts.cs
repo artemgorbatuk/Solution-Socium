@@ -62,10 +62,15 @@ public static class UserCrudTexts
             public const string LoginNotEmpty = "Логин не может быть пустым.";
             public const string LoginFormat = "Логин может содержать только латинские буквы, цифры и символы «.», «_», «-».";
             public const string LoginAlreadyExists = "Пользователь с таким логином уже существует.";
+            public const string EmailAlreadyExists = "Пользователь с таким email уже существует.";
+            public const string EmailNotEmpty = "Email не может быть пустым.";
+            public const string EmailFormat = "Укажите корректный email.";
             public const string NameNotEmpty = "Имя пользователя не может быть пустым.";
             public const string PasswordNotEmpty = "Пароль не может быть пустым.";
             public static string LoginLength(int minimumLength, int maximumLength)
                 => $"Логин должен содержать от {minimumLength} до {maximumLength} символов.";
+            public static string EmailMaximumLength(int length)
+                => $"Email не может превышать {length} символов.";
             public static string NameMaximumLength(int length)
                 => $"Имя пользователя не может превышать {length} символов.";
             public static string PasswordLength(int minimumLength, int maximumLength)

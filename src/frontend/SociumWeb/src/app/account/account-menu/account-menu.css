@@ -31,13 +31,15 @@
 }
 
 .name,
-.login {
+.login,
+.email {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.login {
+.login,
+.email {
   color: var(--sc-color-text-muted);
   font-size: var(--sc-font-size-sm);
 }

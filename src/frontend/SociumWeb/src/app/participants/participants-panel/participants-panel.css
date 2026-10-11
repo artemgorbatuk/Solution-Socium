@@ -96,20 +96,14 @@ ul {
   min-width: 0;
 }
 
-.name,
-.login {
+.name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.self,
-.login {
+.self {
   color: var(--sc-color-text-muted);
-}
-
-.login {
-  font-size: var(--sc-font-size-sm);
 }
 
 .badge {

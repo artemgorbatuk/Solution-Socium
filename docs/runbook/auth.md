@@ -37,9 +37,11 @@ dotnet user-secrets set "Security:Jwt:SigningKey" "<не короче 32 бай�
 
 Cookie помечена `Secure`, но Chromium принимает такие cookie и на `http://127.0.0.1` и `http://localhost` — dev-сервер Angular с прокси `/api` работает без HTTPS. Если браузер не сохраняет сессию после перезагрузки, проверьте, что приложение открыто по `127.0.0.1` или `localhost`, а не по IP сети.
 
-## Забытый пароль
+## Забытый пароль и подтверждение email
 
-Сброса пароля нет. Локально пользователя можно удалить из БД (refresh-токены удалятся каскадом) и зарегистрировать заново:
+Сброс пароля и повторная отправка письма подтверждения — на экранах входа ([task-0012](../tasks/task-0012.md)); письма локально смотреть в Mailpit — [messaging.md](messaging.md).
+
+Локально пользователя можно удалить из БД (refresh-токены удалятся каскадом) и зарегистрировать заново:
 
 ```powershell
 "DELETE FROM ""Users"" WHERE ""Login"" = 'login';" | docker exec -i socium-dev-postgres psql -U postgres -d Socium

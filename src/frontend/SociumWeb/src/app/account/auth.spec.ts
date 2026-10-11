@@ -96,7 +96,7 @@ describe('Auth', () => {
   it('UpdateProfile_Call_WithNewName_ShouldReplaceUserAndKeepToken', () => {
     auth.start(tokenResponse('u1', 'Иван'));
 
-    auth.updateProfile({ id: 'u1', login: 'login-u1', name: 'Иван Петров' });
+    auth.updateProfile({ id: 'u1', login: 'login-u1', email: 'u1@example.com', name: 'Иван Петров' });
 
     expect(auth.user()!.name).toBe('Иван Петров');
     expect(auth.accessToken()).toBe('token-u1');

@@ -59,10 +59,52 @@ public class AccountProfileResponse
 {
     public required Guid Id { get; set; }
     public required string Login { get; set; }
+    public required string Email { get; set; }
     public required string Name { get; set; }
 }
 
 public class AccountProfileUpdateRequest
 {
     public required string Name { get; set; }
+}
+
+public class AccountConfirmEmailRequest
+{
+    public required string Token { get; set; }
+}
+
+public class AccountConfirmEmailResponse
+{
+    public required bool IsConfirmed { get; set; }
+}
+
+public class AccountResendConfirmationRequest
+{
+    public required string Email { get; set; }
+}
+
+public class AccountResendConfirmationResponse
+{
+    public required bool IsSent { get; set; }
+}
+
+public class AccountForgotPasswordRequest
+{
+    public required string Email { get; set; }
+}
+
+public class AccountForgotPasswordResponse
+{
+    public required bool IsSent { get; set; }
+}
+
+public class AccountResetPasswordRequest
+{
+    public required string Token { get; set; }
+    public required string Password { get; set; }
+}
+
+public class AccountResetPasswordResponse
+{
+    public required bool IsReset { get; set; }
 }

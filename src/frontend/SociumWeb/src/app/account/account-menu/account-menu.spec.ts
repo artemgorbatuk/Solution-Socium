@@ -74,6 +74,7 @@ describe('AccountMenu', () => {
     expect(trigger().getAttribute('aria-expanded')).toBe('true');
     expect(element.querySelector('.profile .name')!.textContent).toBe('Иван');
     expect(element.querySelector('.profile .login')!.textContent).toBe('login-u1');
+    expect(element.querySelector('.profile .email')!.textContent).toBe('u1@example.com');
     const items = Array.from(element.querySelectorAll('.panel > button')).map((item) => item.textContent!.trim());
     expect(items).toEqual(['Изменить имя', 'Выйти']);
   });
@@ -101,7 +102,7 @@ describe('AccountMenu', () => {
     element.querySelector('form')!.dispatchEvent(new Event('submit'));
     const request = http.expectOne({ method: 'PUT', url: '/api/account/profile' });
     expect(request.request.body).toEqual({ name: 'Иван Петров' });
-    request.flush(successBody({ id: 'u1', login: 'login-u1', name: 'Иван Петров' }, 2));
+    request.flush(successBody({ id: 'u1', login: 'login-u1', email: 'u1@example.com', name: 'Иван Петров' }, 2));
     render();
 
     expect(TestBed.inject(Auth).user()!.name).toBe('Иван Петров');

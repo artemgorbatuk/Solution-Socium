@@ -9,8 +9,10 @@ public sealed class UserMapperTests
     {
         Id = Guid.CreateVersion7(),
         Login = "ivan",
+        Email = "ivan@example.com",
         Name = "Иван",
         PasswordHash = "hash",
+        IsEmailConfirmed = true,
     };
 
     [Fact]
@@ -19,7 +21,7 @@ public sealed class UserMapperTests
         var user = CreateUser();
         var id = user.Id;
 
-        UserMapper.Apply(user, "petr", "Пётр");
+        UserMapper.Apply(user, "petr", "petr@example.com", "Пётр");
 
         Assert.Equal("petr", user.Login);
         Assert.Equal("Пётр", user.Name);
@@ -95,6 +97,7 @@ public sealed class UserMapperTests
 
         Assert.Equal(user.Id, response.Id);
         Assert.Equal(user.Login, response.Login);
+        Assert.Equal(user.Email, response.Email);
         Assert.Equal(user.Name, response.Name);
         Assert.DoesNotContain(typeof(Services.Security.Models.AccountProfileResponse).GetProperties(), property => property.Name == nameof(User.PasswordHash));
     }

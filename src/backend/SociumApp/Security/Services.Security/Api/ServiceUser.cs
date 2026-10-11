@@ -7,6 +7,7 @@ using Services.Security.Models;
 using Services.Security.Normalizers;
 using Services.Security.Passwords.Providers;
 using Services.Security.Texts;
+using Services.Security.Ports;
 using Services.Security.Validation;
 using Services.Shared.Api;
 using Services.Shared.Enums;
@@ -35,6 +36,7 @@ public class ServiceUser : IServiceUser
     private readonly IUnitOfWorkSecurity unitOfWork;
     private readonly ICurrentUser currentUser;
     private readonly IPasswordHasher passwordHasher;
+    private readonly IEmailPort emailPort;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<ServiceUser> logger;
 
@@ -42,12 +44,14 @@ public class ServiceUser : IServiceUser
         IUnitOfWorkSecurity unitOfWork,
         ICurrentUser currentUser,
         IPasswordHasher passwordHasher,
+        IEmailPort emailPort,
         TimeProvider timeProvider,
         ILogger<ServiceUser> logger)
     {
         this.unitOfWork = unitOfWork;
         this.currentUser = currentUser;
         this.passwordHasher = passwordHasher;
+        this.emailPort = emailPort;
         this.timeProvider = timeProvider;
         this.logger = logger;
     }
@@ -110,13 +114,11 @@ public class ServiceUser : IServiceUser
             }
 
             var loginNormalized = UserNormalizer.Login(request.Login);
+            var emailNormalized = UserNormalizer.Email(request.Email);
             var nameNormalized = UserNormalizer.Name(request.Name);
-            var duplicateOptions = new UserQueryOptions
-            {
-                Login = loginNormalized,
-            };
-            var duplicates = await unitOfWork.Users.GetListAsync(duplicateOptions, cancellationToken);
-            var duplicateErrors = UserCrudValidators.ValidateDuplicates(duplicates.Any());
+            var loginDuplicates = await unitOfWork.Users.GetListAsync(new UserQueryOptions { Login = loginNormalized }, cancellationToken);
+            var emailDuplicates = await unitOfWork.Users.GetListAsync(new UserQueryOptions { Email = emailNormalized }, cancellationToken);
+            var duplicateErrors = UserCrudValidators.ValidateDuplicates(loginDuplicates.Any(), emailDuplicates.Any());
             if (duplicateErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, duplicateErrors);
@@ -126,13 +128,21 @@ public class ServiceUser : IServiceUser
             }
 
             var model = unitOfWork.Users.GetNew();
-            UserMapper.Apply(model, loginNormalized, nameNormalized);
+            UserMapper.Apply(model, loginNormalized, emailNormalized, nameNormalized);
             model.PasswordHash = passwordHasher.Hash(request.Password);
+            model.IsEmailConfirmed = false;
             await unitOfWork.Users.CreateAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
+            // Письмо не блокирует регистрацию: при сбое SMTP пользователь сможет нажать «Выслать ещё раз».
+            var emailResult = await emailPort.SendConfirmationAsync(model.Id, model.Email, model.Name, cancellationToken);
+            if (emailResult.MessageInfo.MessageType == MessageType.ERROR)
+            {
+                logger.LogWarning("{Message}", emailResult.MessageInfo.MessageText);
+            }
+
             logger.LogInformation(UserCrudTexts.Messages.Success.CreateCompleted);
-            return ResponseInfo.Success<UserCreatePageResponse>(MessageType.SAVED, UserCrudTexts.Messages.Success.CreateCompleted);
+            return ResponseInfo.Success(UserMapper.ToCreatePageResponse(model), MessageType.SAVED, UserCrudTexts.Messages.Success.CreateCompleted);
         }
         catch (OperationCanceledException)
         {
@@ -276,7 +286,7 @@ public class ServiceUser : IServiceUser
                 return ResponseInfo.Invalid<UserUpdatePageResponse>(MessageType.INVALID, messageText);
             }
 
-            UserMapper.Apply(model!, loginNormalized, nameNormalized);
+            UserMapper.Apply(model!, loginNormalized, model!.Email, nameNormalized);
             await unitOfWork.Users.UpdateAsync(model!, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 

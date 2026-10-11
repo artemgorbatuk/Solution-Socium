@@ -196,7 +196,7 @@ describe('ChatMessages', () => {
     flushList('c1', [first]);
     type('Черновик');
 
-    TestBed.inject(Auth).updateProfile({ id: 'u1', login: 'login-u1', name: 'Анна Новая' });
+    TestBed.inject(Auth).updateProfile({ id: 'u1', login: 'login-u1', email: 'u1@example.com', name: 'Анна Новая' });
     render();
     flushList('c1', [{ ...first, senderName: 'Анна Новая' }]);
 

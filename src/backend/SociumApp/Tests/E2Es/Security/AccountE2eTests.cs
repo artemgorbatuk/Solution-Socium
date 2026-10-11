@@ -69,9 +69,10 @@ public sealed class AccountE2eTests(E2eAppFixture fixture)
     }
 
     [Fact]
-    public async Task Register_Submit_WithNewUser_ShouldLogInAndKeepSessionAfterReload()
+    public async Task Register_Submit_WithNewUser_ShouldOpenCheckEmailThenAllowLoginAfterConfirm()
     {
         var login = UniqueLogin();
+        var email = $"{login}@example.com";
         var name = UniqueName();
         await using var context = await fixture.NewContextAsAsync(null);
         var page = await context.NewPageAsync();
@@ -79,15 +80,23 @@ public sealed class AccountE2eTests(E2eAppFixture fixture)
 
         await page.GetByRole(AriaRole.Button, new() { Name = "Регистрация", Exact = true }).ClickAsync();
         await Assertions.Expect(Form(page, "Регистрация")).ToBeVisibleAsync();
+        await page.GetByLabel("Email").FillAsync(email);
         await page.GetByLabel("Логин").FillAsync(login);
         await page.GetByLabel("Имя").FillAsync(name);
         await page.GetByLabel("Пароль").FillAsync(E2eAppFixture.Password);
         await page.GetByRole(AriaRole.Button, new() { Name = "Зарегистрироваться", Exact = true }).ClickAsync();
 
+        await Assertions.Expect(Form(page, "Проверьте почту")).ToBeVisibleAsync(new() { Timeout = 15_000 });
+        await Assertions.Expect(page.GetByLabel("Email")).ToHaveValueAsync(email);
+        await Assertions.Expect(AccountTrigger(page)).ToHaveCountAsync(0);
+
+        await fixture.ConfirmEmailForLoginAsync(login);
+        await page.GetByRole(AriaRole.Link, new() { Name = "Войти", Exact = true }).ClickAsync();
+        await FillLoginAsync(page, login, E2eAppFixture.Password);
+
         await Assertions.Expect(AccountTrigger(page)).ToContainTextAsync(name);
-        await page.ReloadAsync();
-        await Assertions.Expect(AccountTrigger(page)).ToContainTextAsync(name);
-        await Assertions.Expect(page.GetByRole(AriaRole.Navigation, new() { Name = "Комнаты" })).ToBeVisibleAsync();
+        await AccountTrigger(page).ClickAsync();
+        await Assertions.Expect(page.Locator("app-account-menu .email")).ToContainTextAsync(email);
     }
 
     [Fact]

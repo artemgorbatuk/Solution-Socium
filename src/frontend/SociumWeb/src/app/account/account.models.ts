@@ -5,6 +5,7 @@ export const passwordMaxLength = 128;
 export interface AccountProfile {
   id: string;
   login: string;
+  email: string;
   name: string;
 }
 

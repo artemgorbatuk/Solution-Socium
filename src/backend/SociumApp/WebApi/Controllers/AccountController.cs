@@ -85,4 +85,46 @@ public class AccountController : ApiControllerBase
         var responseInfo = await serviceAccount.UpdateProfileAsync(request, cancellationToken);
         return FromResponse(responseInfo);
     }
+
+    [AllowAnonymous]
+    [HttpPost("confirm-email")]
+    public async Task<IActionResult> ConfirmEmail(
+        [FromBody] AccountConfirmEmailRequest request,
+        CancellationToken cancellationToken)
+    {
+        var responseInfo = await serviceAccount.ConfirmEmailAsync(request, cancellationToken);
+        return FromResponse(responseInfo);
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting(AuthenticationRegistration.MailRateLimitPolicy)]
+    [HttpPost("resend-confirmation")]
+    public async Task<IActionResult> ResendConfirmation(
+        [FromBody] AccountResendConfirmationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var responseInfo = await serviceAccount.ResendConfirmationAsync(request, cancellationToken);
+        return FromResponse(responseInfo);
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting(AuthenticationRegistration.MailRateLimitPolicy)]
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] AccountForgotPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var responseInfo = await serviceAccount.ForgotPasswordAsync(request, cancellationToken);
+        return FromResponse(responseInfo);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] AccountResetPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var responseInfo = await serviceAccount.ResetPasswordAsync(request, cancellationToken);
+        return FromResponse(responseInfo);
+    }
 }

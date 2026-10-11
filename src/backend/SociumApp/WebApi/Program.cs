@@ -1,3 +1,4 @@
+using Datasource.Messaging.Ef.Contexts;
 using Datasource.Security.Ef.Contexts;
 using Datasource.Socium.Ef.Contexts;
 using Microsoft.EntityFrameworkCore;
@@ -8,14 +9,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddDbContextExt(builder.Configuration);
-builder.Services.AddDependencyInjectionExt(builder.Configuration);
+builder.Services.AddDependencyInjectionExt(
+    builder.Configuration,
+    captureMail: builder.Environment.IsEnvironment("Testing"));
 builder.Services.AddAuthenticationExt(builder.Configuration);
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    // Порядок важен: миграция Socium Task0011 удаляет старую таблицу Users, Security создаёт новую.
+    // Порядок: Socium → Security → Messaging.
     using var scope = app.Services.CreateScope();
     var sociumFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<DbContextSocium>>();
     await using var sociumDb = await sociumFactory.CreateDbContextAsync();
@@ -24,6 +27,10 @@ if (app.Environment.IsDevelopment())
     var securityFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<DbContextSecurity>>();
     await using var securityDb = await securityFactory.CreateDbContextAsync();
     await securityDb.Database.MigrateAsync();
+
+    var messagingFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<DbContextMessaging>>();
+    await using var messagingDb = await messagingFactory.CreateDbContextAsync();
+    await messagingDb.Database.MigrateAsync();
 }
 
 app.UseHttpsRedirection();

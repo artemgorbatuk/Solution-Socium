@@ -9,6 +9,7 @@ public static partial class UserCrudValidators
 {
     private const int LoginMinimumLength = 3;
     private const int LoginMaximumLength = 64;
+    private const int EmailMaximumLength = 256;
     private const int NameMaximumLength = 128;
     private const int PasswordMinimumLength = 8;
     private const int PasswordMaximumLength = 128;
@@ -31,7 +32,8 @@ public static partial class UserCrudValidators
 
     public static IEnumerable<string> ValidateDomainCreateRequest(UserCreateRequest request)
     {
-        foreach (var error in ValidateLogin(request.Login)
+        foreach (var error in ValidateEmail(request.Email)
+            .Concat(ValidateLogin(request.Login))
             .Concat(ValidateName(request.Name))
             .Concat(ValidatePassword(request.Password)))
         {
@@ -141,11 +143,36 @@ public static partial class UserCrudValidators
         }
     }
 
-    public static IEnumerable<string> ValidateDuplicates(bool hasDuplicate)
+    public static IEnumerable<string> ValidateDuplicates(bool hasDuplicateLogin, bool hasDuplicateEmail = false)
     {
-        if (hasDuplicate)
+        if (hasDuplicateLogin)
         {
             yield return UserCrudTexts.Messages.Validation.LoginAlreadyExists;
+        }
+
+        if (hasDuplicateEmail)
+        {
+            yield return UserCrudTexts.Messages.Validation.EmailAlreadyExists;
+        }
+    }
+
+    public static IEnumerable<string> ValidateEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            yield return UserCrudTexts.Messages.Validation.EmailNotEmpty;
+            yield break;
+        }
+
+        var trimmed = email.Trim();
+        if (trimmed.Length > EmailMaximumLength)
+        {
+            yield return UserCrudTexts.Messages.Validation.EmailMaximumLength(EmailMaximumLength);
+        }
+
+        if (!EmailPattern().IsMatch(trimmed))
+        {
+            yield return UserCrudTexts.Messages.Validation.EmailFormat;
         }
     }
 
@@ -184,7 +211,7 @@ public static partial class UserCrudValidators
     }
 
     /// <summary>Пароль не обрезается: пробелы по краям — часть пароля.</summary>
-    private static IEnumerable<string> ValidatePassword(string? password)
+    public static IEnumerable<string> ValidatePassword(string? password)
     {
         if (string.IsNullOrEmpty(password))
         {
@@ -200,4 +227,8 @@ public static partial class UserCrudValidators
 
     [GeneratedRegex("^[A-Za-z0-9._-]+$")]
     private static partial Regex LoginPattern();
+
+    // Простая проверка формы: локальная часть, @, домен с точкой.
+    [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
+    private static partial Regex EmailPattern();
 }

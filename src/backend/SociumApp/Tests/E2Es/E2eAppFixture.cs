@@ -67,12 +67,18 @@ public sealed class E2eAppFixture : IAsyncLifetime
         browser = await LaunchChromiumAsync(playwright);
     }
 
-    /// <summary>Регистрирует пользователя с паролем <see cref="Password"/> и запоминает его access-токен.</summary>
-    public async Task<Guid> CreateUserAsync(string login, string name)
+    /// <summary>Регистрирует пользователя с паролем <see cref="Password"/>, подтверждает email и запоминает access-токен.</summary>
+    public async Task<Guid> CreateUserAsync(string login, string name, string? email = null)
     {
+        email ??= $"{login.Trim().ToLowerInvariant()}@example.com";
         using var anonymous = new HttpClient { BaseAddress = new Uri(BaseUrl) };
-        var created = await anonymous.PostAsJsonAsync("/api/user", new UserCreateRequest { Login = login, Name = name, Password = Password }, TestContext.Current.CancellationToken);
+        var created = await anonymous.PostAsJsonAsync(
+            "/api/user",
+            new UserCreateRequest { Email = email, Login = login, Name = name, Password = Password },
+            TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+
+        await ConfirmEmailAsync(login);
 
         var loggedIn = await anonymous.PostAsJsonAsync("/api/account/login", new AccountLoginRequest { Login = login, Password = Password }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, loggedIn.StatusCode);
@@ -80,6 +86,20 @@ public sealed class E2eAppFixture : IAsyncLifetime
         var userId = tokens!.Response!.User.Id;
         users[userId] = (login, tokens.Response.AccessToken);
         return userId;
+    }
+
+    /// <summary>Подтверждает email в БД без письма — для сценариев после регистрации в UI.</summary>
+    public Task ConfirmEmailForLoginAsync(string login) => ConfirmEmailAsync(login);
+
+    private async Task ConfirmEmailAsync(string login)
+    {
+        await using var connection = new Npgsql.NpgsqlConnection(postgres!.ConnectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using var command = new Npgsql.NpgsqlCommand(
+            """UPDATE "Users" SET "IsEmailConfirmed" = TRUE WHERE "Login" = @login""",
+            connection);
+        command.Parameters.AddWithValue("login", login.Trim().ToLowerInvariant());
+        await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
     }
 
     /// <summary>Новый изолированный контекст браузера (свои cookies и localStorage), вошедший как <see cref="DefaultUserId"/>.</summary>
@@ -170,6 +190,9 @@ public sealed class E2eAppFixture : IAsyncLifetime
                 ["Security__Jwt__AccessTokenMinutes"] = "240",
                 // Все входы идут с одного IP.
                 ["Security__RateLimit__PermitLimit"] = "100000",
+                ["Messaging__RateLimit__PermitLimit"] = "100000",
+                // Без Mailpit регистрация не должна ждать десятки секунд на SMTP.
+                ["Messaging__Smtp__TimeoutSeconds"] = "3",
             });
     }
 

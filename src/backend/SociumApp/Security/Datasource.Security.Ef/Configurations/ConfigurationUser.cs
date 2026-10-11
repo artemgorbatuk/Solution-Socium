@@ -22,6 +22,10 @@ public class ConfigurationUser : IEntityTypeConfiguration<User>
             .HasMaxLength(64)
             .IsRequired();
 
+        builder.Property(user => user.Email)
+            .HasMaxLength(256)
+            .IsRequired();
+
         builder.Property(user => user.Name)
             .HasMaxLength(128)
             .IsRequired();
@@ -30,10 +34,16 @@ public class ConfigurationUser : IEntityTypeConfiguration<User>
             .HasMaxLength(256)
             .IsRequired();
 
+        builder.Property(user => user.IsEmailConfirmed)
+            .IsRequired();
+
         builder.Property(user => user.IsDeleted)
             .IsRequired();
 
         builder.HasIndex(user => user.Login, "IX_Users_Login")
+            .IsUnique();
+
+        builder.HasIndex(user => user.Email, "IX_Users_Email")
             .IsUnique();
     }
 }

@@ -13,7 +13,7 @@ public sealed class UserCrudValidatorsTests
 
     private static readonly string LoginLength = UserCrudTexts.Messages.Validation.LoginLength(LoginMinimumLength, LoginMaximumLength);
 
-    private static UserCreateRequest CreateRequest(string login = "ivan", string name = "Иван", string password = "Password-123") => new() { Login = login, Name = name, Password = password };
+    private static UserCreateRequest CreateRequest(string login = "ivan", string name = "Иван", string password = "Password-123", string email = "ivan@example.com") => new() { Email = email, Login = login, Name = name, Password = password };
 
     [Fact]
     public void CreatePageRequest_ValidatePrimary_WithNullRequest_ShouldReturnRequestCannotBeNull()
@@ -189,7 +189,7 @@ public sealed class UserCrudValidatorsTests
     [Fact]
     public void User_ValidateAccessibility_WithDeletedUser_ShouldReturnUserNotFoundById()
     {
-        var user = new User { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван", PasswordHash = "hash", IsDeleted = true };
+        var user = new User { Id = Guid.CreateVersion7(), Email = "user@example.com", Login = "ivan", Name = "Иван", PasswordHash = "hash", IsDeleted = true };
 
         var errors = UserCrudValidators.ValidateAccessibilityUser(user);
 
@@ -199,7 +199,7 @@ public sealed class UserCrudValidatorsTests
     [Fact]
     public void User_ValidateAccessibility_WithActiveUser_ShouldReturnNoErrors()
     {
-        var user = new User { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван", PasswordHash = "hash" };
+        var user = new User { Id = Guid.CreateVersion7(), Email = "user@example.com", Login = "ivan", Name = "Иван", PasswordHash = "hash" };
 
         Assert.Empty(UserCrudValidators.ValidateAccessibilityUser(user));
     }
@@ -239,7 +239,7 @@ public sealed class UserCrudValidatorsTests
     [Fact]
     public void CurrentUser_Validate_WithMissingOrDeletedUser_ShouldReturnCurrentUserNotFound()
     {
-        var deleted = new User { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван", PasswordHash = "hash", IsDeleted = true };
+        var deleted = new User { Id = Guid.CreateVersion7(), Email = "user@example.com", Login = "ivan", Name = "Иван", PasswordHash = "hash", IsDeleted = true };
         string[] expected = [UserCrudTexts.Messages.Validation.CurrentUserNotFound];
 
         Assert.Equal(expected, UserCrudValidators.ValidateCurrentUser(null));
@@ -249,8 +249,8 @@ public sealed class UserCrudValidatorsTests
     [Fact]
     public void User_ValidateAccessSelf_WithSelfAndOtherUser_ShouldReturnNotSelfOnlyForOther()
     {
-        var self = new User { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван", PasswordHash = "hash" };
-        var other = new User { Id = Guid.CreateVersion7(), Login = "petr", Name = "Пётр", PasswordHash = "hash" };
+        var self = new User { Id = Guid.CreateVersion7(), Email = "user@example.com", Login = "ivan", Name = "Иван", PasswordHash = "hash" };
+        var other = new User { Id = Guid.CreateVersion7(), Email = "user@example.com", Login = "petr", Name = "Пётр", PasswordHash = "hash" };
 
         Assert.Empty(UserCrudValidators.ValidateAccessSelf(self, self));
         Assert.Equal([UserCrudTexts.Messages.Validation.NotSelf], UserCrudValidators.ValidateAccessSelf(other, self));

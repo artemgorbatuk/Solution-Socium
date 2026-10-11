@@ -7,6 +7,11 @@ public static class UserNormalizer
         return value?.Trim().ToLowerInvariant() ?? string.Empty;
     }
 
+    public static string Email(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() ?? string.Empty;
+    }
+
     public static string Name(string? value)
     {
         return value?.Trim() ?? string.Empty;

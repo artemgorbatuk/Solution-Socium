@@ -12,6 +12,7 @@ namespace WebApi.Middleware;
 public static class AuthenticationRegistration
 {
     public const string AuthRateLimitPolicy = "auth";
+    public const string MailRateLimitPolicy = "mail";
     public const string UnauthorizedDetail = "Требуется вход в систему.";
 
     /// <summary>
@@ -51,12 +52,25 @@ public static class AuthenticationRegistration
                 .Build());
 
         services.Configure<AuthRateLimitOptions>(configuration.GetSection(AuthRateLimitOptions.SectionName));
+        services.Configure<MailRateLimitOptions>(configuration.GetSection(MailRateLimitOptions.SectionName));
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.AddPolicy(AuthRateLimitPolicy, httpContext =>
             {
                 var rateLimit = httpContext.RequestServices.GetRequiredService<IOptions<AuthRateLimitOptions>>().Value;
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = rateLimit.PermitLimit,
+                        Window = TimeSpan.FromSeconds(rateLimit.WindowSeconds),
+                        QueueLimit = 0,
+                    });
+            });
+            options.AddPolicy(MailRateLimitPolicy, httpContext =>
+            {
+                var rateLimit = httpContext.RequestServices.GetRequiredService<IOptions<MailRateLimitOptions>>().Value;
                 return RateLimitPartition.GetFixedWindowLimiter(
                     httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions

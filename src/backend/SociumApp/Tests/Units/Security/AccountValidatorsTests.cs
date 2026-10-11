@@ -9,13 +9,15 @@ public sealed class AccountValidatorsTests
 {
     private static readonly DateTime Now = new(2026, 10, 10, 12, 0, 0, DateTimeKind.Utc);
 
-    private static User CreateUser(bool isDeleted = false) => new()
+    private static User CreateUser(bool isDeleted = false, bool isEmailConfirmed = true) => new()
     {
         Id = Guid.CreateVersion7(),
         Login = "ivan",
+        Email = "ivan@example.com",
         Name = "Иван",
         PasswordHash = "hash",
         IsDeleted = isDeleted,
+        IsEmailConfirmed = isEmailConfirmed,
     };
 
     private static RefreshToken CreateToken(DateTime expiresAt, User? user = null, DateTime? revokedAt = null)
@@ -48,6 +50,7 @@ public sealed class AccountValidatorsTests
 
         Assert.Equal(expected, AccountValidators.ValidateCredentials(null, false));
         Assert.Equal(expected, AccountValidators.ValidateCredentials(CreateUser(isDeleted: true), true));
+        Assert.Equal(expected, AccountValidators.ValidateCredentials(CreateUser(isEmailConfirmed: false), true));
         Assert.Equal(expected, AccountValidators.ValidateCredentials(CreateUser(), false));
         Assert.Empty(AccountValidators.ValidateCredentials(CreateUser(), true));
     }

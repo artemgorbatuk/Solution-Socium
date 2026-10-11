@@ -67,7 +67,15 @@ namespace Datasource.Security.Ef.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsEmailConfirmed")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Login")
@@ -86,6 +94,9 @@ namespace Datasource.Security.Ef.Migrations
                         .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex(new[] { "Email" }, "IX_Users_Email")
+                        .IsUnique();
 
                     b.HasIndex(new[] { "Login" }, "IX_Users_Login")
                         .IsUnique();

@@ -7,3 +7,4 @@
 | Локальная база данных    | [local-database.md](runbook/local-database.md)         |
 | Тесты                    | [tests.md](runbook/tests.md)                           |
 | Вход и ключ подписи      | [auth.md](runbook/auth.md)                             |
+| Почта и Mailpit          | [messaging.md](runbook/messaging.md)                   |

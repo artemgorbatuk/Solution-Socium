@@ -34,3 +34,16 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # SMTP-ловушка: письма не уходят в интернет (UI http://localhost:8025)
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: socium-dev-mailpit
+    networks:
+      - socium-network-dev
+    environment:
+      # На Docker Desktop (Windows) reverse DNS клиента часто таймаутится и тормозит SMTP.
+      MP_SMTP_DISABLE_RDNS: "true"
+    ports:
+      - "1025:1025"
+      - "8025:8025"

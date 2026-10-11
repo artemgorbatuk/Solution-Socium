@@ -1,0 +1,37 @@
+<div class="corner">
+  <app-theme-toggle />
+</div>
+
+<form class="card" aria-label="Проверьте почту" (submit)="resend($event)">
+  <h1 class="brand">Socium</h1>
+  <h2 class="title">Проверьте почту</h2>
+  <p class="hint">Мы отправили ссылку на ваш email.</p>
+
+  <label class="field">
+    <span>Email</span>
+    <input
+      type="email"
+      name="email"
+      autocomplete="email"
+      [attr.maxlength]="emailMaxLength"
+      [value]="currentEmail()"
+      [disabled]="saving()"
+      (input)="onEmailInput($event)"
+    />
+  </label>
+
+  @if (success(); as message) {
+    <p class="success" role="status">{{ message }}</p>
+  }
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  <button type="submit" class="primary submit" [disabled]="!canSubmit()">Выслать ещё раз</button>
+
+  <p class="switch">
+    Уже подтвердили?
+    <a class="link" routerLink="/login">Войти</a>
+  </p>
+</form>

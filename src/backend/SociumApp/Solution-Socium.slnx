@@ -1,4 +1,10 @@
 <Solution>
+  <Folder Name="/Messaging/">
+    <Project Path="Messaging/Datasource.Messaging.Ef/Datasource.Messaging.Ef.csproj" />
+    <Project Path="Messaging/Repositories.Messaging.Ef/Repositories.Messaging.Ef.csproj" />
+    <Project Path="Messaging/Services.Messaging/Services.Messaging.csproj" />
+    <Project Path="Messaging/Services.Messaging.Tokens/Services.Messaging.Tokens.csproj" />
+  </Folder>
   <Folder Name="/Security/">
     <Project Path="Security/Datasource.Security.Ef/Datasource.Security.Ef.csproj" />
     <Project Path="Security/Repositories.Security.Ef/Repositories.Security.Ef.csproj" />
