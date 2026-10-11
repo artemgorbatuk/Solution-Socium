@@ -13,6 +13,8 @@ import {
   ChatMessageNotify,
   ChatParticipantLeftNotify,
   ChatParticipantNotify,
+  ChatTypingStartedNotify,
+  ChatTypingStoppedNotify,
 } from './chat-hub.models';
 
 /**
@@ -33,6 +35,8 @@ export class ChatHub {
   readonly participantLeft$ = new Subject<ChatParticipantLeftNotify>();
   readonly participantRoleChanged$ = new Subject<ChatParticipantNotify>();
   readonly chatListUpdated$ = new Subject<ChatListNotify>();
+  readonly typingStarted$ = new Subject<ChatTypingStartedNotify>();
+  readonly typingStopped$ = new Subject<ChatTypingStoppedNotify>();
   /** После успешного reconnect — сбросить ленту к свежим 50. */
   readonly reconnected$ = new Subject<void>();
 
@@ -67,10 +71,36 @@ export class ChatHub {
 
     try {
       if (this.connection.state === HubConnectionState.Connected) {
+        await this.stopTyping(chatId);
         await this.connection.invoke('LeaveChat', chatId);
       }
     } finally {
       this.joinedChatId = null;
+    }
+  }
+
+  async startTyping(chatId: string): Promise<void> {
+    await this.ensureStarted();
+    if (!this.connection || this.joinedChatId !== chatId) {
+      return;
+    }
+    if (this.connection.state !== HubConnectionState.Connected) {
+      return;
+    }
+    await this.connection.invoke('StartTyping', chatId);
+  }
+
+  async stopTyping(chatId: string): Promise<void> {
+    if (!this.connection || this.joinedChatId !== chatId) {
+      return;
+    }
+    if (this.connection.state !== HubConnectionState.Connected) {
+      return;
+    }
+    try {
+      await this.connection.invoke('StopTyping', chatId);
+    } catch {
+      // Best effort при leave / disconnect.
     }
   }
 
@@ -97,6 +127,8 @@ export class ChatHub {
         this.participantRoleChanged$.next(payload),
       );
       this.connection.on('chatListUpdated', (payload: ChatListNotify) => this.chatListUpdated$.next(payload));
+      this.connection.on('typingStarted', (payload: ChatTypingStartedNotify) => this.typingStarted$.next(payload));
+      this.connection.on('typingStopped', (payload: ChatTypingStoppedNotify) => this.typingStopped$.next(payload));
 
       this.connection.onreconnected(async () => {
         const chatId = this.joinedChatId;

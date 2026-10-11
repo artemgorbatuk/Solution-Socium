@@ -21,6 +21,10 @@
   }
 </section>
 
+@if (typingLabel(); as label) {
+  <p class="typing" aria-live="polite">{{ label }}</p>
+}
+
 <form class="composer" (submit)="send($event)">
   @if (sendError(); as error) {
     <p class="send-error" role="alert">{{ error }}</p>

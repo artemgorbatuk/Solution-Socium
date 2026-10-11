@@ -38,6 +38,14 @@
   color: var(--sc-color-danger);
 }
 
+.typing {
+  max-width: 768px;
+  margin: 0 auto;
+  padding: 0 var(--sc-space-4) var(--sc-space-1);
+  color: var(--sc-color-text-muted);
+  font-size: var(--sc-font-size-sm);
+}
+
 .composer {
   padding: 0 var(--sc-space-4) var(--sc-space-4);
 }

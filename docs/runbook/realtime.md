@@ -5,13 +5,13 @@
 | Параметр | Значение |
 |----------|----------|
 | Маршрут | `/hubs/chat` |
-| Методы клиента → сервер | `JoinChat(chatId)`, `LeaveChat(chatId)` |
-| Методы сервер → клиент | `messageCreated`, `messageUpdated`, `messageDeleted`, `participantJoined`, `participantLeft`, `participantRoleChanged`, `chatListUpdated` |
+| Методы клиента → сервер | `JoinChat(chatId)`, `LeaveChat(chatId)`, `StartTyping(chatId)`, `StopTyping(chatId)` |
+| Методы сервер → клиент | `messageCreated`, `messageUpdated`, `messageDeleted`, `participantJoined`, `participantLeft`, `participantRoleChanged`, `chatListUpdated`, `typingStarted`, `typingStopped` |
 | Группы | `chat:{chatId}` — открытый чат; `user:{userId}` — список чатов (при `OnConnected`) |
 
 Аутентификация: тот же JWT, что у REST. Браузерный клиент передаёт токен в query `access_token` (стандарт SignalR); WebApi читает его в `JwtBearerEvents.OnMessageReceived` для путей `/hubs`.
 
-Join разрешён только участнику чата; иначе `HubException`.
+Join / typing разрешены только участнику чата; иначе `HubException`. Typing уходит в `OthersInGroup` (сам себе индикатор не получает).
 
 ## Клиент (Angular)
 
@@ -19,6 +19,7 @@ Join разрешён только участнику чата; иначе `HubE
 - Dev-proxy: кроме `/api` проксируется `/hubs` с `ws: true` на backend.
 - После reconnect: снова Join + `GET` последних 50 сообщений и полный список участников (локальная история сбрасывается).
 - Список чатов: `ensureConnected()` поднимает соединение (user-группа); событие `chatListUpdated` патчит превью / unread и пересортировывает строки.
+- Typing: при наборе в composer — `StartTyping` (refresh ~2 с), idle ~3 с / отправка / leave — `StopTyping`; индикатор над composer.
 
 ## Notify после сохранения
 

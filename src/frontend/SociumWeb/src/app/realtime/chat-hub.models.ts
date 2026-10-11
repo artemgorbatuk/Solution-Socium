@@ -41,3 +41,14 @@ export interface ChatListNotify {
   lastMessageHasAttachments?: boolean;
   lastMessageCleared?: boolean;
 }
+
+export interface ChatTypingStartedNotify {
+  chatId: string;
+  userId: string;
+  name: string;
+}
+
+export interface ChatTypingStoppedNotify {
+  chatId: string;
+  userId: string;
+}

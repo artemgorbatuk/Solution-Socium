@@ -29,6 +29,13 @@ import { MessageApi } from '../message-api';
 import { MessageItem } from '../message-item/message-item';
 import { MessageListModel } from '../message.models';
 import { isSubmitKey } from '../submit-key';
+import {
+  formatTypingLabel,
+  typingExpireMs,
+  typingIdleMs,
+  typingRefreshMs,
+  TypingUser,
+} from '../typing-label';
 
 interface PendingAttachment {
   localId: string;
@@ -70,6 +77,8 @@ export class ChatMessages {
     () => (!!this.draft().trim() || this.pending().length > 0) && !this.sending(),
   );
   protected readonly canAttach = computed(() => this.pending().length < MaxAttachments && !this.sending());
+  protected readonly typingUsers = signal<TypingUser[]>([]);
+  protected readonly typingLabel = computed(() => formatTypingLabel(this.typingUsers()));
 
   private readonly feed = viewChild<ElementRef<HTMLElement>>('feed');
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
@@ -77,6 +86,10 @@ export class ChatMessages {
   private olderSubscription?: Subscription;
   private hubSubscriptions: Subscription[] = [];
   private openedChatId?: string;
+  private localTyping = false;
+  private typingIdleTimer: ReturnType<typeof setTimeout> | null = null;
+  private typingRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly typingExpireTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor() {
     effect(() => {
@@ -87,6 +100,8 @@ export class ChatMessages {
     inject(DestroyRef).onDestroy(() => {
       this.loadSubscription?.unsubscribe();
       this.olderSubscription?.unsubscribe();
+      this.clearLocalTyping();
+      this.clearRemoteTyping();
       this.unbindHub();
       const chatId = this.openedChatId;
       if (chatId) {
@@ -97,7 +112,9 @@ export class ChatMessages {
   }
 
   protected onDraftInput(event: Event): void {
-    this.draft.set((event.target as HTMLTextAreaElement).value);
+    const value = (event.target as HTMLTextAreaElement).value;
+    this.draft.set(value);
+    this.onComposerActivity(value);
   }
 
   protected onComposerKeydown(event: KeyboardEvent): void {
@@ -180,6 +197,7 @@ export class ChatMessages {
             if (chatId === this.chatId()) {
               this.draft.set('');
               this.clearPending();
+              this.clearLocalTyping();
             }
           },
           error: (error: unknown) => {
@@ -218,6 +236,8 @@ export class ChatMessages {
 
   private open(chatId: string): void {
     const previous = this.openedChatId;
+    this.clearLocalTyping();
+    this.clearRemoteTyping();
     this.openedChatId = chatId;
     this.messages.set([]);
     this.hasOlder.set(false);
@@ -242,6 +262,7 @@ export class ChatMessages {
           return;
         }
         this.upsertMessage(toListModel(payload), true);
+        this.removeRemoteTyper(payload.senderUserId);
         if (payload.senderUserId !== this.currentUserId()) {
           this.acknowledgeIncoming(chatId, payload.id);
         }
@@ -258,12 +279,97 @@ export class ChatMessages {
         }
         this.messages.update((list) => list.filter((message) => message.id !== payload.id));
       }),
+      this.chatHub.typingStarted$.subscribe((payload) => {
+        if (payload.chatId !== chatId || payload.userId === this.currentUserId()) {
+          return;
+        }
+        this.upsertRemoteTyper({ userId: payload.userId, name: payload.name });
+      }),
+      this.chatHub.typingStopped$.subscribe((payload) => {
+        if (payload.chatId !== chatId) {
+          return;
+        }
+        this.removeRemoteTyper(payload.userId);
+      }),
       this.chatHub.reconnected$.subscribe(() => {
         if (this.chatId() === chatId) {
+          this.clearRemoteTyping();
           this.loadLatest(true);
         }
       }),
     ];
+  }
+
+  private onComposerActivity(value: string): void {
+    const chatId = this.chatId();
+    if (!value.trim()) {
+      this.clearLocalTyping();
+      return;
+    }
+
+    if (!this.localTyping) {
+      this.localTyping = true;
+      void this.chatHub.startTyping(chatId).catch(() => undefined);
+      this.typingRefreshTimer = setInterval(() => {
+        if (this.localTyping && this.draft().trim()) {
+          void this.chatHub.startTyping(chatId).catch(() => undefined);
+        }
+      }, typingRefreshMs);
+    }
+
+    if (this.typingIdleTimer) {
+      clearTimeout(this.typingIdleTimer);
+    }
+    this.typingIdleTimer = setTimeout(() => this.clearLocalTyping(), typingIdleMs);
+  }
+
+  private clearLocalTyping(): void {
+    if (this.typingIdleTimer) {
+      clearTimeout(this.typingIdleTimer);
+      this.typingIdleTimer = null;
+    }
+    if (this.typingRefreshTimer) {
+      clearInterval(this.typingRefreshTimer);
+      this.typingRefreshTimer = null;
+    }
+    if (!this.localTyping) {
+      return;
+    }
+    this.localTyping = false;
+    const chatId = this.openedChatId ?? this.chatId();
+    void this.chatHub.stopTyping(chatId).catch(() => undefined);
+  }
+
+  private upsertRemoteTyper(user: TypingUser): void {
+    this.typingUsers.update((list) => {
+      const without = list.filter((item) => item.userId !== user.userId);
+      return [...without, user];
+    });
+    const previous = this.typingExpireTimers.get(user.userId);
+    if (previous) {
+      clearTimeout(previous);
+    }
+    this.typingExpireTimers.set(
+      user.userId,
+      setTimeout(() => this.removeRemoteTyper(user.userId), typingExpireMs),
+    );
+  }
+
+  private removeRemoteTyper(userId: string): void {
+    const timer = this.typingExpireTimers.get(userId);
+    if (timer) {
+      clearTimeout(timer);
+      this.typingExpireTimers.delete(userId);
+    }
+    this.typingUsers.update((list) => list.filter((item) => item.userId !== userId));
+  }
+
+  private clearRemoteTyping(): void {
+    for (const timer of this.typingExpireTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.typingExpireTimers.clear();
+    this.typingUsers.set([]);
   }
 
   /** Доставка + прочтение входящего в открытой ленте (список чатов обновится через chatListUpdated). */

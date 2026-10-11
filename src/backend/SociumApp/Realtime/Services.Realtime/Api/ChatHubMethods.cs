@@ -12,6 +12,8 @@ public static class ChatHubMethods
     public const string ParticipantLeft = "participantLeft";
     public const string ParticipantRoleChanged = "participantRoleChanged";
     public const string ChatListUpdated = "chatListUpdated";
+    public const string TypingStarted = "typingStarted";
+    public const string TypingStopped = "typingStopped";
 
     public static string ChatGroup(Guid chatId) => $"chat:{chatId:D}";
     public static string UserGroup(Guid userId) => $"user:{userId:D}";

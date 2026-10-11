@@ -10,6 +10,8 @@ import {
   ChatMessageNotify,
   ChatParticipantLeftNotify,
   ChatParticipantNotify,
+  ChatTypingStartedNotify,
+  ChatTypingStoppedNotify,
 } from '../../realtime/chat-hub.models';
 import { MessageListModel } from '../message.models';
 import { ChatMessages } from './chat-messages';
@@ -36,6 +38,8 @@ describe('ChatMessages', () => {
   let messageCreated$: Subject<ChatMessageNotify>;
   let messageUpdated$: Subject<ChatMessageNotify>;
   let messageDeleted$: Subject<ChatMessageDeletedNotify>;
+  let typingStarted$: Subject<ChatTypingStartedNotify>;
+  let typingStopped$: Subject<ChatTypingStoppedNotify>;
   let reconnected$: Subject<void>;
 
   function render(): void {
@@ -83,6 +87,8 @@ describe('ChatMessages', () => {
     messageCreated$ = new Subject();
     messageUpdated$ = new Subject();
     messageDeleted$ = new Subject();
+    typingStarted$ = new Subject();
+    typingStopped$ = new Subject();
     reconnected$ = new Subject();
 
     TestBed.configureTestingModule({
@@ -95,9 +101,13 @@ describe('ChatMessages', () => {
           useValue: {
             joinChat: () => Promise.resolve(),
             leaveChat: () => Promise.resolve(),
+            startTyping: () => Promise.resolve(),
+            stopTyping: () => Promise.resolve(),
             messageCreated$,
             messageUpdated$,
             messageDeleted$,
+            typingStarted$,
+            typingStopped$,
             participantJoined$: new Subject<ChatParticipantNotify>(),
             participantLeft$: new Subject<ChatParticipantLeftNotify>(),
             participantRoleChanged$: new Subject<ChatParticipantNotify>(),
@@ -274,6 +284,20 @@ describe('ChatMessages', () => {
     http.expectOne({ method: 'POST', url: '/api/message/read' }).flush(successBody({ updatedCount: 1, unreadCount: 0 }, 2));
 
     expect(texts()).toEqual(['Первое', 'Второе']);
+  });
+
+  it('Typing_Hub_WithTypingStarted_ShouldShowLabel', () => {
+    flushList('c1', []);
+
+    typingStarted$.next({ chatId: 'c1', userId: 'u2', name: 'Борис' });
+    render();
+
+    expect(element.querySelector('.typing')!.textContent).toContain('Борис печатает…');
+
+    typingStopped$.next({ chatId: 'c1', userId: 'u2' });
+    render();
+
+    expect(element.querySelector('.typing')).toBeNull();
   });
 
   it('Feed_Reconnect_ShouldReloadLatestPage', () => {
