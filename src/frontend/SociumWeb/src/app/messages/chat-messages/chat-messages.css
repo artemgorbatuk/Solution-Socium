@@ -49,18 +49,99 @@
   white-space: pre-line;
 }
 
+.pending {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+  max-width: 768px;
+  margin: 0 auto var(--sc-space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.pending-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--sc-space-2) 28px var(--sc-space-2) var(--sc-space-2);
+  border: 1px solid var(--sc-color-border);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-surface-raised);
+}
+
+.pending-item.has-preview {
+  flex-direction: column;
+  align-items: stretch;
+  padding-top: var(--sc-space-2);
+}
+
+.pending-item img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--sc-radius-sm);
+}
+
+.pending-name {
+  color: var(--sc-color-text-muted);
+  font-size: var(--sc-font-size-sm);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.pending-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--sc-color-surface);
+  color: var(--sc-color-text);
+  cursor: pointer;
+}
+
+.file-input {
+  display: none;
+}
+
 .composer-box {
   display: flex;
   align-items: flex-end;
   gap: var(--sc-space-2);
   max-width: 768px;
   margin: 0 auto;
-  padding: var(--sc-space-2) var(--sc-space-2) var(--sc-space-2) var(--sc-space-4);
+  padding: var(--sc-space-2) var(--sc-space-2) var(--sc-space-2) var(--sc-space-3);
   border: 1px solid var(--sc-color-border-strong);
   border-radius: var(--sc-radius-lg);
   background: var(--sc-color-control);
   box-shadow: var(--sc-shadow-menu);
   transition: border-color var(--sc-transition);
+}
+
+.attach {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sc-color-text-muted);
+  cursor: pointer;
+}
+
+.attach:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .composer-box:focus-within {

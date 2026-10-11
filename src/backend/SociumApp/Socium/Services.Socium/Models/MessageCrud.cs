@@ -8,7 +8,8 @@ public class MessageCreatePageRequest
 public class MessageCreateRequest
 {
     public required Guid ChatId { get; set; }
-    public required string Text { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public IReadOnlyList<Guid>? FileIds { get; set; }
 }
 
 public class MessageCreatePageResponse
@@ -91,4 +92,13 @@ public class MessageListModel
     public required DateTime CreatedAt { get; set; }
     public required Guid SenderUserId { get; set; }
     public required string SenderName { get; set; }
+    public IReadOnlyList<MessageAttachmentModel> Attachments { get; set; } = [];
+}
+
+public class MessageAttachmentModel
+{
+    public required Guid Id { get; set; }
+    public required string FileName { get; set; }
+    public required string ContentType { get; set; }
+    public required long SizeBytes { get; set; }
 }

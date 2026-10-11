@@ -182,7 +182,7 @@ public sealed class MessageApiTests(SociumApiFixture fixture)
         var response = await Client.PostAsJsonAsync(BaseUrl, new MessageCreateRequest { ChatId = chatId, Text = "  " }, TestContext.Current.CancellationToken);
 
         var problem = await ReadProblemAsync(response, HttpStatusCode.UnprocessableEntity);
-        Assert.Contains(MessageCrudTexts.Messages.Validation.TextNotEmpty, problem.Detail);
+        Assert.Contains(MessageCrudTexts.Messages.Validation.TextOrAttachmentRequired, problem.Detail);
     }
 
     [Fact]

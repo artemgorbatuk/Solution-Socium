@@ -1,3 +1,10 @@
+export interface MessageAttachmentModel {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
 export interface MessageListModel {
   id: string;
   text: string;
@@ -5,6 +12,7 @@ export interface MessageListModel {
   createdAt: string;
   senderUserId: string;
   senderName: string;
+  attachments?: MessageAttachmentModel[];
 }
 
 export interface MessageListPageResponse {
@@ -16,6 +24,7 @@ export interface MessageListPageResponse {
 export interface MessageCreateRequest {
   chatId: string;
   text: string;
+  fileIds?: string[];
 }
 
 export interface MessageUpdateRequest {

@@ -23,7 +23,47 @@
   @if (sendError(); as error) {
     <p class="send-error" role="alert">{{ error }}</p>
   }
+  @if (pending().length) {
+    <ul class="pending" aria-label="Вложения к отправке">
+      @for (item of pending(); track item.localId) {
+        <li class="pending-item" [class.has-preview]="!!item.previewUrl">
+          @if (item.previewUrl) {
+            <img [src]="item.previewUrl" [alt]="" />
+          }
+          <span class="pending-name">{{ item.file.name }}</span>
+          <button
+            type="button"
+            class="pending-remove"
+            [attr.aria-label]="'Убрать ' + item.file.name"
+            [disabled]="sending()"
+            (click)="removePending(item.localId)"
+          >
+            <app-icon name="x" />
+          </button>
+        </li>
+      }
+    </ul>
+  }
   <div class="composer-box">
+    <input
+      #fileInput
+      type="file"
+      class="file-input"
+      multiple
+      [attr.accept]="fileAccept"
+      [disabled]="!canAttach()"
+      (change)="onFilesSelected($event)"
+    />
+    <button
+      type="button"
+      class="attach"
+      aria-label="Прикрепить файл"
+      title="Прикрепить файл"
+      [disabled]="!canAttach()"
+      (click)="openFilePicker()"
+    >
+      <app-icon name="paperclip" />
+    </button>
     <textarea
       name="message"
       rows="1"

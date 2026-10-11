@@ -44,6 +44,9 @@ public abstract class ApiFixtureBase : IAsyncLifetime
         var signingKey = TestJwt.CreateSigningKey();
 
         // Лимит входа поднят: все тесты идут с одного «IP».
+        var filesRoot = Path.Combine(Path.GetTempPath(), $"socium-files-{Guid.CreateVersion7():N}");
+        Directory.CreateDirectory(filesRoot);
+
         Factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Testing");
@@ -51,6 +54,7 @@ public abstract class ApiFixtureBase : IAsyncLifetime
             builder.UseSetting(TestJwt.SigningKeySetting, signingKey);
             builder.UseSetting("Security:RateLimit:PermitLimit", "100000");
             builder.UseSetting("Messaging:RateLimit:PermitLimit", "100000");
+            builder.UseSetting("Files:RootPath", filesRoot);
         });
 
         await using (var scope = Factory.Services.CreateAsyncScope())

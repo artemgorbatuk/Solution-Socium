@@ -33,7 +33,21 @@ public static class MessageCrudValidators
 
     public static IEnumerable<string> ValidateDomainCreateRequest(MessageCreateRequest request)
     {
-        return ValidateText(request.Text);
+        var fileIds = request.FileIds ?? [];
+        if (string.IsNullOrWhiteSpace(request.Text) && fileIds.Count == 0)
+        {
+            yield return MessageCrudTexts.Messages.Validation.TextOrAttachmentRequired;
+        }
+
+        if (fileIds.Count > 5)
+        {
+            yield return MessageCrudTexts.Messages.Validation.TooManyAttachments;
+        }
+
+        if (fileIds.Any(id => id == Guid.Empty))
+        {
+            yield return MessageCrudTexts.Messages.Validation.FileIdCannotBeEmpty;
+        }
     }
 
     public static IEnumerable<string> ValidatePrimaryUpdatePageRequest(MessageUpdatePageRequest? request)

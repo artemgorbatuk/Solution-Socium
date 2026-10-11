@@ -1,4 +1,10 @@
-<Solution>
+﻿<Solution>
+  <Folder Name="/Files/">
+    <Project Path="Files/Datasource.Files.Ef/Datasource.Files.Ef.csproj" />
+    <Project Path="Files/Repositories.Files.Ef/Repositories.Files.Ef.csproj" />
+    <Project Path="Files/Services.Files/Services.Files.csproj" />
+    <Project Path="Files/Services.Files.Stored/Services.Files.Stored.csproj" />
+  </Folder>
   <Folder Name="/Messaging/">
     <Project Path="Messaging/Datasource.Messaging.Ef/Datasource.Messaging.Ef.csproj" />
     <Project Path="Messaging/Repositories.Messaging.Ef/Repositories.Messaging.Ef.csproj" />

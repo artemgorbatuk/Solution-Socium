@@ -80,6 +80,35 @@ public sealed class ChatMessagesE2eTests(E2eAppFixture fixture)
         Assert.Empty((await fixture.Api.GetMessageListAsync(chatId)).Rows);
     }
 
+    [Fact]
+    public async Task Message_Send_WithTextFileAttachment_ShouldShowFileInFeed()
+    {
+        var (chatId, chatName) = await CreateChatAsync();
+        var tempFile = Path.Combine(Path.GetTempPath(), $"e2e-attach-{Guid.CreateVersion7():N}.txt");
+        await File.WriteAllTextAsync(tempFile, "e2e-attachment", TestContext.Current.CancellationToken);
+
+        try
+        {
+            await using var context = await fixture.NewContextAsync();
+            var page = await context.NewPageAsync();
+            await page.GotoAsync($"/chat/{chatId}");
+            await page.Locator("input[type=file]").SetInputFilesAsync(tempFile);
+            await page.GetByRole(AriaRole.Button, new() { Name = "Отправить" }).ClickAsync();
+
+            var item = Messages(page, chatName).GetByRole(AriaRole.Listitem);
+            await Assertions.Expect(item).ToHaveCountAsync(1);
+            await Assertions.Expect(item).ToContainTextAsync(Path.GetFileName(tempFile));
+
+            var row = Assert.Single((await fixture.Api.GetMessageListAsync(chatId)).Rows);
+            Assert.Single(row.Attachments);
+            Assert.Equal(Path.GetFileName(tempFile), row.Attachments[0].FileName);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
     private async Task<(Guid ChatId, string ChatName)> CreateChatAsync()
     {
         var roomId = await fixture.Api.CreateRoomAsync(UniqueName());

@@ -1,0 +1,14 @@
+@if (loadError()) {
+  <p class="attach-error">Не удалось загрузить «{{ attachment().fileName }}»</p>
+} @else if (isImage(attachment().contentType)) {
+  @if (objectUrl(); as url) {
+    <img class="preview" [src]="url" [alt]="attachment().fileName" />
+  } @else {
+    <p class="attach-state">Загрузка изображения…</p>
+  }
+} @else {
+  <button type="button" class="file-link" [disabled]="!objectUrl()" (click)="download()">
+    <span class="file-name">{{ attachment().fileName }}</span>
+    <span class="file-meta">{{ sizeLabel(attachment().sizeBytes) }}</span>
+  </button>
+}

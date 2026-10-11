@@ -1,11 +1,16 @@
+﻿using Datasource.Files.Ef.Contexts;
 using Datasource.Messaging.Ef.Contexts;
 using Datasource.Security.Ef.Contexts;
 using Datasource.Socium.Ef.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Repositories.Files.Ef.Api;
 using Repositories.Messaging.Ef.Api;
 using Repositories.Security.Ef.Api;
 using Repositories.Socium.Ef.Api;
+using Services.Files.Stored.Api;
+using Services.Files.Stored.Ports;
+using Services.Files.Middleware;
 using Services.Messaging.Middleware;
 using Services.Messaging.Tokens.Api;
 using Services.Messaging.Tokens.Providers;
@@ -30,6 +35,7 @@ public static class ServiceRegistration
         services.AddScoped<IUnitOfWorkSocium, UnitOfWorkSocium>();
         services.AddScoped<IUnitOfWorkSecurity, UnitOfWorkSecurity>();
         services.AddScoped<IUnitOfWorkMessaging, UnitOfWorkMessaging>();
+        services.AddScoped<IUnitOfWorkFiles, UnitOfWorkFiles>();
         services.AddSingleton(TimeProvider.System);
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, CurrentUserFromClaims>();
@@ -52,8 +58,13 @@ public static class ServiceRegistration
             services.AddMessaging(configuration);
         }
 
+        services.AddFiles(configuration);
+
         services.AddScoped<IServiceEmailToken, ServiceEmailToken>();
         services.AddScoped<IEmailPort, EmailPort>();
+        services.AddScoped<IServiceStoredFile, ServiceStoredFile>();
+        services.AddScoped<IFileOwnerAccess, MessageFileOwnerAccess>();
+        services.AddScoped<IFilePort, FilePort>();
 
         services.AddScoped<IServiceUser, ServiceUser>();
         services.AddScoped<IServiceAccount, ServiceAccount>();
@@ -119,6 +130,22 @@ public static class ServiceRegistration
 
         services.AddScoped(provider =>
             provider.GetRequiredService<IDbContextFactory<DbContextMessaging>>().CreateDbContext());
+
+        services.AddDbContextFactory<DbContextFiles>(options =>
+        {
+            if (!options.IsConfigured)
+            {
+                var connectionString = configuration.GetConnectionString("Socium") ?? default!;
+
+                options.EnableSensitiveDataLogging(false);
+                options.UseNpgsql(
+                    connectionString,
+                    npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory_Files"));
+            }
+        });
+
+        services.AddScoped(provider =>
+            provider.GetRequiredService<IDbContextFactory<DbContextFiles>>().CreateDbContext());
 
         return services;
     }

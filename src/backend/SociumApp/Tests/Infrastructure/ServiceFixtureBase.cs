@@ -44,11 +44,15 @@ public abstract class ServiceFixtureBase : IAsyncLifetime
     {
         postgres = await PostgresTestHost.StartAsync(databasePrefix);
 
+        var filesRoot = Path.Combine(Path.GetTempPath(), $"socium-files-{Guid.CreateVersion7():N}");
+        Directory.CreateDirectory(filesRoot);
+
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Socium"] = postgres.ConnectionString,
                 [TestJwt.SigningKeySetting] = TestJwt.CreateSigningKey(),
+                ["Files:RootPath"] = filesRoot,
             })
             .Build();
 

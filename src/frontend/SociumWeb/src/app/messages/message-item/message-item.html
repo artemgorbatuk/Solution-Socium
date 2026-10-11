@@ -23,7 +23,12 @@
   <div class="row" [class.own]="own()">
     <div class="bubble">
       <p class="sender">{{ message().senderName }}</p>
-      <p class="text">{{ message().text }}</p>
+      @if (message().text) {
+        <p class="text">{{ message().text }}</p>
+      }
+      @for (attachment of message().attachments ?? []; track attachment.id) {
+        <app-message-attachment [attachment]="attachment" />
+      }
       <time class="time" [attr.datetime]="message().createdAt" [title]="fullTime()">{{ time() }}</time>
     </div>
     @if (own() && !confirmingDelete()) {

@@ -130,7 +130,7 @@ public sealed class ServiceMessageTests(SociumServiceFixture fixture)
         var result = await RunAsync(service => service.CreateAsync(new MessageCreateRequest { ChatId = chatId, Text = " \n\t " }));
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
-        Assert.Contains(MessageCrudTexts.Messages.Validation.TextNotEmpty, result.MessageInfo.MessageText);
+        Assert.Contains(MessageCrudTexts.Messages.Validation.TextOrAttachmentRequired, result.MessageInfo.MessageText);
     }
 
     [Fact]

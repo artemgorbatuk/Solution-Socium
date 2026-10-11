@@ -1,0 +1,50 @@
+:host {
+  display: block;
+  margin-top: var(--sc-space-2);
+}
+
+.preview {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: var(--sc-radius-md);
+  object-fit: contain;
+}
+
+.file-link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 100%;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: 1px solid var(--sc-color-border);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-surface-raised);
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-link:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.file-name {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-meta,
+.attach-state,
+.attach-error {
+  margin: 0;
+  color: var(--sc-color-text-muted);
+  font-size: var(--sc-font-size-sm);
+}
+
+.attach-error {
+  color: var(--sc-color-danger);
+}

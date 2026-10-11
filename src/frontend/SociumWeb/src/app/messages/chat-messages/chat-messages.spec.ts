@@ -114,6 +114,13 @@ describe('ChatMessages', () => {
     expect(sendButton().disabled).toBe(false);
   });
 
+  it('Composer_Attach_ShouldNotShowCategorySelectInPage', () => {
+    flushList('c1', []);
+
+    expect(element.querySelector('select[aria-label="Тип файлов"]')).toBeNull();
+    expect(element.querySelector('input[type=file]')!.getAttribute('accept')).toContain('.cs');
+  });
+
   it('Composer_Enter_WithPaddedMultilineText_ShouldSendTrimmedTextClearAndReload', () => {
     flushList('c1', [first]);
     type('  Строка 1\nСтрока 2  ');

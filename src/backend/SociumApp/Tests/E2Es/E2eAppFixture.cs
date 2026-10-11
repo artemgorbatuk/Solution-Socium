@@ -193,6 +193,7 @@ public sealed class E2eAppFixture : IAsyncLifetime
                 ["Messaging__RateLimit__PermitLimit"] = "100000",
                 // Без Mailpit регистрация не должна ждать десятки секунд на SMTP.
                 ["Messaging__Smtp__TimeoutSeconds"] = "3",
+                ["Files__RootPath"] = Path.Combine(Path.GetTempPath(), $"socium-e2e-files-{Guid.CreateVersion7():N}"),
             });
     }
 

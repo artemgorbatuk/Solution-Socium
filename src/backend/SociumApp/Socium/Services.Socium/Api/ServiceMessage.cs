@@ -30,14 +30,22 @@ public class ServiceMessage : IServiceMessage
     private readonly IUnitOfWorkSocium unitOfWork;
     private readonly ICurrentUser currentUser;
     private readonly IUserPort userPort;
+    private readonly IFilePort filePort;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<ServiceMessage> logger;
 
-    public ServiceMessage(IUnitOfWorkSocium unitOfWork, ICurrentUser currentUser, IUserPort userPort, TimeProvider timeProvider, ILogger<ServiceMessage> logger)
+    public ServiceMessage(
+        IUnitOfWorkSocium unitOfWork,
+        ICurrentUser currentUser,
+        IUserPort userPort,
+        IFilePort filePort,
+        TimeProvider timeProvider,
+        ILogger<ServiceMessage> logger)
     {
         this.unitOfWork = unitOfWork;
         this.currentUser = currentUser;
         this.userPort = userPort;
+        this.filePort = filePort;
         this.timeProvider = timeProvider;
         this.logger = logger;
     }
@@ -179,6 +187,7 @@ public class ServiceMessage : IServiceMessage
             }
 
             var textNormalized = MessageNormalizer.Text(request.Text);
+            var fileIds = (request.FileIds ?? []).Distinct().ToList();
             var newOptions = new MessageGetNewOptions
             {
                 ChatId = request.ChatId,
@@ -192,6 +201,29 @@ public class ServiceMessage : IServiceMessage
             MessageMapper.Apply(model, textNormalized);
             await unitOfWork.Messages.CreateAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            if (fileIds.Count > 0)
+            {
+                var attachResult = await filePort.AttachToMessageAsync(model.Id, fileIds, user.Id, cancellationToken);
+                if (attachResult.MessageInfo.MessageType != MessageType.SAVED)
+                {
+                    await unitOfWork.Messages.DeleteAsync(model, cancellationToken);
+                    await unitOfWork.SaveChangesAsync(cancellationToken);
+                    var attachText = string.IsNullOrWhiteSpace(attachResult.MessageInfo.MessageText)
+                        ? MessageCrudTexts.Messages.Validation.AttachmentsFailed
+                        : attachResult.MessageInfo.MessageText;
+                    var messageText = $"{MessageCrudTexts.Messages.Error.CreateError}{Environment.NewLine}{attachText}";
+                    logger.LogError("{Message}: {Attach}", MessageCrudTexts.Messages.Error.CreateError, attachText);
+                    return attachResult.MessageInfo.MessageType switch
+                    {
+                        MessageType.FORBIDDEN => ResponseInfo.Forbidden<MessageCreatePageResponse>(MessageType.FORBIDDEN, messageText),
+                        MessageType.NOT_FOUND => ResponseInfo.NotFound<MessageCreatePageResponse>(MessageType.NOT_FOUND, messageText),
+                        MessageType.INVALID => ResponseInfo.Invalid<MessageCreatePageResponse>(MessageType.INVALID, messageText),
+                        MessageType.BAD_REQUEST => ResponseInfo.BadRequest<MessageCreatePageResponse>(MessageType.BAD_REQUEST, messageText),
+                        _ => ResponseInfo.Error<MessageCreatePageResponse>(MessageType.ERROR, messageText),
+                    };
+                }
+            }
 
             logger.LogInformation(MessageCrudTexts.Messages.Success.CreateCompleted);
             return ResponseInfo.Success<MessageCreatePageResponse>(MessageType.SAVED, MessageCrudTexts.Messages.Success.CreateCompleted);
@@ -477,6 +509,7 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.Forbidden<MessageDeleteResponse>(MessageType.FORBIDDEN, messageText);
             }
 
+            await filePort.DeleteForMessageAsync(model.Id, cancellationToken);
             await unitOfWork.Messages.DeleteAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -622,7 +655,18 @@ public class ServiceMessage : IServiceMessage
             };
             var models = await unitOfWork.Messages.GetListAsync(messageOptions, cancellationToken);
             var senders = await userPort.GetListAsync(models.Select(model => model.Sender.UserId).Distinct(), cancellationToken);
-            ICollection<MessageListModel> rows = [.. models.Select(model => MessageMapper.ToListModel(model, senders.GetValueOrDefault(model.Sender.UserId)))];
+            var attachmentsByMessage = await filePort.GetByMessageIdsAsync(models.Select(model => model.Id), cancellationToken);
+            ICollection<MessageListModel> rows =
+            [
+                .. models.Select(model =>
+                {
+                    var attachments = attachmentsByMessage.GetValueOrDefault(model.Id) ?? [];
+                    return MessageMapper.ToListModel(
+                        model,
+                        senders.GetValueOrDefault(model.Sender.UserId),
+                        [.. attachments.Select(MessageMapper.ToAttachmentModel)]);
+                }),
+            ];
             var response = new MessageListPageResponse
             {
                 Rows = rows,

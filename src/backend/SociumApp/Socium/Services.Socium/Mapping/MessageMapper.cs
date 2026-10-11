@@ -43,7 +43,10 @@ public static class MessageMapper
         };
     }
 
-    public static MessageListModel ToListModel(Message model, UserPortModel? sender)
+    public static MessageListModel ToListModel(
+        Message model,
+        UserPortModel? sender,
+        IReadOnlyList<MessageAttachmentModel>? attachments = null)
     {
         return new MessageListModel
         {
@@ -52,6 +55,18 @@ public static class MessageMapper
             CreatedAt = model.CreatedAt,
             SenderUserId = model.Sender.UserId,
             SenderName = sender?.Name ?? UserPortTexts.DeletedUserName,
+            Attachments = attachments ?? [],
+        };
+    }
+
+    public static MessageAttachmentModel ToAttachmentModel(FilePortAttachment attachment)
+    {
+        return new MessageAttachmentModel
+        {
+            Id = attachment.Id,
+            FileName = attachment.FileName,
+            ContentType = attachment.ContentType,
+            SizeBytes = attachment.SizeBytes,
         };
     }
 

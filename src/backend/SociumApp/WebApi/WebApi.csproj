@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -20,6 +20,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Files\Datasource.Files.Ef\Datasource.Files.Ef.csproj" />
+    <ProjectReference Include="..\Files\Services.Files.Stored\Services.Files.Stored.csproj" />
+    <ProjectReference Include="..\Files\Services.Files\Services.Files.csproj" />
     <ProjectReference Include="..\Messaging\Datasource.Messaging.Ef\Datasource.Messaging.Ef.csproj" />
     <ProjectReference Include="..\Messaging\Services.Messaging.Tokens\Services.Messaging.Tokens.csproj" />
     <ProjectReference Include="..\Security\Datasource.Security.Ef\Datasource.Security.Ef.csproj" />

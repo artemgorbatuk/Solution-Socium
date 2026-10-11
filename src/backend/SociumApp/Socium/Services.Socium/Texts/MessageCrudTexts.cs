@@ -63,6 +63,10 @@ public static class MessageCrudTexts
             public const string NotParticipant = "Вы не участник этого чата.";
             public const string NotSender = "Изменять и удалять сообщение может только его отправитель.";
             public const string TextNotEmpty = "Текст сообщения не может быть пустым.";
+            public const string TextOrAttachmentRequired = "Нужен текст сообщения или вложение.";
+            public const string TooManyAttachments = "Слишком много вложений на одно сообщение.";
+            public const string FileIdCannotBeEmpty = "Идентификатор файла не может быть пустым.";
+            public const string AttachmentsFailed = "Не удалось привязать вложения к сообщению.";
         }
     }
 }

@@ -1,3 +1,4 @@
+using Datasource.Files.Ef.Contexts;
 using Datasource.Messaging.Ef.Contexts;
 using Datasource.Security.Ef.Contexts;
 using Datasource.Socium.Ef.Contexts;
@@ -18,7 +19,7 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    // Порядок: Socium → Security → Messaging.
+    // Порядок: Socium → Security → Messaging → Files.
     using var scope = app.Services.CreateScope();
     var sociumFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<DbContextSocium>>();
     await using var sociumDb = await sociumFactory.CreateDbContextAsync();
@@ -31,6 +32,10 @@ if (app.Environment.IsDevelopment())
     var messagingFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<DbContextMessaging>>();
     await using var messagingDb = await messagingFactory.CreateDbContextAsync();
     await messagingDb.Database.MigrateAsync();
+
+    var filesFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<DbContextFiles>>();
+    await using var filesDb = await filesFactory.CreateDbContextAsync();
+    await filesDb.Database.MigrateAsync();
 }
 
 app.UseHttpsRedirection();

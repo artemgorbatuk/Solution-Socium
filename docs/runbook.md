@@ -8,3 +8,4 @@
 | Тесты                    | [tests.md](runbook/tests.md)                           |
 | Вход и ключ подписи      | [auth.md](runbook/auth.md)                             |
 | Почта и Mailpit          | [messaging.md](runbook/messaging.md)                   |
+| Файлы и вложения         | [files.md](runbook/files.md)                           |

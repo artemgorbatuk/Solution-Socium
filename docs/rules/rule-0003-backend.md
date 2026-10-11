@@ -1,4 +1,4 @@
-# rule-0003: Backend
+﻿# rule-0003: Backend
 
 [← Реестр правил](../rules.md)
 
@@ -53,7 +53,7 @@
 14. Seed-данные: только с фиксированными `Guid`, в `Seed{Entity}`, подключаются из `Configuration{Entity}`.
 15. Миграции: имя — `TaskNNNN` по номеру задачи; одна миграция на задачу на контекст (если модель изменилась после создания — `dotnet ef migrations remove` и создать заново с тем же именем); хранятся в `Datasource.{Area}.Ef/Migrations/`; startup-проект — `WebApi`.
     - Создание: `dotnet ef migrations add Task0003 --project Socium/Datasource.Socium.Ef --startup-project WebApi --context DbContextSocium`.
-16. Применение миграций: приложение накатывает миграции при старте только в окружении `Development`; в остальных окружениях схема применяется отдельным шагом развёртывания. Контексты мигрируются в порядке `DbContextSocium` → `DbContextSecurity` → `DbContextMessaging`; тот же порядок — в `Tests/Infrastructure/TestDatabase`.
+16. Применение миграций: приложение накатывает миграции при старте только в окружении `Development`; в остальных окружениях схема применяется отдельным шагом развёртывания. Контексты мигрируются в порядке `DbContextSocium` → `DbContextSecurity` → `DbContextMessaging` → `DbContextFiles`; тот же порядок — в `Tests/Infrastructure/TestDatabase`.
 17. Репозиторий: только меняет состояние контекста (`Add` / `Update` / `Remove`) и выполняет запросы; не вызывает `SaveChanges`, не валидирует и не бросает исключения ради бизнес-правил.
 18. Методы репозитория: базовый набор — `GetNew`, `GetSingleOrDefaultAsync(id)`, `GetListAsync({Entity}QueryOptions?)`, `CreateAsync`, `UpdateAsync`, `DeleteAsync`; методы добавляются только при появлении потребности в сервисе.
 19. Фильтры выборки: все критерии выборки передаются через `{Entity}QueryOptions`, а не отдельными параметрами метода; в сервисе options создаются отдельной локальной переменной, а не inline в аргументе вызова.
@@ -102,8 +102,9 @@
 3. Участники чата: `ParticipantController` (`api/participant`) содержит только `List` (`GET`), `Create` — вступление текущего пользователя (`POST`), `Update` — смена роли (`PUT`), `DeleteConfirm` — страница выхода с причиной, если уйти нельзя (`GET delete`), и `Delete` — выход (`DELETE`); страниц создания и обновления и `Info` нет (п. 37) — согласовано в [task-0010](../tasks/task-0010.md).
 4. Коды `401` / `403`: `MessageType.UNAUTHORIZED` и `FORBIDDEN`, фабрики `ResponseInfo.Unauthorized` / `Forbidden` и их ветки в `ApiControllerBase.FromResponse` добавлены сверх эталона (п. 23, 24, 38) — согласовано в [task-0010](../tasks/task-0010.md).
 5. Учётная запись: `AccountController` (`api/account`) — не CRUD: `POST login`, `POST refresh`, `POST logout`, `GET profile`, `PUT profile`, `POST confirm-email`, `POST resend-confirmation`, `POST forgot-password`, `POST reset-password` (п. 37); refresh-токен ставит и удаляет в `HttpOnly`-cookie контроллер (`Controllers/Shared/RefreshTokenCookie`), а `refresh` и `logout` берут его из cookie, а не из параметра запроса (п. 35) — [task-0011](../tasks/task-0011.md), [task-0012](../tasks/task-0012.md).
-6. Строка подключения Security и Messaging: таблицы этих area в БД `Socium`, поэтому `DbContextSecurity`, `DbContextMessaging` и их design-time factory берут `ConnectionStrings:Socium` / `ConnectionStrings__Socium`, а не `ConnectionStrings:{Area}` (п. 8, 39) — [task-0011](../tasks/task-0011.md), [task-0012](../tasks/task-0012.md).
+6. Строка подключения Security, Messaging и Files: таблицы этих area в БД `Socium`, поэтому `DbContextSecurity`, `DbContextMessaging`, `DbContextFiles` и их design-time factory берут `ConnectionStrings:Socium` / `ConnectionStrings__Socium`, а не `ConnectionStrings:{Area}` (п. 8, 39) — [task-0011](../tasks/task-0011.md), [task-0012](../tasks/task-0012.md), [task-0013](../tasks/task-0013.md).
 7. Почта ([task-0012](../tasks/task-0012.md)): в папке area `Messaging/` — `Services.Messaging` (SMTP, каналы, без БД; могут использовать другие area через DI) и цепочка `Datasource` → `Repositories` → `Services.Messaging.Tokens` (роль `Services.{Area}` из п. 1; суффикс `.Tokens` — имя `Services.Messaging` занято каналами). `Services.Messaging.Tokens` ссылается на репозитории area и `Services.Messaging`, не на `Services.Security`. `Security` → `IEmailPort` в `Services.Security/Ports/`, адаптер `EmailPort` в `WebApi/Ports/` (п. 3, 41); контракт — сценарии писем и одноразовых токенов, не выборка по списку `Id`.
+8. Файлы ([task-0013](../tasks/task-0013.md)): в папке area `Files/` — `Services.Files` (диск, `IFileStore` / `LocalFileStore`, без БД) и цепочка `Datasource` → `Repositories` → `Services.Files.Stored` (роль `Services.{Area}` из п. 1; суффикс `.Stored` — имя `Services.Files` занято store; по смыслу как `.Tokens` у Messaging). `Socium` → `IFilePort` в `Services.Socium/Ports/`, адаптер `FilePort` в `WebApi/Ports/`; доступ читателя к файлу сообщения — `IFileOwnerAccess` / `MessageFileOwnerAccess` в WebApi.
 
 **Связанные документы:**
 

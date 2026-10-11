@@ -4,12 +4,13 @@ import { Icon } from '../../shared/icon/icon';
 import { MessageApi } from '../message-api';
 import { MessageDeleteConfirm } from '../message-delete-confirm/message-delete-confirm';
 import { messageFullTime, messageTime } from '../message-time';
+import { MessageAttachment } from '../message-attachment/message-attachment';
 import { MessageListModel } from '../message.models';
 import { isSubmitKey } from '../submit-key';
 
 @Component({
   selector: 'app-message-item',
-  imports: [MessageDeleteConfirm, Icon],
+  imports: [MessageDeleteConfirm, Icon, MessageAttachment],
   templateUrl: './message-item.html',
   styleUrl: './message-item.css',
 })

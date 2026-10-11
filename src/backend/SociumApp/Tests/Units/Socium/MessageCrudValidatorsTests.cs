@@ -65,13 +65,26 @@ public sealed class MessageCrudValidatorsTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("\n\t ")]
-    public void CreateRequest_ValidateDomain_WithBlankText_ShouldReturnTextNotEmpty(string text)
+    public void CreateRequest_ValidateDomain_WithBlankTextAndNoFiles_ShouldReturnTextOrAttachmentRequired(string text)
     {
         var request = new MessageCreateRequest { ChatId = Guid.CreateVersion7(), Text = text };
 
         var errors = MessageCrudValidators.ValidateDomainCreateRequest(request);
 
-        Assert.Equal([MessageCrudTexts.Messages.Validation.TextNotEmpty], errors);
+        Assert.Equal([MessageCrudTexts.Messages.Validation.TextOrAttachmentRequired], errors);
+    }
+
+    [Fact]
+    public void CreateRequest_ValidateDomain_WithBlankTextAndFileIds_ShouldReturnNoErrors()
+    {
+        var request = new MessageCreateRequest
+        {
+            ChatId = Guid.CreateVersion7(),
+            Text = "",
+            FileIds = [Guid.CreateVersion7()],
+        };
+
+        Assert.Empty(MessageCrudValidators.ValidateDomainCreateRequest(request));
     }
 
     [Fact]
