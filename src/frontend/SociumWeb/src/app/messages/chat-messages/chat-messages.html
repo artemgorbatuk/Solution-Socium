@@ -10,12 +10,18 @@
       <p class="state">Загрузка истории…</p>
     }
     <ol class="list" [attr.aria-label]="'Сообщения чата ' + chatName()">
-      @for (message of messages(); track message.id) {
-        <li>
-          <app-message-item
-            [message]="message"
-            [own]="message.senderUserId === currentUserId()" />
-        </li>
+      @for (row of feedRows(); track feedRowTrack(row)) {
+        @if (row.kind === 'day') {
+          <li class="day-separator" role="separator" [attr.aria-label]="row.label">
+            <span class="day-separator-label">{{ row.label }}</span>
+          </li>
+        } @else {
+          <li>
+            <app-message-item
+              [message]="row.message"
+              [own]="row.message.senderUserId === currentUserId()" />
+          </li>
+        }
       }
     </ol>
   }

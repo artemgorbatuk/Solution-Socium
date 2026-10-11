@@ -28,6 +28,32 @@
   list-style: none;
 }
 
+.day-separator {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: var(--sc-space-1) 0;
+}
+
+.day-separator::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  border-top: 1px solid var(--sc-color-border);
+}
+
+.day-separator-label {
+  position: relative;
+  z-index: 1;
+  padding: 0 var(--sc-space-2);
+  background: var(--sc-color-bg);
+  color: var(--sc-color-text-muted);
+  font-size: var(--sc-font-size-sm);
+  line-height: 1.4;
+}
+
 .state {
   margin: auto;
   color: var(--sc-color-text-muted);

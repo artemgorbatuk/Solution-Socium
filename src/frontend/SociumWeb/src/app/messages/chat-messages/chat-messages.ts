@@ -29,6 +29,7 @@ import { MessageApi } from '../message-api';
 import { MessageItem } from '../message-item/message-item';
 import { MessageListModel } from '../message.models';
 import { isSubmitKey } from '../submit-key';
+import { buildFeedRows, feedRowTrack } from '../day-separator';
 import { formatNewMessagesLabel, isNearBottom } from '../feed-scroll';
 import {
   formatTypingLabel,
@@ -64,6 +65,8 @@ export class ChatMessages {
   private readonly currentUser = inject(CurrentUser);
   protected readonly currentUserId = this.currentUser.id;
   protected readonly messages = signal<MessageListModel[]>([]);
+  protected readonly feedRows = computed(() => buildFeedRows(this.messages()));
+  protected readonly feedRowTrack = feedRowTrack;
   protected readonly hasOlder = signal(false);
   protected readonly loading = signal(true);
   protected readonly loadingOlder = signal(false);

@@ -167,6 +167,31 @@ describe('ChatMessages', () => {
     expect(element.querySelector('ol')!.getAttribute('aria-label')).toBe('Сообщения чата Общий');
   });
 
+  it('Feed_Load_WithMessagesOnSameDay_ShouldShowOneDaySeparator', () => {
+    flushList('c1', [first, second]);
+
+    const separators = element.querySelectorAll('.day-separator');
+    expect(separators.length).toBe(1);
+    expect(separators[0].getAttribute('aria-label')).toBeTruthy();
+  });
+
+  it('Feed_Load_WithMessagesOnDifferentDays_ShouldShowSeparatorPerDay', () => {
+    const earlier: MessageListModel = {
+      ...first,
+      id: 'm0',
+      text: 'Вчерашнее',
+      createdAt: '2020-01-14T12:00:00Z',
+    };
+    flushList('c1', [earlier, first, second]);
+
+    const separators = Array.from(element.querySelectorAll('.day-separator'));
+    expect(separators.length).toBe(2);
+    expect(separators.map((item) => item.getAttribute('aria-label'))).toEqual(
+      separators.map((item) => item.querySelector('.day-separator-label')!.textContent),
+    );
+    expect(texts()).toEqual(['Вчерашнее', 'Первое', 'Второе']);
+  });
+
   it('Feed_Load_WithOwnAndOtherMessages_ShouldMarkOnlyCurrentUserMessagesAsOwn', () => {
     flushList('c1', [first, second]);
 
