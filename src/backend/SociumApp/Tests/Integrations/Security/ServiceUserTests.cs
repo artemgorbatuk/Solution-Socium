@@ -58,7 +58,7 @@ public sealed class ServiceUserTests(SecurityServiceFixture fixture)
     {
         var login = UniqueLogin();
 
-        await fixture.CreateUserAsync(login, "Иван", " пароль с пробелами ");
+        await fixture.CreateUserAsync(login, "Иван", password: " пароль с пробелами ");
 
         var user = await fixture.RunAsync((IUnitOfWorkSecurity unitOfWork) => unitOfWork.Users.GetSingleByLoginOrDefaultAsync(login));
         var hasher = new AspNetIdentityPasswordHasher();

@@ -13,3 +13,5 @@
 1. Имя файла — **без** префикса `I` (например `DomainEventPublisher.cs`, не `IDomainEventPublisher.cs`).
 2. В файле сверху — интерфейс с префиксом `I` (`IDomainEventPublisher`).
 3. Реализация(и) — **ниже** в том же файле (`DomainEventPublisher : IDomainEventPublisher`).
+4. Порты / HTTP-абстракции (rule-0003 п. 41, искл. 2): адаптер в другой сборке — в файле area только интерфейс, имя файла всё равно без `I` (например `UserPort.cs` с `IUserPort`).
+5. Marker-only без единственной реализации (`IDomainEvent`, `IDomainEventHandler<T>`) — файл без `I`, реализация в том же файле не требуется.
