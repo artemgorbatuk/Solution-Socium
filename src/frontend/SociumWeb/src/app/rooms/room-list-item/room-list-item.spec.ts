@@ -7,7 +7,7 @@ import { RoomListModel } from '../room.models';
 import { RoomListItem } from './room-list-item';
 
 describe('RoomListItem', () => {
-  const room: RoomListModel = { id: '1', name: 'Кухня' };
+  const room: RoomListModel = { id: '1', name: 'Кухня', canUpdate: true, canDelete: true };
 
   let fixture: ComponentFixture<RoomListItem>;
   let http: HttpTestingController;
@@ -62,7 +62,11 @@ describe('RoomListItem', () => {
     element = fixture.nativeElement;
     render();
     expectChatList().flush(
-      successBody({ rowExists: true, rowCount: 1, rows: [{ id: 'c1', name: 'Общий', isAdmin: true, unreadCount: 0 }] }),
+      successBody({
+        rowExists: true,
+        rowCount: 1,
+        rows: [{ id: 'c1', name: 'Общий', canUpdate: true, canDelete: true, unreadCount: 0 }],
+      }),
     );
     render();
   });
@@ -191,7 +195,7 @@ describe('RoomListItem', () => {
     render();
     http
       .expectOne((request) => request.method === 'GET' && request.url === '/api/room/delete' && request.params.get('id') === '1')
-      .flush(successBody({ id: '1', name: 'Кухня', chatCount: 1 }));
+      .flush(successBody({ id: '1', name: 'Кухня', chatCount: 1, canDelete: true }));
     render();
   }
 

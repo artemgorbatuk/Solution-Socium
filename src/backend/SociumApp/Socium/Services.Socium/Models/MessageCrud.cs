@@ -103,6 +103,8 @@ public class MessageListModel
     public required DateTime CreatedAt { get; set; }
     public required Guid SenderUserId { get; set; }
     public required string SenderName { get; set; }
+    public required bool CanUpdate { get; set; }
+    public required bool CanDelete { get; set; }
     public IReadOnlyList<MessageAttachmentModel> Attachments { get; set; } = [];
 }
 

@@ -43,24 +43,28 @@
       >
         <app-icon name="plus" />
       </button>
-      <button
-        type="button"
-        class="icon"
-        title="Переименовать"
-        [attr.aria-label]="'Переименовать комнату ' + room().name"
-        (click)="startRename()"
-      >
-        <app-icon name="pencil" />
-      </button>
-      <button
-        type="button"
-        class="icon danger"
-        title="Удалить"
-        [attr.aria-label]="'Удалить комнату ' + room().name"
-        (click)="requestDelete()"
-      >
-        <app-icon name="trash" />
-      </button>
+      @if (room().canUpdate) {
+        <button
+          type="button"
+          class="icon"
+          title="Переименовать"
+          [attr.aria-label]="'Переименовать комнату ' + room().name"
+          (click)="startRename()"
+        >
+          <app-icon name="pencil" />
+        </button>
+      }
+      @if (room().canDelete) {
+        <button
+          type="button"
+          class="icon danger"
+          title="Удалить"
+          [attr.aria-label]="'Удалить комнату ' + room().name"
+          (click)="requestDelete()"
+        >
+          <app-icon name="trash" />
+        </button>
+      }
     </div>
   </div>
 }

@@ -21,10 +21,10 @@ describe('ParticipantsPanel', () => {
     fixture.detectChanges();
   }
 
-  function flushList(rows: ParticipantListModel[], isAdmin: boolean): void {
+  function flushList(rows: ParticipantListModel[], canChangeRole: boolean): void {
     http
       .expectOne((request) => request.method === 'GET' && request.url === '/api/participant' && request.params.get('chatId') === 'c1')
-      .flush(successBody({ rowExists: rows.length > 0, rowCount: rows.length, isAdmin, rows }));
+      .flush(successBody({ rowExists: rows.length > 0, rowCount: rows.length, canChangeRole, rows }));
     render();
   }
 

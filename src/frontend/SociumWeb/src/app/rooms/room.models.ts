@@ -4,6 +4,8 @@ export const roomNameMaxLength = 128;
 export interface RoomListModel {
   id: string;
   name: string;
+  canUpdate: boolean;
+  canDelete: boolean;
 }
 
 export interface RoomListPageResponse {
@@ -25,6 +27,7 @@ export interface RoomDeletePageResponse {
   id: string;
   name: string;
   chatCount: number;
+  canDelete: boolean;
 }
 
 export interface RoomDeleteResponse {

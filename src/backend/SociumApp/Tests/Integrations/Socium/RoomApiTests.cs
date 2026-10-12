@@ -52,7 +52,8 @@ public sealed class RoomApiTests(SociumApiFixture fixture)
             await Client.GetAsync($"/api/chat?roomId={roomId}", TestContext.Current.CancellationToken));
         var chat = Assert.Single(chats.Response!.Rows);
         Assert.Equal(ChatCrudTexts.Defaults.Name, chat.Name);
-        Assert.True(chat.IsAdmin);
+        Assert.True(chat.CanUpdate);
+        Assert.True(chat.CanDelete);
     }
 
     [Fact]

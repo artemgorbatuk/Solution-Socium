@@ -27,14 +27,15 @@ public sealed class ChatMapperTests
     }
 
     [Fact]
-    public void CreatePageResponse_Map_WithNewChat_ShouldCopyRoomIdAndName()
+    public void CreatePageResponse_Map_WithNewChat_ShouldCopyRoomIdNameAndCanCreate()
     {
         var chat = CreateChat();
 
-        var response = ChatMapper.ToCreatePageResponse(chat);
+        var response = ChatMapper.ToCreatePageResponse(chat, canCreate: true);
 
         Assert.Equal(chat.RoomId, response.RoomId);
         Assert.Equal(chat.Name, response.Name);
+        Assert.True(response.CanCreate);
     }
 
     [Fact]
@@ -61,69 +62,68 @@ public sealed class ChatMapperTests
     }
 
     [Fact]
-    public void UpdatePageResponse_Map_WithExistingChat_ShouldCopyIdRoomIdAndName()
+    public void UpdatePageResponse_Map_WithExistingChat_ShouldCopyIdRoomIdNameAndCanUpdate()
     {
         var chat = CreateChat();
 
-        var response = ChatMapper.ToUpdatePageResponse(chat);
+        var response = ChatMapper.ToUpdatePageResponse(chat, canUpdate: true);
 
         Assert.Equal(chat.Id, response.Id);
         Assert.Equal(chat.RoomId, response.RoomId);
         Assert.Equal(chat.Name, response.Name);
-    }
-
-    [Fact]
-    public void InfoPageResponse_Map_WithoutParticipant_ShouldCopyIdRoomIdAndNameAndClearFlags()
-    {
-        var chat = CreateChat();
-
-        var response = ChatMapper.ToInfoPageResponse(chat, null);
-
-        Assert.Equal(chat.Id, response.Id);
-        Assert.Equal(chat.RoomId, response.RoomId);
-        Assert.Equal(chat.Name, response.Name);
-        Assert.False(response.IsParticipant);
-        Assert.False(response.IsAdmin);
+        Assert.True(response.CanUpdate);
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void InfoPageResponse_Map_WithParticipant_ShouldSetParticipantAndCopyAdmin(bool isAdmin)
+    [InlineData(false, false, false, false)]
+    [InlineData(true, true, true, true)]
+    [InlineData(true, false, true, false)]
+    public void InfoPageResponse_Map_WithFlags_ShouldCopyIdRoomIdNameAndFlags(
+        bool isParticipant,
+        bool isAdmin,
+        bool canUpdate,
+        bool canDelete)
     {
         var chat = CreateChat();
-        var participant = new Participant { Id = Guid.CreateVersion7(), ChatId = chat.Id, UserId = Guid.CreateVersion7(), IsAdmin = isAdmin };
 
-        var response = ChatMapper.ToInfoPageResponse(chat, participant);
+        var response = ChatMapper.ToInfoPageResponse(chat, isParticipant, isAdmin, canUpdate, canDelete);
 
-        Assert.True(response.IsParticipant);
+        Assert.Equal(chat.Id, response.Id);
+        Assert.Equal(chat.RoomId, response.RoomId);
+        Assert.Equal(chat.Name, response.Name);
+        Assert.Equal(isParticipant, response.IsParticipant);
         Assert.Equal(isAdmin, response.IsAdmin);
+        Assert.Equal(canUpdate, response.CanUpdate);
+        Assert.Equal(canDelete, response.CanDelete);
     }
 
     [Fact]
-    public void DeletePageResponse_Map_WithExistingChat_ShouldCopyIdRoomIdAndName()
+    public void DeletePageResponse_Map_WithExistingChat_ShouldCopyIdRoomIdNameAndCanDelete()
     {
         var chat = CreateChat();
 
-        var response = ChatMapper.ToDeletePageResponse(chat);
+        var response = ChatMapper.ToDeletePageResponse(chat, canDelete: true);
 
         Assert.Equal(chat.Id, response.Id);
         Assert.Equal(chat.RoomId, response.RoomId);
         Assert.Equal(chat.Name, response.Name);
+        Assert.True(response.CanDelete);
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ListModel_Map_WithExistingChat_ShouldCopyIdAndNameAndAdmin(bool isAdmin)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void ListModel_Map_WithExistingChat_ShouldCopyIdNameAndCanFlags(bool canUpdate, bool canDelete)
     {
         var chat = CreateChat();
 
-        var model = ChatMapper.ToListModel(chat, isAdmin);
+        var model = ChatMapper.ToListModel(chat, canUpdate, canDelete);
 
         Assert.Equal(chat.Id, model.Id);
         Assert.Equal(chat.Name, model.Name);
-        Assert.Equal(isAdmin, model.IsAdmin);
+        Assert.Equal(canUpdate, model.CanUpdate);
+        Assert.Equal(canDelete, model.CanDelete);
         Assert.Equal(0, model.UnreadCount);
     }
 
@@ -133,7 +133,15 @@ public sealed class ChatMapperTests
         var chat = CreateChat();
         var at = new DateTime(2020, 1, 2, 3, 4, 5, DateTimeKind.Utc);
 
-        var model = ChatMapper.ToListModel(chat, isAdmin: false, unreadCount: 4, "привет", at, "Анна", lastMessageHasAttachments: true);
+        var model = ChatMapper.ToListModel(
+            chat,
+            canUpdate: false,
+            canDelete: false,
+            unreadCount: 4,
+            "привет",
+            at,
+            "Анна",
+            lastMessageHasAttachments: true);
 
         Assert.Equal(4, model.UnreadCount);
         Assert.Equal("привет", model.LastMessageText);

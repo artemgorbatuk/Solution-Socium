@@ -48,7 +48,7 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
         var body = await ReadSuccessAsync<ParticipantListPageResponse>(await Client.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken));
 
         Assert.Equal(MessageType.LOADED, body.MessageInfo.MessageType);
-        Assert.True(body.Response!.IsAdmin);
+        Assert.True(body.Response!.CanChangeRole);
         var row = Assert.Single(body.Response.Rows);
         Assert.Equal(fixture.DefaultUserId, row.UserId);
         Assert.True(row.IsAdmin);
@@ -63,7 +63,7 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
         var response = await client.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken);
 
         var problem = await ReadProblemAsync(response, HttpStatusCode.Forbidden);
-        Assert.Contains(ParticipantCrudTexts.Messages.Validation.NotParticipant, problem.Detail);
+        Assert.Contains(ParticipantCrudTexts.Messages.Validation.AccessDenied, problem.Detail);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
         Assert.Equal(MessageType.SAVED, body.MessageInfo.MessageType);
         var list = await ReadSuccessAsync<ParticipantListPageResponse>(await client.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken));
         Assert.Equal(2, list.Response!.RowCount);
-        Assert.False(list.Response.IsAdmin);
+        Assert.False(list.Response.CanChangeRole);
     }
 
     [Fact]

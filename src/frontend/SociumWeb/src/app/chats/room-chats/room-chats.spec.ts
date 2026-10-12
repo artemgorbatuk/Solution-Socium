@@ -22,7 +22,7 @@ describe('RoomChats', () => {
   }
 
   function row(partial: Partial<ChatListModel> & Pick<ChatListModel, 'id' | 'name'>): ChatListModel {
-    return { isAdmin: true, unreadCount: 0, ...partial };
+    return { canUpdate: true, canDelete: true, unreadCount: 0, ...partial };
   }
 
   function listBody(rows: ChatListModel[]) {
@@ -214,7 +214,7 @@ describe('RoomChats', () => {
 
     signInAs('u2');
     render();
-    expectList().flush(listBody([row({ id: 'c1', name: 'Общий', isAdmin: false })]));
+    expectList().flush(listBody([row({ id: 'c1', name: 'Общий', canUpdate: false, canDelete: false })]));
     render();
 
     expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');
@@ -228,7 +228,7 @@ describe('RoomChats', () => {
 
     TestBed.inject(ChatChanges).notify();
     render();
-    expectList().flush(listBody([row({ id: 'c1', name: 'Общий', isAdmin: false })]));
+    expectList().flush(listBody([row({ id: 'c1', name: 'Общий', canUpdate: false, canDelete: false })]));
     render();
 
     expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');

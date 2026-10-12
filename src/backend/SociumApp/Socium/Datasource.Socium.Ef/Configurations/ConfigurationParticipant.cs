@@ -23,9 +23,6 @@ public class ConfigurationParticipant : IEntityTypeConfiguration<Participant>
         builder.Property(participant => participant.UserId)
             .IsRequired();
 
-        builder.Property(participant => participant.IsAdmin)
-            .IsRequired();
-
         builder.HasIndex(participant => new { participant.ChatId, participant.UserId }, "IX_Participants_ChatId_UserId")
             .IsUnique();
 

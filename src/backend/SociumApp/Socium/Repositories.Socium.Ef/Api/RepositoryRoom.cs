@@ -70,6 +70,16 @@ public class RepositoryRoom : IRepositoryRoom
             query = query.Where(room => room.Id != excludeId);
         }
 
+        if (options?.Ids is { } ids)
+        {
+            if (ids.Count == 0)
+            {
+                return [];
+            }
+
+            query = query.Where(room => ids.Contains(room.Id));
+        }
+
         return await query
             .OrderBy(room => room.Name)
             .ToListAsync(cancellationToken);

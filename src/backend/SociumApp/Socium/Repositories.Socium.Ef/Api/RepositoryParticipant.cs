@@ -14,6 +14,7 @@ public interface IRepositoryParticipant
     Participant GetNew(ParticipantGetNewOptions options);
     Task<Participant?> GetSingleOrDefaultAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IEnumerable<Participant>> GetListAsync(ParticipantQueryOptions? options = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Guid>> GetChatIdsInRoomAsync(Guid userId, Guid roomId, CancellationToken cancellationToken = default);
 }
 
 public class RepositoryParticipant : IRepositoryParticipant
@@ -50,7 +51,6 @@ public class RepositoryParticipant : IRepositoryParticipant
             Id = Guid.Empty,
             ChatId = Guid.Empty,
             UserId = Guid.Empty,
-            IsAdmin = false,
         };
     }
 
@@ -59,7 +59,6 @@ public class RepositoryParticipant : IRepositoryParticipant
         var model = GetNew();
         model.ChatId = options.ChatId;
         model.UserId = options.UserId;
-        model.IsAdmin = options.IsAdmin;
         return model;
     }
 
@@ -84,14 +83,19 @@ public class RepositoryParticipant : IRepositoryParticipant
             query = query.Where(participant => participant.UserId == userId);
         }
 
-        if (options?.IsAdmin is bool isAdmin)
-        {
-            query = query.Where(participant => participant.IsAdmin == isAdmin);
-        }
-
         // Имена пользователей — в области Security; сортировку по имени делает сервис.
         return await query
             .OrderBy(participant => participant.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Guid>> GetChatIdsInRoomAsync(Guid userId, Guid roomId, CancellationToken cancellationToken = default)
+    {
+        return await context.Participants
+            .AsNoTracking()
+            .Where(participant => participant.UserId == userId && participant.Chat.RoomId == roomId)
+            .Select(participant => participant.ChatId)
+            .Distinct()
             .ToListAsync(cancellationToken);
     }
 }

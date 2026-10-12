@@ -10,12 +10,11 @@ public sealed class ParticipantCrudValidatorsTests
 {
     private static readonly Guid ChatId = Guid.CreateVersion7();
 
-    private static Participant CreateParticipant(bool isAdmin) => new()
+    private static Participant CreateParticipant() => new()
     {
         Id = Guid.CreateVersion7(),
         ChatId = ChatId,
         UserId = Guid.CreateVersion7(),
-        IsAdmin = isAdmin,
     };
 
     [Fact]
@@ -67,41 +66,31 @@ public sealed class ParticipantCrudValidatorsTests
     }
 
     [Fact]
-    public void Access_Validate_WithoutParticipant_ShouldReturnNotParticipantAndNotAdmin()
+    public void Access_Validate_WithoutParticipant_ShouldReturnNotParticipant()
     {
         Assert.Equal([ParticipantCrudTexts.Messages.Validation.NotParticipant], ParticipantCrudValidators.ValidateAccessParticipant(null));
-        Assert.Equal([ParticipantCrudTexts.Messages.Validation.NotAdmin], ParticipantCrudValidators.ValidateAccessAdmin(null));
     }
 
     [Fact]
-    public void Access_Validate_WithOrdinaryParticipant_ShouldAllowParticipantAndRejectAdmin()
+    public void Access_Validate_WithParticipant_ShouldAllow()
     {
-        var participant = CreateParticipant(isAdmin: false);
-
-        Assert.Empty(ParticipantCrudValidators.ValidateAccessParticipant(participant));
-        Assert.Equal([ParticipantCrudTexts.Messages.Validation.NotAdmin], ParticipantCrudValidators.ValidateAccessAdmin(participant));
-    }
-
-    [Fact]
-    public void Access_Validate_WithAdmin_ShouldAllowAdmin()
-    {
-        Assert.Empty(ParticipantCrudValidators.ValidateAccessAdmin(CreateParticipant(isAdmin: true)));
+        Assert.Empty(ParticipantCrudValidators.ValidateAccessParticipant(CreateParticipant()));
     }
 
     [Fact]
     public void CreateRequest_ValidateDomain_WithExistingParticipant_ShouldReturnAlreadyParticipant()
     {
-        Assert.Equal([ParticipantCrudTexts.Messages.Validation.AlreadyParticipant], ParticipantCrudValidators.ValidateDomainCreateRequest(CreateParticipant(isAdmin: false)));
+        Assert.Equal([ParticipantCrudTexts.Messages.Validation.AlreadyParticipant], ParticipantCrudValidators.ValidateDomainCreateRequest(CreateParticipant()));
         Assert.Empty(ParticipantCrudValidators.ValidateDomainCreateRequest(null));
     }
 
     [Fact]
     public void UpdateRequest_ValidateDomain_WithRevokeFromLastAdmin_ShouldReturnLastAdminCannotRevoke()
     {
-        var admin = CreateParticipant(isAdmin: true);
-        Participant[] participants = [admin, CreateParticipant(isAdmin: false)];
-
-        var errors = ParticipantCrudValidators.ValidateDomainUpdateRequest(new ParticipantUpdateRequest { Id = admin.Id, IsAdmin = false }, admin, participants);
+        var errors = ParticipantCrudValidators.ValidateDomainUpdateRequest(
+            new ParticipantUpdateRequest { Id = Guid.CreateVersion7(), IsAdmin = false },
+            targetIsAdmin: true,
+            adminCount: 1);
 
         Assert.Equal([ParticipantCrudTexts.Messages.Validation.LastAdminCannotRevoke], errors);
     }
@@ -109,10 +98,10 @@ public sealed class ParticipantCrudValidatorsTests
     [Fact]
     public void UpdateRequest_ValidateDomain_WithRevokeWhenTwoAdmins_ShouldReturnNoErrors()
     {
-        var admin = CreateParticipant(isAdmin: true);
-        Participant[] participants = [admin, CreateParticipant(isAdmin: true)];
-
-        var errors = ParticipantCrudValidators.ValidateDomainUpdateRequest(new ParticipantUpdateRequest { Id = admin.Id, IsAdmin = false }, admin, participants);
+        var errors = ParticipantCrudValidators.ValidateDomainUpdateRequest(
+            new ParticipantUpdateRequest { Id = Guid.CreateVersion7(), IsAdmin = false },
+            targetIsAdmin: true,
+            adminCount: 2);
 
         Assert.Empty(errors);
     }
@@ -120,21 +109,29 @@ public sealed class ParticipantCrudValidatorsTests
     [Fact]
     public void UpdateRequest_ValidateDomain_WithGrantOrRepeatedRole_ShouldReturnNoErrors()
     {
-        var admin = CreateParticipant(isAdmin: true);
-        var member = CreateParticipant(isAdmin: false);
-        Participant[] participants = [admin, member];
+        var id = Guid.CreateVersion7();
 
-        Assert.Empty(ParticipantCrudValidators.ValidateDomainUpdateRequest(new ParticipantUpdateRequest { Id = member.Id, IsAdmin = true }, member, participants));
-        Assert.Empty(ParticipantCrudValidators.ValidateDomainUpdateRequest(new ParticipantUpdateRequest { Id = admin.Id, IsAdmin = true }, admin, participants));
-        Assert.Empty(ParticipantCrudValidators.ValidateDomainUpdateRequest(new ParticipantUpdateRequest { Id = member.Id, IsAdmin = false }, member, participants));
+        Assert.Empty(ParticipantCrudValidators.ValidateDomainUpdateRequest(
+            new ParticipantUpdateRequest { Id = id, IsAdmin = true },
+            targetIsAdmin: false,
+            adminCount: 1));
+        Assert.Empty(ParticipantCrudValidators.ValidateDomainUpdateRequest(
+            new ParticipantUpdateRequest { Id = id, IsAdmin = true },
+            targetIsAdmin: true,
+            adminCount: 1));
+        Assert.Empty(ParticipantCrudValidators.ValidateDomainUpdateRequest(
+            new ParticipantUpdateRequest { Id = id, IsAdmin = false },
+            targetIsAdmin: false,
+            adminCount: 1));
     }
 
     [Fact]
     public void Delete_ValidateDomain_WithSoleParticipant_ShouldReturnSoleParticipantCannotLeave()
     {
-        var admin = CreateParticipant(isAdmin: true);
-
-        var errors = ParticipantCrudValidators.ValidateDomainDelete(admin, [admin]);
+        var errors = ParticipantCrudValidators.ValidateDomainDelete(
+            currentIsAdmin: true,
+            participantCount: 1,
+            adminCount: 1);
 
         Assert.Equal([ParticipantCrudTexts.Messages.Validation.SoleParticipantCannotLeave], errors);
     }
@@ -142,9 +139,10 @@ public sealed class ParticipantCrudValidatorsTests
     [Fact]
     public void Delete_ValidateDomain_WithLastAdminAndOthers_ShouldReturnLastAdminCannotLeave()
     {
-        var admin = CreateParticipant(isAdmin: true);
-
-        var errors = ParticipantCrudValidators.ValidateDomainDelete(admin, [admin, CreateParticipant(isAdmin: false)]);
+        var errors = ParticipantCrudValidators.ValidateDomainDelete(
+            currentIsAdmin: true,
+            participantCount: 2,
+            adminCount: 1);
 
         Assert.Equal([ParticipantCrudTexts.Messages.Validation.LastAdminCannotLeave], errors);
     }
@@ -152,11 +150,13 @@ public sealed class ParticipantCrudValidatorsTests
     [Fact]
     public void Delete_ValidateDomain_WithOrdinaryParticipantOrOneOfAdmins_ShouldReturnNoErrors()
     {
-        var admin = CreateParticipant(isAdmin: true);
-        var otherAdmin = CreateParticipant(isAdmin: true);
-        var member = CreateParticipant(isAdmin: false);
-
-        Assert.Empty(ParticipantCrudValidators.ValidateDomainDelete(member, [admin, member]));
-        Assert.Empty(ParticipantCrudValidators.ValidateDomainDelete(admin, [admin, otherAdmin, member]));
+        Assert.Empty(ParticipantCrudValidators.ValidateDomainDelete(
+            currentIsAdmin: false,
+            participantCount: 2,
+            adminCount: 1));
+        Assert.Empty(ParticipantCrudValidators.ValidateDomainDelete(
+            currentIsAdmin: true,
+            participantCount: 3,
+            adminCount: 2));
     }
 }

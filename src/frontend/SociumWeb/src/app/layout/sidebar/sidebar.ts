@@ -179,7 +179,7 @@ export class Sidebar {
         if (rooms.some((room) => room.id === roomId)) {
           return rooms;
         }
-        return sortRooms([...rooms, { id: roomId, name }]);
+        return sortRooms([...rooms, { id: roomId, name, canUpdate: true, canDelete: true }]);
       });
       if (this.pendingExpandRoomName === name) {
         this.roomExpansion.expand(roomId);

@@ -11,6 +11,8 @@ describe('day-separator', () => {
       createdAt,
       senderUserId: 'u1',
       senderName: 'Анна',
+      canUpdate: true,
+      canDelete: true,
     };
   }
 

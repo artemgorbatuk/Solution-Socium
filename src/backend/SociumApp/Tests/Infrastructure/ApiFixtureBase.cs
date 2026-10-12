@@ -3,8 +3,10 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Repositories.Security.Ef.Api;
 using Services.Messaging.Providers;
 using Services.Security.Models;
+using Services.Security.Permissions.Catalogs;
 using Services.Security.Tokens.Providers;
 using WebApi.Controllers.Shared;
 
@@ -63,6 +65,7 @@ public abstract class ApiFixtureBase : IAsyncLifetime
         }
 
         DefaultUserId = await CreateUserAsync(ServiceFixtureBase.DefaultUserLogin, ServiceFixtureBase.DefaultUserName, ServiceFixtureBase.DefaultUserEmail);
+        await GrantAppAdminAsync(DefaultUserId);
         Client = CreateAnonymousClient();
         var login = await Client.PostAsJsonAsync("/api/account/login", new AccountLoginRequest { Login = ServiceFixtureBase.DefaultUserLogin, Password = DefaultPassword });
         login.EnsureSuccessStatusCode();
@@ -91,6 +94,21 @@ public abstract class ApiFixtureBase : IAsyncLifetime
         }
 
         return client;
+    }
+
+    public async Task GrantAppAdminAsync(Guid userId)
+    {
+        await using var scope = Factory.Services.CreateAsyncScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWorkSecurity>();
+        var existing = await uow.AppRoleAssignments.GetSingleOrDefaultAsync(userId, RoleNames.AppAdmin);
+        if (existing is null)
+        {
+            var model = uow.AppRoleAssignments.GetNew();
+            model.UserId = userId;
+            model.RoleName = RoleNames.AppAdmin;
+            await uow.AppRoleAssignments.CreateAsync(model);
+            await uow.SaveChangesAsync();
+        }
     }
 
     /// <summary>Регистрирует пользователя, подтверждает email и возвращает Id.</summary>

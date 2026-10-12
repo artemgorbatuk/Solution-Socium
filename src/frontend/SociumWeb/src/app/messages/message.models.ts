@@ -12,6 +12,8 @@ export interface MessageListModel {
   createdAt: string;
   senderUserId: string;
   senderName: string;
+  canUpdate: boolean;
+  canDelete: boolean;
   attachments?: MessageAttachmentModel[];
 }
 

@@ -7,7 +7,7 @@ import { ChatListModel } from '../chat.models';
 import { ChatListItem } from './chat-list-item';
 
 describe('ChatListItem', () => {
-  const chat: ChatListModel = { id: 'c1', name: 'Общий', isAdmin: true, unreadCount: 0 };
+  const chat: ChatListModel = { id: 'c1', name: 'Общий', canUpdate: true, canDelete: true, unreadCount: 0 };
 
   let fixture: ComponentFixture<ChatListItem>;
   let http: HttpTestingController;
@@ -67,7 +67,7 @@ describe('ChatListItem', () => {
   });
 
   it('Row_Render_WithNotAdmin_ShouldShowNameWithoutActionButtons', () => {
-    fixture.componentRef.setInput('chat', { ...chat, isAdmin: false });
+    fixture.componentRef.setInput('chat', { ...chat, canUpdate: false, canDelete: false });
     render();
 
     expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');

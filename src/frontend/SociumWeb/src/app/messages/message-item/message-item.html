@@ -20,7 +20,7 @@
     }
   </form>
 } @else {
-  <div class="row" [class.own]="own()">
+  <div class="row" [class.is-sender]="isSender()">
     <div class="bubble">
       <p class="sender">{{ message().senderName }}</p>
       @if (message().text) {
@@ -31,14 +31,18 @@
       }
       <time class="time" [attr.datetime]="message().createdAt" [title]="fullTime()">{{ time() }}</time>
     </div>
-    @if (own() && !confirmingDelete()) {
+    @if ((message().canUpdate || message().canDelete) && !confirmingDelete()) {
       <div class="actions">
-        <button type="button" class="icon" title="Изменить" aria-label="Изменить сообщение" (click)="startEdit()">
-          <app-icon name="pencil" />
-        </button>
-        <button type="button" class="icon danger" title="Удалить" aria-label="Удалить сообщение" (click)="requestDelete()">
-          <app-icon name="trash" />
-        </button>
+        @if (message().canUpdate) {
+          <button type="button" class="icon" title="Изменить" aria-label="Изменить сообщение" (click)="startEdit()">
+            <app-icon name="pencil" />
+          </button>
+        }
+        @if (message().canDelete) {
+          <button type="button" class="icon danger" title="Удалить" aria-label="Удалить сообщение" (click)="requestDelete()">
+            <app-icon name="trash" />
+          </button>
+        }
       </div>
     }
   </div>

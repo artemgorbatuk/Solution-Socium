@@ -28,15 +28,15 @@ export class ParticipantsPanel {
   private readonly currentUser = inject(CurrentUser);
   protected readonly currentUserId = this.currentUser.id;
   protected readonly rows = signal<ParticipantListModel[]>([]);
-  /** Текущий пользователь — админ чата: видит кнопки смены ролей. */
-  protected readonly isAdmin = signal(false);
+  /** С сервера: можно менять админ-роль (ChatAdminGrant/Revoke). */
+  protected readonly canManageRoles = signal(false);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
 
   protected readonly updatingId = signal<string | null>(null);
   protected readonly roleError = signal<string | null>(null);
-  /** Один участник — смену роли отключаем (нельзя снять последнего админа). */
-  protected readonly canChangeRole = computed(() => this.rows().length > 1);
+  /** API разрешил + в чате больше одного участника (нельзя снять последнего админа). */
+  protected readonly canChangeRole = computed(() => this.canManageRoles() && this.rows().length > 1);
 
   protected readonly leaveStep = signal<LeaveStep>('idle');
   protected readonly leaveReason = signal<string | null>(null);
@@ -131,7 +131,7 @@ export class ParticipantsPanel {
     const subscription = this.participantApi.getList(chatId).subscribe({
       next: (body) => {
         this.rows.set(body.response?.rows ?? []);
-        this.isAdmin.set(body.response?.isAdmin ?? false);
+        this.canManageRoles.set(body.response?.canChangeRole ?? false);
         this.loading.set(false);
       },
       error: (error: unknown) => {
@@ -176,7 +176,7 @@ export class ParticipantsPanel {
         }
         this.rows.update((list) => list.filter((row) => row.id !== payload.id));
         if (payload.userId === this.currentUserId()) {
-          this.isAdmin.set(false);
+          this.canManageRoles.set(false);
         }
       }),
       this.chatHub.participantRoleChanged$.subscribe((payload) => {
@@ -187,7 +187,7 @@ export class ParticipantsPanel {
           list.map((row) => (row.id === payload.id ? { ...row, isAdmin: payload.isAdmin } : row)),
         );
         if (payload.userId === this.currentUserId()) {
-          this.isAdmin.set(payload.isAdmin);
+          this.canManageRoles.set(payload.isAdmin);
         }
       }),
       this.chatHub.reconnected$.subscribe(() => {

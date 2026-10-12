@@ -10,6 +10,8 @@ public interface IUnitOfWorkSocium
     IRepositoryMessage Messages { get; }
     IRepositoryParticipant Participants { get; }
     IRepositoryRecipient Recipients { get; }
+    IRepositoryRoomRoleAssignment RoomRoleAssignments { get; }
+    IRepositoryChatRoleAssignment ChatRoleAssignments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
@@ -30,6 +32,8 @@ public class UnitOfWorkSocium : IUnitOfWorkSocium
         Messages = new RepositoryMessage(context);
         Participants = new RepositoryParticipant(context);
         Recipients = new RepositoryRecipient(context);
+        RoomRoleAssignments = new RepositoryRoomRoleAssignment(context);
+        ChatRoleAssignments = new RepositoryChatRoleAssignment(context);
     }
 
     public IRepositoryRoom Rooms { get; }
@@ -37,6 +41,8 @@ public class UnitOfWorkSocium : IUnitOfWorkSocium
     public IRepositoryMessage Messages { get; }
     public IRepositoryParticipant Participants { get; }
     public IRepositoryRecipient Recipients { get; }
+    public IRepositoryRoomRoleAssignment RoomRoleAssignments { get; }
+    public IRepositoryChatRoleAssignment ChatRoleAssignments { get; }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

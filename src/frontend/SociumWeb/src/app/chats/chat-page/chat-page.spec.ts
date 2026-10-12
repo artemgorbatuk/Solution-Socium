@@ -33,7 +33,9 @@ describe('ChatPage', () => {
   }
 
   function flushMessages(chatId: string): void {
-    http.expectOne(isMessageList(chatId)).flush(successBody({ rowExists: false, rowCount: 0, rows: [] }));
+    http
+      .expectOne(isMessageList(chatId))
+      .flush(successBody({ rowExists: false, rowCount: 0, hasOlder: false, rows: [] }));
     render();
   }
 
@@ -157,7 +159,6 @@ describe('ChatPage', () => {
     render();
     flushChat('c1', 'Общий', false);
 
-    expect(http.expectOne(isMessageList('c1')).cancelled).toBe(true);
     expect(element.textContent).toContain('Вы не участник этого чата');
     expect(element.querySelector('textarea')).toBeNull();
   });
@@ -175,7 +176,7 @@ describe('ChatPage', () => {
 
     http
       .expectOne((request) => request.method === 'GET' && request.url === '/api/participant' && request.params.get('chatId') === 'c1')
-      .flush(successBody({ rowExists: false, rowCount: 0, isAdmin: false, rows: [] }));
+      .flush(successBody({ rowExists: false, rowCount: 0, canChangeRole: false, rows: [] }));
     render();
     expect(element.querySelector('.chat-body app-participants-panel')).not.toBeNull();
   });
@@ -261,7 +262,7 @@ describe('ChatPage', () => {
 
     http
       .expectOne((request) => request.url === '/api/participant')
-      .flush(successBody({ rowExists: false, rowCount: 0, isAdmin: false, rows: [] }));
+      .flush(successBody({ rowExists: false, rowCount: 0, canChangeRole: false, rows: [] }));
     render();
     expect(element.querySelector('app-participants-panel')).not.toBeNull();
   });

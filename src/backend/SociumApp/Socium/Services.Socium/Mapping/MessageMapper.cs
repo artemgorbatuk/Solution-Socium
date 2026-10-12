@@ -46,6 +46,8 @@ public static class MessageMapper
     public static MessageListModel ToListModel(
         Message model,
         UserPortModel? sender,
+        bool canUpdate,
+        bool canDelete,
         IReadOnlyList<MessageAttachmentModel>? attachments = null)
     {
         return new MessageListModel
@@ -55,6 +57,8 @@ public static class MessageMapper
             CreatedAt = model.CreatedAt,
             SenderUserId = model.Sender.UserId,
             SenderName = sender?.Name ?? UserPortTexts.DeletedUserName,
+            CanUpdate = canUpdate,
+            CanDelete = canDelete,
             Attachments = attachments ?? [],
         };
     }

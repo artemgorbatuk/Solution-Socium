@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Security\Services.Security.Permissions\Services.Security.Permissions.csproj" />
     <ProjectReference Include="..\..\Services.Shared\Services.Shared.csproj" />
     <ProjectReference Include="..\Repositories.Socium.Ef\Repositories.Socium.Ef.csproj" />
   </ItemGroup>

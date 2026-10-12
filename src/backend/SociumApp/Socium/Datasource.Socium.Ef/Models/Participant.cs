@@ -6,7 +6,6 @@ public class Participant
 
     public required Guid ChatId { get; set; }
     public required Guid UserId { get; set; }
-    public bool IsAdmin { get; set; }
 
     public virtual Chat Chat { get; set; } = null!;
 }

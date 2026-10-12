@@ -1,11 +1,13 @@
 using Microsoft.Extensions.Logging;
 using Repositories.Socium.Ef.Api;
 using Repositories.Socium.Ef.Options;
+using Services.Security.Permissions.Catalogs;
 using Services.Shared.Api;
 using Services.Shared.Enums;
 using Services.Shared.Models;
 using Services.Socium.Mapping;
 using Services.Socium.Models;
+using Services.Socium.Policies;
 using Services.Socium.Ports;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
@@ -27,6 +29,7 @@ public class ServiceParticipant : IServiceParticipant
     private readonly ICurrentUser currentUser;
     private readonly IUserPort userPort;
     private readonly IChatNotifyPort chatNotifyPort;
+    private readonly IParticipantPolicy participantPolicy;
     private readonly ILogger<ServiceParticipant> logger;
 
     public ServiceParticipant(
@@ -34,12 +37,14 @@ public class ServiceParticipant : IServiceParticipant
         ICurrentUser currentUser,
         IUserPort userPort,
         IChatNotifyPort chatNotifyPort,
+        IParticipantPolicy participantPolicy,
         ILogger<ServiceParticipant> logger)
     {
         this.unitOfWork = unitOfWork;
         this.currentUser = currentUser;
         this.userPort = userPort;
         this.chatNotifyPort = chatNotifyPort;
+        this.participantPolicy = participantPolicy;
         this.logger = logger;
     }
 
@@ -95,14 +100,27 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.Invalid<ParticipantCreateResponse>(MessageType.INVALID, messageText);
             }
 
-            var newOptions = new ParticipantGetNewOptions
-            {
-                ChatId = request.ChatId,
-                UserId = user!.Id,
-                IsAdmin = !participants.Any(participant => participant.IsAdmin),
-            };
+            var adminCount = await unitOfWork.ChatRoleAssignments.CountByChatAndRoleAsync(
+                request.ChatId,
+                RoleNames.ChatAdmin,
+                cancellationToken);
+            var becameAdmin = adminCount == 0;
+
+            var newOptions = ParticipantMapper.ToGetNewOptions(request.ChatId, user!.Id);
             var model = unitOfWork.Participants.GetNew(newOptions);
             await unitOfWork.Participants.CreateAsync(model, cancellationToken);
+
+            var participantAssignment = unitOfWork.ChatRoleAssignments.GetNew();
+            ChatRoleAssignmentMapper.Apply(participantAssignment, user.Id, model.ChatId, RoleNames.ChatParticipant);
+            await unitOfWork.ChatRoleAssignments.CreateAsync(participantAssignment, cancellationToken);
+
+            if (becameAdmin)
+            {
+                var adminAssignment = unitOfWork.ChatRoleAssignments.GetNew();
+                ChatRoleAssignmentMapper.Apply(adminAssignment, user.Id, model.ChatId, RoleNames.ChatAdmin);
+                await unitOfWork.ChatRoleAssignments.CreateAsync(adminAssignment, cancellationToken);
+            }
+
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await chatNotifyPort.NotifyParticipantJoinedAsync(
@@ -113,7 +131,7 @@ public class ServiceParticipant : IServiceParticipant
                     UserId = user.Id,
                     Login = user.Login,
                     Name = user.Name,
-                    IsAdmin = model.IsAdmin,
+                    IsAdmin = becameAdmin,
                 },
                 cancellationToken);
 
@@ -170,13 +188,20 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.NotFound<ParticipantUpdateResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
+            var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(model!.ChatId, cancellationToken);
+            var chatAccessibilityErrors = ParticipantCrudValidators.ValidateAccessibilityChat(chat);
+            if (chatAccessibilityErrors.Any())
             {
-                ChatId = model!.ChatId,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var currentParticipant = participants.SingleOrDefault(participant => participant.UserId == user!.Id);
-            var accessErrors = ParticipantCrudValidators.ValidateAccessAdmin(currentParticipant);
+                var errors = string.Join(Environment.NewLine, chatAccessibilityErrors);
+                var messageText = $"{ParticipantCrudTexts.Messages.Error.UpdateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.UpdateError, errors);
+                return ResponseInfo.NotFound<ParticipantUpdateResponse>(MessageType.NOT_FOUND, messageText);
+            }
+
+            var canChangeRole = request.IsAdmin
+                ? await participantPolicy.CanGrantAdminAsync(user!.Id, chat!.RoomId, model.ChatId, cancellationToken)
+                : await participantPolicy.CanRevokeAdminAsync(user!.Id, chat!.RoomId, model.ChatId, cancellationToken);
+            var accessErrors = ParticipantCrudValidators.ValidateAccessChangeRole(canChangeRole);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -185,7 +210,17 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.Forbidden<ParticipantUpdateResponse>(MessageType.FORBIDDEN, messageText);
             }
 
-            var domainErrors = ParticipantCrudValidators.ValidateDomainUpdateRequest(request, model, participants);
+            var adminAssignment = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
+                model.UserId,
+                model.ChatId,
+                RoleNames.ChatAdmin,
+                cancellationToken);
+            var targetIsAdmin = adminAssignment is not null;
+            var adminCount = await unitOfWork.ChatRoleAssignments.CountByChatAndRoleAsync(
+                model.ChatId,
+                RoleNames.ChatAdmin,
+                cancellationToken);
+            var domainErrors = ParticipantCrudValidators.ValidateDomainUpdateRequest(request, targetIsAdmin, adminCount);
             if (domainErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, domainErrors);
@@ -194,8 +229,20 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.Invalid<ParticipantUpdateResponse>(MessageType.INVALID, messageText);
             }
 
-            ParticipantMapper.Apply(model, request.IsAdmin);
-            await unitOfWork.Participants.UpdateAsync(model, cancellationToken);
+            if (request.IsAdmin)
+            {
+                if (adminAssignment is null)
+                {
+                    var created = unitOfWork.ChatRoleAssignments.GetNew();
+                    ChatRoleAssignmentMapper.Apply(created, model.UserId, model.ChatId, RoleNames.ChatAdmin);
+                    await unitOfWork.ChatRoleAssignments.CreateAsync(created, cancellationToken);
+                }
+            }
+            else if (adminAssignment is not null)
+            {
+                await unitOfWork.ChatRoleAssignments.DeleteAsync(adminAssignment, cancellationToken);
+            }
+
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var targetUser = await userPort.GetSingleOrDefaultAsync(model.UserId, cancellationToken);
@@ -207,11 +254,11 @@ public class ServiceParticipant : IServiceParticipant
                     UserId = model.UserId,
                     Login = targetUser?.Login ?? string.Empty,
                     Name = targetUser?.Name ?? string.Empty,
-                    IsAdmin = model.IsAdmin,
+                    IsAdmin = request.IsAdmin,
                 },
                 cancellationToken);
 
-            var response = ParticipantMapper.ToUpdateResponse(model);
+            var response = ParticipantMapper.ToUpdateResponse(model, request.IsAdmin);
             logger.LogInformation(ParticipantCrudTexts.Messages.Success.UpdateCompleted);
             return ResponseInfo.Success(response, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.UpdateCompleted);
         }
@@ -264,13 +311,8 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.NotFound<ParticipantDeletePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
-            {
-                ChatId = request.ChatId,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var currentParticipant = participants.SingleOrDefault(participant => participant.UserId == user!.Id);
-            var accessErrors = ParticipantCrudValidators.ValidateAccessParticipant(currentParticipant);
+            var canLeave = await participantPolicy.CanLeaveAsync(user!.Id, chat!.RoomId, chat.Id, cancellationToken);
+            var accessErrors = ParticipantCrudValidators.ValidateAccessLeave(canLeave);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -279,7 +321,31 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.Forbidden<ParticipantDeletePageResponse>(MessageType.FORBIDDEN, messageText);
             }
 
-            ICollection<string> leaveErrors = [.. ParticipantCrudValidators.ValidateDomainDelete(currentParticipant!, participants)];
+            var participantOptions = new ParticipantQueryOptions
+            {
+                ChatId = request.ChatId,
+            };
+            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
+            var currentParticipant = participants.SingleOrDefault(participant => participant.UserId == user.Id);
+            ICollection<string> leaveErrors;
+            if (currentParticipant is null)
+            {
+                leaveErrors = [];
+            }
+            else
+            {
+                var currentIsAdmin = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
+                    currentParticipant.UserId,
+                    currentParticipant.ChatId,
+                    RoleNames.ChatAdmin,
+                    cancellationToken) is not null;
+                var adminCount = await unitOfWork.ChatRoleAssignments.CountByChatAndRoleAsync(
+                    request.ChatId,
+                    RoleNames.ChatAdmin,
+                    cancellationToken);
+                leaveErrors = [.. ParticipantCrudValidators.ValidateDomainDelete(currentIsAdmin, participants.Count(), adminCount)];
+            }
+
             var response = ParticipantMapper.ToDeletePageResponse(request.ChatId, leaveErrors);
             logger.LogInformation(ParticipantCrudTexts.Messages.Success.DisplayDeleteCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, ParticipantCrudTexts.Messages.Success.DisplayDeleteCompleted);
@@ -333,13 +399,8 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.NotFound<ParticipantDeleteResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
-            {
-                ChatId = request.ChatId,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var currentParticipant = participants.SingleOrDefault(participant => participant.UserId == user!.Id);
-            var accessErrors = ParticipantCrudValidators.ValidateAccessParticipant(currentParticipant);
+            var canLeave = await participantPolicy.CanLeaveAsync(user!.Id, chat!.RoomId, chat.Id, cancellationToken);
+            var accessErrors = ParticipantCrudValidators.ValidateAccessLeave(canLeave);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -348,7 +409,33 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.Forbidden<ParticipantDeleteResponse>(MessageType.FORBIDDEN, messageText);
             }
 
-            var domainErrors = ParticipantCrudValidators.ValidateDomainDelete(currentParticipant!, participants);
+            var participantOptions = new ParticipantQueryOptions
+            {
+                ChatId = request.ChatId,
+            };
+            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
+            var currentParticipant = participants.SingleOrDefault(participant => participant.UserId == user.Id);
+            if (currentParticipant is null)
+            {
+                var messageText =
+                    $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{ParticipantCrudTexts.Messages.Validation.NotParticipant}";
+                logger.LogError("{Message}", messageText);
+                return ResponseInfo.Forbidden<ParticipantDeleteResponse>(MessageType.FORBIDDEN, messageText);
+            }
+
+            var currentIsAdmin = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
+                currentParticipant.UserId,
+                currentParticipant.ChatId,
+                RoleNames.ChatAdmin,
+                cancellationToken) is not null;
+            var adminCount = await unitOfWork.ChatRoleAssignments.CountByChatAndRoleAsync(
+                request.ChatId,
+                RoleNames.ChatAdmin,
+                cancellationToken);
+            var domainErrors = ParticipantCrudValidators.ValidateDomainDelete(
+                currentIsAdmin,
+                participants.Count(),
+                adminCount);
             if (domainErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, domainErrors);
@@ -357,10 +444,25 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.Invalid<ParticipantDeleteResponse>(MessageType.INVALID, messageText);
             }
 
-            var model = await unitOfWork.Participants.GetSingleOrDefaultAsync(currentParticipant!.Id, cancellationToken);
+            var model = await unitOfWork.Participants.GetSingleOrDefaultAsync(currentParticipant.Id, cancellationToken);
             var leftChatId = model!.ChatId;
             var leftParticipantId = model.Id;
             var leftUserId = model.UserId;
+
+            var roleNames = await unitOfWork.ChatRoleAssignments.GetRoleNamesAsync(leftUserId, leftChatId, cancellationToken);
+            foreach (var roleName in roleNames)
+            {
+                var assignment = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
+                    leftUserId,
+                    leftChatId,
+                    roleName,
+                    cancellationToken);
+                if (assignment is not null)
+                {
+                    await unitOfWork.ChatRoleAssignments.DeleteAsync(assignment, cancellationToken);
+                }
+            }
+
             await unitOfWork.Participants.DeleteAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -419,13 +521,8 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.NotFound<ParticipantListPageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
-            {
-                ChatId = request.ChatId,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var currentParticipant = participants.SingleOrDefault(participant => participant.UserId == user!.Id);
-            var accessErrors = ParticipantCrudValidators.ValidateAccessParticipant(currentParticipant);
+            var canRead = await participantPolicy.CanReadAsync(user!.Id, chat!.RoomId, chat.Id, cancellationToken);
+            var accessErrors = ParticipantCrudValidators.ValidateAccessRead(canRead);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -434,21 +531,35 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.Forbidden<ParticipantListPageResponse>(MessageType.FORBIDDEN, messageText);
             }
 
+            var participantOptions = new ParticipantQueryOptions
+            {
+                ChatId = request.ChatId,
+            };
+            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
+            var adminUserIds = (await unitOfWork.ChatRoleAssignments.GetUserIdsByChatAndRoleAsync(
+                    request.ChatId,
+                    RoleNames.ChatAdmin,
+                    cancellationToken))
+                .ToHashSet();
             var users = await userPort.GetListAsync(participants.Select(participant => participant.UserId), cancellationToken);
             ICollection<ParticipantListModel> rows =
             [
                 .. participants
-                    .Select(participant => ParticipantMapper.ToListModel(participant, users.GetValueOrDefault(participant.UserId)))
+                    .Select(participant => ParticipantMapper.ToListModel(
+                        participant,
+                        users.GetValueOrDefault(participant.UserId),
+                        adminUserIds.Contains(participant.UserId)))
                     .OrderBy(row => row.Name)
                     .ThenBy(row => row.Login)
                     .ThenBy(row => row.Id)
             ];
+            var canChangeRole = await participantPolicy.CanGrantAdminAsync(user.Id, chat.RoomId, chat.Id, cancellationToken);
             var response = new ParticipantListPageResponse
             {
                 Rows = rows,
                 RowExists = rows.Count > 0,
                 RowCount = rows.Count,
-                IsAdmin = currentParticipant!.IsAdmin,
+                CanChangeRole = canChangeRole,
             };
 
             logger.LogInformation(ParticipantCrudTexts.Messages.Success.DisplayListCompleted);

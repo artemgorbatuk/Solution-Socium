@@ -422,7 +422,9 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
 
         Assert.True(info.Response!.IsParticipant);
         Assert.True(info.Response.IsAdmin);
-        Assert.True(Assert.Single(list.Response!.Rows, row => row.Id == chatId).IsAdmin);
+        var creatorRow = Assert.Single(list.Response!.Rows, row => row.Id == chatId);
+        Assert.True(creatorRow.CanUpdate);
+        Assert.True(creatorRow.CanDelete);
     }
 
     [Fact]
@@ -451,7 +453,7 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
     }
 
     [Fact]
-    public async Task InfoAndList_Load_WithNonParticipantOrNoUser_ShouldClearFlags()
+    public async Task InfoAndList_Load_WithNonParticipantOrNoUser_ShouldDenyAccess()
     {
         var roomId = await CreateRoomAsync();
         var chatId = await fixture.CreateChatAsync(roomId, UniqueName());
@@ -461,12 +463,9 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
         var anonymousInfo = await RunAsAsync(null, service => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = chatId }));
         var list = await RunAsAsync(userId, service => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }));
 
-        Assert.Equal(MessageType.LOADED, info.MessageInfo.MessageType);
-        Assert.False(info.Response!.IsParticipant);
-        Assert.False(info.Response.IsAdmin);
-        Assert.Equal(MessageType.LOADED, anonymousInfo.MessageInfo.MessageType);
-        Assert.False(anonymousInfo.Response!.IsParticipant);
-        Assert.False(Assert.Single(list.Response!.Rows, row => row.Id == chatId).IsAdmin);
+        Assert.Equal(MessageType.FORBIDDEN, info.MessageInfo.MessageType);
+        Assert.Equal(MessageType.UNAUTHORIZED, anonymousInfo.MessageInfo.MessageType);
+        Assert.DoesNotContain(list.Response!.Rows, row => row.Id == chatId);
     }
 
     [Fact]
@@ -482,7 +481,9 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
 
         Assert.True(info.Response!.IsParticipant);
         Assert.False(info.Response.IsAdmin);
-        Assert.False(Assert.Single(list.Response!.Rows, row => row.Id == chatId).IsAdmin);
+        var participantRow = Assert.Single(list.Response!.Rows, row => row.Id == chatId);
+        Assert.False(participantRow.CanUpdate);
+        Assert.False(participantRow.CanDelete);
     }
 
     [Fact]
@@ -501,7 +502,7 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
 
         Assert.Equal(MessageType.FORBIDDEN, updatePage.MessageInfo.MessageType);
         Assert.Equal(MessageType.FORBIDDEN, update.MessageInfo.MessageType);
-        Assert.Contains(ChatCrudTexts.Messages.Validation.NotAdmin, update.MessageInfo.MessageText);
+        Assert.Contains(ChatCrudTexts.Messages.Validation.AccessDenied, update.MessageInfo.MessageText);
         Assert.Equal(MessageType.FORBIDDEN, deletePage.MessageInfo.MessageType);
         Assert.Equal(MessageType.FORBIDDEN, delete.MessageInfo.MessageType);
         var info = await RunAsync(service => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = chatId }));

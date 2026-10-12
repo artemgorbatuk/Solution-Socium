@@ -40,7 +40,7 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
         var result = await GetListAsync(chatId, fixture.DefaultUserId);
 
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
-        Assert.True(result.Response!.IsAdmin);
+        Assert.True(result.Response!.CanChangeRole);
         var row = Assert.Single(result.Response.Rows);
         Assert.Equal(fixture.DefaultUserId, row.UserId);
         Assert.Equal("default-user", row.Login);
@@ -56,7 +56,7 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
         var result = await GetListAsync(chatId, userId);
 
         Assert.Equal(MessageType.FORBIDDEN, result.MessageInfo.MessageType);
-        Assert.Contains(ParticipantCrudTexts.Messages.Validation.NotParticipant, result.MessageInfo.MessageText);
+        Assert.Contains(ParticipantCrudTexts.Messages.Validation.AccessDenied, result.MessageInfo.MessageText);
         Assert.Null(result.Response);
     }
 
@@ -91,7 +91,7 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
         Assert.Equal(ParticipantCrudTexts.Messages.Success.CreateCompleted, result.MessageInfo.MessageText);
         var list = await GetListAsync(chatId, userId);
-        Assert.False(list.Response!.IsAdmin);
+        Assert.False(list.Response!.CanChangeRole);
         Assert.Equal(2, list.Response.RowCount);
         var row = list.Response.Rows.Single(row => row.UserId == userId);
         Assert.Equal(result.Response!.Id, row.Id);
@@ -113,13 +113,15 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
     public async Task Create_Submit_WithChatWithoutAdmins_ShouldJoinAsAdmin()
     {
         var chatId = await CreateChatAsync();
+        await fixture.RunAsync((DbContextSocium db) => db.ChatRoleAssignments.Where(assignment => assignment.ChatId == chatId).ExecuteDeleteAsync());
         await fixture.RunAsync((DbContextSocium db) => db.Participants.Where(participant => participant.ChatId == chatId).ExecuteDeleteAsync());
         var userId = await CreateUserAsync();
 
         await fixture.JoinChatAsync(chatId, userId);
 
         var list = await GetListAsync(chatId, userId);
-        Assert.True(list.Response!.IsAdmin);
+        Assert.True(list.Response!.CanChangeRole);
+        Assert.True(list.Response.Rows.Single(row => row.UserId == userId).IsAdmin);
     }
 
     [Fact]
@@ -160,7 +162,7 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
 
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
         Assert.True(result.Response!.IsAdmin);
-        Assert.True((await GetListAsync(chatId, userId)).Response!.IsAdmin);
+        Assert.True((await GetListAsync(chatId, userId)).Response!.CanChangeRole);
     }
 
     [Fact]
@@ -174,8 +176,8 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
         var result = await RunAsAsync(userId, service => service.UpdateAsync(new ParticipantUpdateRequest { Id = participantId, IsAdmin = true }));
 
         Assert.Equal(MessageType.FORBIDDEN, result.MessageInfo.MessageType);
-        Assert.Contains(ParticipantCrudTexts.Messages.Validation.NotAdmin, result.MessageInfo.MessageText);
-        Assert.False((await GetListAsync(chatId, userId)).Response!.IsAdmin);
+        Assert.Contains(ParticipantCrudTexts.Messages.Validation.AccessDenied, result.MessageInfo.MessageText);
+        Assert.False((await GetListAsync(chatId, userId)).Response!.CanChangeRole);
     }
 
     [Fact]
@@ -188,7 +190,7 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(ParticipantCrudTexts.Messages.Validation.LastAdminCannotRevoke, result.MessageInfo.MessageText);
-        Assert.True((await GetListAsync(chatId, fixture.DefaultUserId)).Response!.IsAdmin);
+        Assert.True((await GetListAsync(chatId, fixture.DefaultUserId)).Response!.CanChangeRole);
     }
 
     [Fact]
@@ -204,8 +206,13 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
         var result = await RunAsAsync(fixture.DefaultUserId, service => service.UpdateAsync(new ParticipantUpdateRequest { Id = adminParticipantId, IsAdmin = false }));
 
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
-        Assert.False((await GetListAsync(chatId, fixture.DefaultUserId)).Response!.IsAdmin);
-        Assert.True((await GetListAsync(chatId, userId)).Response!.IsAdmin);
+        var creatorList = await GetListAsync(chatId, fixture.DefaultUserId);
+        var otherList = await GetListAsync(chatId, userId);
+        // Создатель комнаты остаётся RoomAdmin → ChatAdminGrant/Revoke; бейдж ChatAdmin снят.
+        Assert.True(creatorList.Response!.CanChangeRole);
+        Assert.False(creatorList.Response.Rows.Single(row => row.UserId == fixture.DefaultUserId).IsAdmin);
+        Assert.True(otherList.Response!.CanChangeRole);
+        Assert.True(otherList.Response.Rows.Single(row => row.UserId == userId).IsAdmin);
     }
 
     [Fact]

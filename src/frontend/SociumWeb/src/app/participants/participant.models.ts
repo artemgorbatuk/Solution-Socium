@@ -9,8 +9,8 @@ export interface ParticipantListModel {
 export interface ParticipantListPageResponse {
   rowExists: boolean;
   rowCount: number;
-  /** Текущий пользователь — админ чата: ему доступна смена ролей. */
-  isAdmin: boolean;
+  /** Текущему пользователю разрешена смена админ-роли участников. */
+  canChangeRole: boolean;
   rows: ParticipantListModel[];
 }
 

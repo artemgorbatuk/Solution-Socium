@@ -53,7 +53,7 @@ public class ParticipantListPageResponse
 {
     public required bool RowExists { get; set; }
     public required int RowCount { get; set; }
-    public required bool IsAdmin { get; set; }
+    public required bool CanChangeRole { get; set; }
     public required ICollection<ParticipantListModel> Rows { get; set; } = [];
 }
 

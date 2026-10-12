@@ -18,6 +18,7 @@ using Services.Realtime.Api;
 using Services.Realtime.Middleware;
 using Services.Security.Api;
 using Services.Security.Passwords.Providers;
+using Services.Security.Permissions.Providers;
 using Services.Security.Ports;
 using Services.Security.Tokens.Options;
 using Services.Security.Tokens.Providers;
@@ -26,7 +27,9 @@ using Services.Shared.Api;
 using Services.Shared.Events;
 using Services.Socium.Api;
 using Services.Socium.Events;
+using Services.Socium.Policies;
 using Services.Socium.Ports;
+using Services.Socium.Providers;
 using SignalR.Realtime.Middleware;
 using WebApi.Ports;
 
@@ -52,6 +55,7 @@ public static class ServiceRegistration
         services.AddSingleton<IAccessTokenProvider, AccessTokenProvider>();
         services.AddSingleton<IRefreshTokenProvider, RefreshTokenProvider>();
         services.AddSingleton<IPasswordHasher, AspNetIdentityPasswordHasher>();
+        services.AddSingleton<IPermissionProvider, PermissionProvider>();
         services.AddSingleton<IEmailTokenHasher, EmailTokenHasher>();
 
         if (captureMail)
@@ -77,9 +81,17 @@ public static class ServiceRegistration
 
         services.AddScoped<IServiceUser, ServiceUser>();
         services.AddScoped<IServiceAccount, ServiceAccount>();
+        services.AddScoped<IServiceAppRole, ServiceAppRole>();
 
         services.AddScoped<IUserPort, UserPort>();
+        services.AddScoped<IUserRolePort, UserRolePort>();
+        services.AddScoped<IRoleAssignmentProvider, RoleAssignmentProvider>();
+        services.AddScoped<IRoomPolicy, RoomPolicy>();
+        services.AddScoped<IChatPolicy, ChatPolicy>();
+        services.AddScoped<IMessagePolicy, MessagePolicy>();
+        services.AddScoped<IParticipantPolicy, ParticipantPolicy>();
         services.AddScoped<IDomainEventPublisher, DomainEventPublisher>();
+        services.AddScoped<IDomainEventHandler<RoomCreatedEvent>, AssignRoomAdminOnRoomCreatedHandler>();
         services.AddScoped<IDomainEventHandler<RoomCreatedEvent>, CreateDefaultChatOnRoomCreatedHandler>();
         services.AddScoped<IDomainEventHandler<RoomChangedEvent>, NotifyRoomChangedOnRoomChangedHandler>();
         services.AddScoped<IServiceRoom, ServiceRoom>();

@@ -8,7 +8,7 @@
   justify-content: flex-start;
 }
 
-.row.own {
+.row.is-sender {
   justify-content: flex-end;
 }
 
@@ -22,7 +22,7 @@
   background: var(--sc-message-recipient-bg);
 }
 
-.own .bubble {
+.is-sender .bubble {
   border-color: var(--sc-message-sender-border);
   border-radius: var(--sc-radius-lg) var(--sc-radius-lg) var(--sc-radius-sm) var(--sc-radius-lg);
   background: var(--sc-message-sender-bg);

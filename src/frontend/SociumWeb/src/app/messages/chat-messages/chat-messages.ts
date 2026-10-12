@@ -283,19 +283,19 @@ export class ChatMessages {
         if (payload.chatId !== chatId) {
           return;
         }
-        const own = payload.senderUserId === this.currentUserId();
+        const isSender = payload.senderUserId === this.currentUserId();
         const nearBottom = this.isFeedNearBottom();
-        const added = this.upsertMessage(toListModel(payload));
+        const added = this.upsertMessage(toListModel(payload, isSender));
         this.removeRemoteTyper(payload.senderUserId);
         if (added) {
-          if (own || nearBottom) {
+          if (isSender || nearBottom) {
             this.clearUnseen();
             this.scrollToEnd();
           } else {
             this.unseenCount.update((count) => count + 1);
           }
         }
-        if (!own) {
+        if (!isSender) {
           this.acknowledgeIncoming(chatId, payload.id);
         }
       }),
@@ -303,7 +303,7 @@ export class ChatMessages {
         if (payload.chatId !== chatId) {
           return;
         }
-        this.upsertMessage(toListModel(payload));
+        this.upsertMessage(toListModel(payload, payload.senderUserId === this.currentUserId()));
       }),
       this.chatHub.messageDeleted$.subscribe((payload) => {
         if (payload.chatId !== chatId) {
@@ -529,13 +529,15 @@ export class ChatMessages {
   }
 }
 
-function toListModel(payload: ChatMessageNotify): MessageListModel {
+function toListModel(payload: ChatMessageNotify, canMutate = false): MessageListModel {
   return {
     id: payload.id,
     text: payload.text,
     createdAt: payload.createdAt,
     senderUserId: payload.senderUserId,
     senderName: payload.senderName,
+    canUpdate: canMutate,
+    canDelete: canMutate,
     attachments: payload.attachments ?? [],
   };
 }

@@ -1,13 +1,16 @@
 using Microsoft.Extensions.Logging;
 using Repositories.Socium.Ef.Api;
 using Repositories.Socium.Ef.Options;
+using Services.Security.Permissions.Catalogs;
 using Services.Shared.Api;
 using Services.Shared.Enums;
 using Services.Shared.Models;
 using Services.Socium.Mapping;
 using Services.Socium.Models;
 using Services.Socium.Normalizers;
+using Services.Socium.Policies;
 using Services.Socium.Ports;
+using Services.Socium.Providers;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
 
@@ -32,6 +35,8 @@ public class ServiceChat : IServiceChat
     private readonly ICurrentUser currentUser;
     private readonly IUserPort userPort;
     private readonly IFilePort filePort;
+    private readonly IChatPolicy chatPolicy;
+    private readonly IRoleAssignmentProvider roleAssignmentProvider;
     private readonly ILogger<ServiceChat> logger;
 
     public ServiceChat(
@@ -39,12 +44,16 @@ public class ServiceChat : IServiceChat
         ICurrentUser currentUser,
         IUserPort userPort,
         IFilePort filePort,
+        IChatPolicy chatPolicy,
+        IRoleAssignmentProvider roleAssignmentProvider,
         ILogger<ServiceChat> logger)
     {
         this.unitOfWork = unitOfWork;
         this.currentUser = currentUser;
         this.userPort = userPort;
         this.filePort = filePort;
+        this.chatPolicy = chatPolicy;
+        this.roleAssignmentProvider = roleAssignmentProvider;
         this.logger = logger;
     }
 
@@ -63,6 +72,18 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.BadRequest<ChatCreatePageResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            var currentUserErrors = ChatCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{ChatCrudTexts.Messages.Error.DisplayCreateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ChatCrudTexts.Messages.Error.DisplayCreateError, errors);
+                return ResponseInfo.Unauthorized<ChatCreatePageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
             var room = await unitOfWork.Rooms.GetSingleOrDefaultAsync(request.RoomId, cancellationToken);
             var accessibilityErrors = ChatCrudValidators.ValidateAccessibilityRoom(room);
             if (accessibilityErrors.Any())
@@ -73,9 +94,19 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.NotFound<ChatCreatePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
+            var canCreate = await chatPolicy.CanCreateAsync(user!.Id, request.RoomId, cancellationToken);
+            var accessErrors = ChatCrudValidators.ValidateAccessCreate(canCreate);
+            if (accessErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessErrors);
+                var messageText = $"{ChatCrudTexts.Messages.Error.DisplayCreateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ChatCrudTexts.Messages.Error.DisplayCreateError, errors);
+                return ResponseInfo.Forbidden<ChatCreatePageResponse>(MessageType.FORBIDDEN, messageText);
+            }
+
             var newOptions = ChatMapper.ToGetNewOptions(request.RoomId);
             var model = unitOfWork.Chats.GetNew(newOptions);
-            var response = ChatMapper.ToCreatePageResponse(model);
+            var response = ChatMapper.ToCreatePageResponse(model, canCreate: true);
             logger.LogInformation(ChatCrudTexts.Messages.Success.DisplayCreateCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, ChatCrudTexts.Messages.Success.DisplayCreateCompleted);
         }
@@ -128,7 +159,17 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.NotFound<ChatCreatePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var stageRequest = ChatMapper.ToCreateStageRequest(request.RoomId, user!.Id, request.Name);
+            var canCreate = await chatPolicy.CanCreateAsync(user!.Id, request.RoomId, cancellationToken);
+            var accessErrors = ChatCrudValidators.ValidateAccessCreate(canCreate);
+            if (accessErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessErrors);
+                var messageText = $"{ChatCrudTexts.Messages.Error.CreateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ChatCrudTexts.Messages.Error.CreateError, errors);
+                return ResponseInfo.Forbidden<ChatCreatePageResponse>(MessageType.FORBIDDEN, messageText);
+            }
+
+            var stageRequest = ChatMapper.ToCreateStageRequest(request.RoomId, user.Id, request.Name);
             var staged = await CreateStageAsync(stageRequest, cancellationToken);
             if (staged.MessageInfo.MessageType != MessageType.SAVED)
             {
@@ -192,9 +233,17 @@ public class ServiceChat : IServiceChat
             ChatMapper.Apply(model, nameNormalized);
             await unitOfWork.Chats.CreateAsync(model, cancellationToken);
 
-            var participantNewOptions = ParticipantMapper.ToGetNewOptions(model.Id, creator!.Id, isAdmin: true);
+            var participantNewOptions = ParticipantMapper.ToGetNewOptions(model.Id, creator!.Id);
             var participant = unitOfWork.Participants.GetNew(participantNewOptions);
             await unitOfWork.Participants.CreateAsync(participant, cancellationToken);
+
+            var adminAssignment = unitOfWork.ChatRoleAssignments.GetNew();
+            ChatRoleAssignmentMapper.Apply(adminAssignment, creator.Id, model.Id, RoleNames.ChatAdmin);
+            await unitOfWork.ChatRoleAssignments.CreateAsync(adminAssignment, cancellationToken);
+
+            var participantAssignment = unitOfWork.ChatRoleAssignments.GetNew();
+            ChatRoleAssignmentMapper.Apply(participantAssignment, creator.Id, model.Id, RoleNames.ChatParticipant);
+            await unitOfWork.ChatRoleAssignments.CreateAsync(participantAssignment, cancellationToken);
 
             logger.LogInformation(ChatCrudTexts.Messages.Success.CreateStageCompleted);
             return ResponseInfo.Success<ChatCreatePageResponse>(MessageType.SAVED, ChatCrudTexts.Messages.Success.CreateStageCompleted);
@@ -248,13 +297,8 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.NotFound<ChatUpdatePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
-            {
-                ChatId = model!.Id,
-                UserId = user!.Id,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var accessErrors = ChatCrudValidators.ValidateAccessAdmin(participants.SingleOrDefault());
+            var canUpdate = await chatPolicy.CanUpdateAsync(user!.Id, model!.RoomId, model.Id, cancellationToken);
+            var accessErrors = ChatCrudValidators.ValidateAccessUpdate(canUpdate);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -263,7 +307,7 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.Forbidden<ChatUpdatePageResponse>(MessageType.FORBIDDEN, messageText);
             }
 
-            var response = ChatMapper.ToUpdatePageResponse(model);
+            var response = ChatMapper.ToUpdatePageResponse(model, canUpdate: true);
             logger.LogInformation(ChatCrudTexts.Messages.Success.DisplayUpdateCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, ChatCrudTexts.Messages.Success.DisplayUpdateCompleted);
         }
@@ -316,13 +360,8 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.NotFound<ChatUpdatePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
-            {
-                ChatId = model!.Id,
-                UserId = user!.Id,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var accessErrors = ChatCrudValidators.ValidateAccessAdmin(participants.SingleOrDefault());
+            var canUpdate = await chatPolicy.CanUpdateAsync(user!.Id, model!.RoomId, model.Id, cancellationToken);
+            var accessErrors = ChatCrudValidators.ValidateAccessUpdate(canUpdate);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -397,13 +436,8 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.NotFound<ChatDeletePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
-            {
-                ChatId = model!.Id,
-                UserId = user!.Id,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var accessErrors = ChatCrudValidators.ValidateAccessAdmin(participants.SingleOrDefault());
+            var canDelete = await chatPolicy.CanDeleteAsync(user!.Id, model!.RoomId, model.Id, cancellationToken);
+            var accessErrors = ChatCrudValidators.ValidateAccessDelete(canDelete);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -412,7 +446,7 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.Forbidden<ChatDeletePageResponse>(MessageType.FORBIDDEN, messageText);
             }
 
-            var response = ChatMapper.ToDeletePageResponse(model);
+            var response = ChatMapper.ToDeletePageResponse(model, canDelete: true);
             logger.LogInformation(ChatCrudTexts.Messages.Success.DisplayDeleteCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, ChatCrudTexts.Messages.Success.DisplayDeleteCompleted);
         }
@@ -465,13 +499,8 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.NotFound<ChatDeleteResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
-            {
-                ChatId = model!.Id,
-                UserId = user!.Id,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var accessErrors = ChatCrudValidators.ValidateAccessAdmin(participants.SingleOrDefault());
+            var canDelete = await chatPolicy.CanDeleteAsync(user!.Id, model!.RoomId, model.Id, cancellationToken);
+            var accessErrors = ChatCrudValidators.ValidateAccessDelete(canDelete);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -514,6 +543,18 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.BadRequest<ChatInfoPageResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            var currentUserErrors = ChatCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{ChatCrudTexts.Messages.Error.DisplayInfoError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ChatCrudTexts.Messages.Error.DisplayInfoError, errors);
+                return ResponseInfo.Unauthorized<ChatInfoPageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
             var model = await unitOfWork.Chats.GetSingleOrDefaultAsync(request.Id, cancellationToken);
             var accessibilityErrors = ChatCrudValidators.ValidateAccessibilityChat(model);
             if (accessibilityErrors.Any())
@@ -524,19 +565,22 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.NotFound<ChatInfoPageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var user = currentUser.UserId is Guid currentUserId
-                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
-                : null;
-            var participantOptions = new ParticipantQueryOptions
+            var canRead = await chatPolicy.CanReadAsync(user!.Id, model!.RoomId, model.Id, cancellationToken);
+            var accessErrors = ChatCrudValidators.ValidateAccessRead(canRead);
+            if (accessErrors.Any())
             {
-                ChatId = model!.Id,
-                UserId = user?.Id ?? Guid.Empty,
-            };
-            var participants = ChatCrudValidators.ValidateCurrentUser(user).Any()
-                ? []
-                : await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
+                var errors = string.Join(Environment.NewLine, accessErrors);
+                var messageText = $"{ChatCrudTexts.Messages.Error.DisplayInfoError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ChatCrudTexts.Messages.Error.DisplayInfoError, errors);
+                return ResponseInfo.Forbidden<ChatInfoPageResponse>(MessageType.FORBIDDEN, messageText);
+            }
 
-            var response = ChatMapper.ToInfoPageResponse(model, participants.SingleOrDefault());
+            var canUpdate = await chatPolicy.CanUpdateAsync(user.Id, model.RoomId, model.Id, cancellationToken);
+            var canDelete = await chatPolicy.CanDeleteAsync(user.Id, model.RoomId, model.Id, cancellationToken);
+            var chatRoles = await roleAssignmentProvider.GetChatRolesAsync(user.Id, model.Id, cancellationToken);
+            var isParticipant = chatRoles.Contains(RoleNames.ChatParticipant, StringComparer.Ordinal);
+            var isAdmin = chatRoles.Contains(RoleNames.ChatAdmin, StringComparer.Ordinal);
+            var response = ChatMapper.ToInfoPageResponse(model, isParticipant, isAdmin, canUpdate, canDelete);
             logger.LogInformation(ChatCrudTexts.Messages.Success.DisplayInfoCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, ChatCrudTexts.Messages.Success.DisplayInfoCompleted);
         }
@@ -567,6 +611,18 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.BadRequest<ChatListPageResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            var currentUserErrors = ChatCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{ChatCrudTexts.Messages.Error.DisplayListError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ChatCrudTexts.Messages.Error.DisplayListError, errors);
+                return ResponseInfo.Unauthorized<ChatListPageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
             var room = await unitOfWork.Rooms.GetSingleOrDefaultAsync(request.RoomId, cancellationToken);
             var accessibilityErrors = ChatCrudValidators.ValidateAccessibilityRoom(room);
             if (accessibilityErrors.Any())
@@ -577,29 +633,17 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.NotFound<ChatListPageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var user = currentUser.UserId is Guid currentUserId
-                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
-                : null;
-            var participantOptions = new ParticipantQueryOptions
-            {
-                UserId = user?.Id ?? Guid.Empty,
-                IsAdmin = true,
-            };
-            var adminParticipants = ChatCrudValidators.ValidateCurrentUser(user).Any()
-                ? []
-                : await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var adminChatIds = adminParticipants.Select(participant => participant.ChatId).ToHashSet();
-
+            var readableChatIds = (await chatPolicy.GetReadableChatIdsAsync(user!.Id, request.RoomId, cancellationToken)).ToHashSet();
             var chatOptions = new ChatQueryOptions
             {
                 RoomId = request.RoomId,
             };
-            var models = (await unitOfWork.Chats.GetListAsync(chatOptions, cancellationToken)).ToList();
+            var models = (await unitOfWork.Chats.GetListAsync(chatOptions, cancellationToken))
+                .Where(model => readableChatIds.Contains(model.Id))
+                .ToList();
             var chatIds = models.Select(model => model.Id).ToList();
             var lastByChat = await unitOfWork.Messages.GetLastByChatIdsAsync(chatIds, cancellationToken);
-            var unreadByChat = user is null
-                ? new Dictionary<Guid, int>()
-                : await unitOfWork.Recipients.GetUnreadCountsByChatIdsAsync(user.Id, chatIds, cancellationToken);
+            var unreadByChat = await unitOfWork.Recipients.GetUnreadCountsByChatIdsAsync(user.Id, chatIds, cancellationToken);
             var senderIds = lastByChat.Values.Select(row => row.SenderUserId).Distinct().ToList();
             var senders = senderIds.Count == 0
                 ? new Dictionary<Guid, UserPortModel>()
@@ -609,32 +653,37 @@ public class ServiceChat : IServiceChat
                 ? new Dictionary<Guid, IReadOnlyList<FilePortAttachment>>()
                 : await filePort.GetByMessageIdsAsync(attachmentMessageIds, cancellationToken);
 
-            ICollection<ChatListModel> rows =
+            ICollection<ChatListModel> rows = [];
+            foreach (var model in models)
+            {
+                lastByChat.TryGetValue(model.Id, out var last);
+                unreadByChat.TryGetValue(model.Id, out var unread);
+                var hasAttachments = last is not null
+                    && (attachmentsByMessage.GetValueOrDefault(last.MessageId)?.Count ?? 0) > 0;
+                var previewText = last is null
+                    ? null
+                    : string.IsNullOrWhiteSpace(last.Text)
+                        ? (hasAttachments ? "Вложение" : null)
+                        : ChatMapper.TruncatePreview(last.Text);
+                var senderName = last is null
+                    ? null
+                    : senders.GetValueOrDefault(last.SenderUserId)?.Name;
+                var canUpdate = await chatPolicy.CanUpdateAsync(user.Id, model.RoomId, model.Id, cancellationToken);
+                var canDelete = await chatPolicy.CanDeleteAsync(user.Id, model.RoomId, model.Id, cancellationToken);
+                rows.Add(ChatMapper.ToListModel(
+                    model,
+                    canUpdate,
+                    canDelete,
+                    unread,
+                    previewText,
+                    last?.CreatedAt,
+                    senderName,
+                    hasAttachments));
+            }
+
+            rows =
             [
-                .. models
-                    .Select(model =>
-                    {
-                        lastByChat.TryGetValue(model.Id, out var last);
-                        unreadByChat.TryGetValue(model.Id, out var unread);
-                        var hasAttachments = last is not null
-                            && (attachmentsByMessage.GetValueOrDefault(last.MessageId)?.Count ?? 0) > 0;
-                        var previewText = last is null
-                            ? null
-                            : string.IsNullOrWhiteSpace(last.Text)
-                                ? (hasAttachments ? "Вложение" : null)
-                                : ChatMapper.TruncatePreview(last.Text);
-                        var senderName = last is null
-                            ? null
-                            : senders.GetValueOrDefault(last.SenderUserId)?.Name;
-                        return ChatMapper.ToListModel(
-                            model,
-                            adminChatIds.Contains(model.Id),
-                            unread,
-                            previewText,
-                            last?.CreatedAt,
-                            senderName,
-                            hasAttachments);
-                    })
+                .. rows
                     // Пустой чат — сверху (MaxValue); среди них новее Id (v7) выше. С сообщениями — по lastMessageAt.
                     .OrderByDescending(row => row.LastMessageAt ?? DateTime.MaxValue)
                     .ThenByDescending(row => row.Id),

@@ -354,7 +354,7 @@ public sealed class ChatApiTests(SociumApiFixture fixture)
         var delete = await userClient.DeleteAsync($"{BaseUrl}?id={id}", TestContext.Current.CancellationToken);
 
         var problem = await ReadProblemAsync(update, HttpStatusCode.Forbidden);
-        Assert.Contains(ChatCrudTexts.Messages.Validation.NotAdmin, problem.Detail);
+        Assert.Contains(ChatCrudTexts.Messages.Validation.AccessDenied, problem.Detail);
         await ReadProblemAsync(delete, HttpStatusCode.Forbidden);
     }
 

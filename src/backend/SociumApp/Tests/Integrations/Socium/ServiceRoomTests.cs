@@ -54,7 +54,8 @@ public sealed class ServiceRoomTests(SociumServiceFixture fixture)
         var chats = await fixture.RunAsync((IServiceChat service) => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }));
         var chat = Assert.Single(chats.Response!.Rows);
         Assert.Equal(ChatCrudTexts.Defaults.Name, chat.Name);
-        Assert.True(chat.IsAdmin);
+        Assert.True(chat.CanUpdate);
+        Assert.True(chat.CanDelete);
         var info = await fixture.RunAsync((IServiceChat service) => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = chat.Id }));
         Assert.True(info.Response!.IsParticipant);
         Assert.True(info.Response.IsAdmin);

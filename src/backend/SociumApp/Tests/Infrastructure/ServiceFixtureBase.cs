@@ -4,6 +4,7 @@ using Repositories.Security.Ef.Api;
 using Services.Messaging.Providers;
 using Services.Security.Api;
 using Services.Security.Models;
+using Services.Security.Permissions.Catalogs;
 using Services.Shared.Api;
 using Services.Shared.Enums;
 using Services.Shared.Models;
@@ -67,6 +68,25 @@ public abstract class ServiceFixtureBase : IAsyncLifetime
         await TestDatabase.MigrateAsync(provider);
 
         DefaultUserId = await CreateUserAsync(DefaultUserLogin, DefaultUserName, DefaultUserEmail);
+        await GrantAppAdminAsync(DefaultUserId);
+    }
+
+    public async Task GrantAppAdminAsync(Guid userId)
+    {
+        await RunAsAsync(null, async (IUnitOfWorkSecurity uow) =>
+        {
+            var existing = await uow.AppRoleAssignments.GetSingleOrDefaultAsync(userId, RoleNames.AppAdmin);
+            if (existing is null)
+            {
+                var model = uow.AppRoleAssignments.GetNew();
+                model.UserId = userId;
+                model.RoleName = RoleNames.AppAdmin;
+                await uow.AppRoleAssignments.CreateAsync(model);
+                await uow.SaveChangesAsync();
+            }
+
+            return 0;
+        });
     }
 
     public Task<T> RunAsync<TService, T>(Func<TService, Task<T>> action) where TService : notnull

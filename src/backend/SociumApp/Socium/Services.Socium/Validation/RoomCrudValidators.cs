@@ -132,6 +132,57 @@ public static class RoomCrudValidators
         }
     }
 
+    public static IEnumerable<string> ValidateAccessCreate(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return RoomCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessRead(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return RoomCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessUpdate(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return RoomCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessDelete(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return RoomCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidatePrimaryAssignRoomAdminStageRequest(RoomAssignRoomAdminStageRequest? request)
+    {
+        if (request == null)
+        {
+            yield return RoomCrudTexts.Messages.Validation.RequestCannotBeNull;
+            yield break;
+        }
+
+        if (request.RoomId == Guid.Empty)
+        {
+            yield return RoomCrudTexts.Messages.Validation.IdCannotBeEmpty;
+        }
+
+        if (request.UserId == Guid.Empty)
+        {
+            yield return RoomCrudTexts.Messages.Validation.UserIdCannotBeEmpty;
+        }
+    }
+
     private static IEnumerable<string> ValidateName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))

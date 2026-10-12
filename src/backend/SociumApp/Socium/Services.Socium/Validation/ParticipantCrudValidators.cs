@@ -39,10 +39,10 @@ public static class ParticipantCrudValidators
         }
     }
 
-    public static IEnumerable<string> ValidateDomainUpdateRequest(ParticipantUpdateRequest request, Participant target, IEnumerable<Participant> chatParticipants)
+    public static IEnumerable<string> ValidateDomainUpdateRequest(ParticipantUpdateRequest request, bool targetIsAdmin, int adminCount)
     {
-        var isRevoking = target.IsAdmin && !request.IsAdmin;
-        if (isRevoking && chatParticipants.Count(participant => participant.IsAdmin) <= 1)
+        var isRevoking = targetIsAdmin && !request.IsAdmin;
+        if (isRevoking && adminCount <= 1)
         {
             yield return ParticipantCrudTexts.Messages.Validation.LastAdminCannotRevoke;
         }
@@ -72,14 +72,13 @@ public static class ParticipantCrudValidators
         }
     }
 
-    public static IEnumerable<string> ValidateDomainDelete(Participant currentParticipant, IEnumerable<Participant> chatParticipants)
+    public static IEnumerable<string> ValidateDomainDelete(bool currentIsAdmin, int participantCount, int adminCount)
     {
-        var participants = chatParticipants.ToList();
-        if (participants.Count <= 1)
+        if (participantCount <= 1)
         {
             yield return ParticipantCrudTexts.Messages.Validation.SoleParticipantCannotLeave;
         }
-        else if (currentParticipant.IsAdmin && participants.Count(participant => participant.IsAdmin) <= 1)
+        else if (currentIsAdmin && adminCount <= 1)
         {
             yield return ParticipantCrudTexts.Messages.Validation.LastAdminCannotLeave;
         }
@@ -129,11 +128,27 @@ public static class ParticipantCrudValidators
         }
     }
 
-    public static IEnumerable<string> ValidateAccessAdmin(Participant? currentParticipant)
+    public static IEnumerable<string> ValidateAccessRead(bool allowed)
     {
-        if (currentParticipant == null || !currentParticipant.IsAdmin)
+        if (!allowed)
         {
-            yield return ParticipantCrudTexts.Messages.Validation.NotAdmin;
+            yield return ParticipantCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessChangeRole(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessLeave(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.NotParticipant;
         }
     }
 }

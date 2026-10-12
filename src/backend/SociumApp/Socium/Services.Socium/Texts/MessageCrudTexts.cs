@@ -62,6 +62,7 @@ public static class MessageCrudTexts
             public const string CurrentUserNotFound = "Текущий пользователь не выбран или не найден.";
             public const string NotParticipant = "Вы не участник этого чата.";
             public const string NotSender = "Изменять и удалять сообщение может только его отправитель.";
+            public const string AccessDenied = "Недостаточно прав для выполнения действия над сообщением.";
             public const string TextNotEmpty = "Текст сообщения не может быть пустым.";
             public const string TextOrAttachmentRequired = "Нужен текст сообщения или вложение.";
             public const string TooManyAttachments = "Слишком много вложений на одно сообщение.";

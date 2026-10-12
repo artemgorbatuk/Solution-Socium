@@ -13,6 +13,30 @@ public sealed class RoomCreatedEvent : IDomainEvent
     public required Guid CreatorUserId { get; init; }
 }
 
+/// <summary>Назначает создателю <c>RoomAdmin</c> через <see cref="IServiceRoom.AssignRoomAdminStageAsync"/>.</summary>
+public sealed class AssignRoomAdminOnRoomCreatedHandler : IDomainEventHandler<RoomCreatedEvent>
+{
+    private readonly IServiceRoom serviceRoom;
+
+    public AssignRoomAdminOnRoomCreatedHandler(IServiceRoom serviceRoom)
+    {
+        this.serviceRoom = serviceRoom;
+    }
+
+    public async Task HandleAsync(RoomCreatedEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        var stageRequest = RoomRoleAssignmentMapper.ToAssignRoomAdminStageRequest(
+            domainEvent.RoomId,
+            domainEvent.CreatorUserId);
+        var result = await serviceRoom.AssignRoomAdminStageAsync(stageRequest, cancellationToken);
+
+        if (result.MessageInfo.MessageType != MessageType.SAVED)
+        {
+            throw new InvalidOperationException(result.MessageInfo.MessageText);
+        }
+    }
+}
+
 /// <summary>Готовит чат по умолчанию через <see cref="IServiceChat.CreateStageAsync"/>.</summary>
 public sealed class CreateDefaultChatOnRoomCreatedHandler : IDomainEventHandler<RoomCreatedEvent>
 {

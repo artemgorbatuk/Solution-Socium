@@ -34,7 +34,7 @@ public sealed class ParticipantsE2eTests(E2eAppFixture fixture)
     }
 
     [Fact]
-    public async Task Messages_Render_WithOtherSender_ShouldShowOwnRightAndOtherLeftWithNames()
+    public async Task Messages_Render_WithOtherSender_ShouldShowCurrentUserRightAndOtherLeftWithNames()
     {
         var (chatId, chatName) = await CreateChatAsync();
         var otherName = UniqueName();
@@ -49,16 +49,16 @@ public sealed class ParticipantsE2eTests(E2eAppFixture fixture)
         var items = Messages(page, chatName).GetByRole(AriaRole.Listitem);
         await Assertions.Expect(items).ToHaveCountAsync(2);
         var otherItem = items.Filter(new() { HasText = "Чужое сообщение" });
-        var ownItem = items.Filter(new() { HasText = "Своё сообщение" });
+        var currentUserItem = items.Filter(new() { HasText = "Своё сообщение" });
 
         await Assertions.Expect(otherItem).ToContainTextAsync(otherName);
-        await Assertions.Expect(otherItem.Locator(".row.own")).ToHaveCountAsync(0);
+        await Assertions.Expect(otherItem.Locator(".row.is-sender")).ToHaveCountAsync(0);
         await otherItem.HoverAsync();
         await Assertions.Expect(otherItem.GetByRole(AriaRole.Button)).ToHaveCountAsync(0);
-        await Assertions.Expect(ownItem.Locator(".row.own")).ToHaveCountAsync(1);
-        await Assertions.Expect(ownItem.Locator(".sender")).ToHaveTextAsync(E2eAppFixture.DefaultUserName);
-        await ownItem.HoverAsync();
-        await Assertions.Expect(ownItem.GetByRole(AriaRole.Button, new() { Name = "Изменить сообщение" })).ToBeVisibleAsync();
+        await Assertions.Expect(currentUserItem.Locator(".row.is-sender")).ToHaveCountAsync(1);
+        await Assertions.Expect(currentUserItem.Locator(".sender")).ToHaveTextAsync(E2eAppFixture.DefaultUserName);
+        await currentUserItem.HoverAsync();
+        await Assertions.Expect(currentUserItem.GetByRole(AriaRole.Button, new() { Name = "Изменить сообщение" })).ToBeVisibleAsync();
     }
 
     [Fact]

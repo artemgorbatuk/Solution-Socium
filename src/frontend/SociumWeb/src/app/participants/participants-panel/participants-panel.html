@@ -27,7 +27,7 @@
           @if (participant.isAdmin) {
             <span class="badge">админ</span>
           }
-          @if (isAdmin()) {
+          @if (canManageRoles()) {
             <button
               type="button"
               class="role"

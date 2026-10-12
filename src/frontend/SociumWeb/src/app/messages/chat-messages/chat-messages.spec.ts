@@ -23,6 +23,8 @@ describe('ChatMessages', () => {
     createdAt: '2020-01-15T12:00:00Z',
     senderUserId: 'u1',
     senderName: 'Анна',
+    canUpdate: true,
+    canDelete: true,
   };
   const second: MessageListModel = {
     id: 'm2',
@@ -30,6 +32,8 @@ describe('ChatMessages', () => {
     createdAt: '2020-01-15T12:01:00Z',
     senderUserId: 'u2',
     senderName: 'Борис',
+    canUpdate: false,
+    canDelete: false,
   };
 
   let fixture: ComponentFixture<ChatMessages>;
@@ -192,11 +196,11 @@ describe('ChatMessages', () => {
     expect(texts()).toEqual(['Вчерашнее', 'Первое', 'Второе']);
   });
 
-  it('Feed_Load_WithOwnAndOtherMessages_ShouldMarkOnlyCurrentUserMessagesAsOwn', () => {
+  it('Feed_Load_WithCurrentUserAndOtherSenders_ShouldMarkOnlyCurrentUserMessagesAsSender', () => {
     flushList('c1', [first, second]);
 
     const rows = Array.from(element.querySelectorAll('.row'));
-    expect(rows.map((row) => row.classList.contains('own'))).toEqual([true, false]);
+    expect(rows.map((row) => row.classList.contains('is-sender'))).toEqual([true, false]);
     expect(rows[1].querySelector('.sender')!.textContent).toContain('Борис');
     expect(element.querySelectorAll('.actions').length).toBe(1);
   });

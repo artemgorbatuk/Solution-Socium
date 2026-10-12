@@ -81,20 +81,24 @@ public sealed class MessageMapperTests
         Assert.Equal(message.CreatedAt, response.CreatedAt);
     }
 
-    [Fact]
-    public void ListModel_Map_WithExistingMessage_ShouldCopyIdTextCreatedAtAndSender()
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void ListModel_Map_WithExistingMessage_ShouldCopyIdTextCreatedAtSenderAndCanFlags(bool canUpdate, bool canDelete)
     {
         var message = CreateMessage();
         var user = new UserPortModel { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван" };
         message.Sender = new Sender { Id = Guid.CreateVersion7(), MessageId = message.Id, UserId = user.Id };
 
-        var model = MessageMapper.ToListModel(message, user);
+        var model = MessageMapper.ToListModel(message, user, canUpdate, canDelete);
 
         Assert.Equal(message.Id, model.Id);
         Assert.Equal(message.Text, model.Text);
         Assert.Equal(message.CreatedAt, model.CreatedAt);
         Assert.Equal(user.Id, model.SenderUserId);
         Assert.Equal(user.Name, model.SenderName);
+        Assert.Equal(canUpdate, model.CanUpdate);
+        Assert.Equal(canDelete, model.CanDelete);
     }
 
     [Fact]
@@ -104,9 +108,11 @@ public sealed class MessageMapperTests
         var userId = Guid.CreateVersion7();
         message.Sender = new Sender { Id = Guid.CreateVersion7(), MessageId = message.Id, UserId = userId };
 
-        var model = MessageMapper.ToListModel(message, null);
+        var model = MessageMapper.ToListModel(message, null, canUpdate: false, canDelete: false);
 
         Assert.Equal(userId, model.SenderUserId);
         Assert.Equal(UserPortTexts.DeletedUserName, model.SenderName);
+        Assert.False(model.CanUpdate);
+        Assert.False(model.CanDelete);
     }
 }

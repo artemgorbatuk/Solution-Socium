@@ -10,6 +10,7 @@
     <ProjectReference Include="..\..\Services.Shared\Services.Shared.csproj" />
     <ProjectReference Include="..\Repositories.Security.Ef\Repositories.Security.Ef.csproj" />
     <ProjectReference Include="..\Services.Security.Passwords\Services.Security.Passwords.csproj" />
+    <ProjectReference Include="..\Services.Security.Permissions\Services.Security.Permissions.csproj" />
     <ProjectReference Include="..\Services.Security.Tokens\Services.Security.Tokens.csproj" />
   </ItemGroup>
 

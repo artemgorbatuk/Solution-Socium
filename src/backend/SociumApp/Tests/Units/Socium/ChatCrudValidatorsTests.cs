@@ -1,5 +1,4 @@
-﻿using Datasource.Socium.Ef.Models;
-using Services.Socium.Models;
+﻿using Services.Socium.Models;
 using Services.Socium.Ports;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
@@ -169,23 +168,5 @@ public sealed class ChatCrudValidatorsTests
     {
         Assert.Equal([ChatCrudTexts.Messages.Validation.CurrentUserNotFound], ChatCrudValidators.ValidateCurrentUser(null));
         Assert.Empty(ChatCrudValidators.ValidateCurrentUser(new UserPortModel { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван" }));
-    }
-
-    [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, true)]
-    public void Admin_ValidateAccess_WithParticipant_ShouldAllowOnlyAdmin(bool isAdmin, bool expectedAllowed)
-    {
-        var participant = new Participant { Id = Guid.CreateVersion7(), ChatId = Guid.CreateVersion7(), UserId = Guid.CreateVersion7(), IsAdmin = isAdmin };
-
-        var errors = ChatCrudValidators.ValidateAccessAdmin(participant);
-
-        Assert.Equal(expectedAllowed, !errors.Any());
-    }
-
-    [Fact]
-    public void Admin_ValidateAccess_WithoutParticipant_ShouldReturnNotAdmin()
-    {
-        Assert.Equal([ChatCrudTexts.Messages.Validation.NotAdmin], ChatCrudValidators.ValidateAccessAdmin(null));
     }
 }

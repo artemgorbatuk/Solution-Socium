@@ -29,40 +29,50 @@ public static class ChatMapper
         };
     }
 
-    public static ChatCreatePageResponse ToCreatePageResponse(Chat model)
+    public static ChatCreatePageResponse ToCreatePageResponse(Chat model, bool canCreate)
     {
         return new ChatCreatePageResponse
         {
             RoomId = model.RoomId,
             Name = model.Name,
+            CanCreate = canCreate,
         };
     }
 
-    public static ChatUpdatePageResponse ToUpdatePageResponse(Chat model)
+    public static ChatUpdatePageResponse ToUpdatePageResponse(Chat model, bool canUpdate)
     {
         return new ChatUpdatePageResponse
         {
             Id = model.Id,
             RoomId = model.RoomId,
             Name = model.Name,
+            CanUpdate = canUpdate,
         };
     }
 
-    public static ChatInfoPageResponse ToInfoPageResponse(Chat model, Participant? currentParticipant)
+    public static ChatInfoPageResponse ToInfoPageResponse(
+        Chat model,
+        bool isParticipant,
+        bool isAdmin,
+        bool canUpdate,
+        bool canDelete)
     {
         return new ChatInfoPageResponse
         {
             Id = model.Id,
             RoomId = model.RoomId,
             Name = model.Name,
-            IsParticipant = currentParticipant != null,
-            IsAdmin = currentParticipant?.IsAdmin ?? false,
+            IsParticipant = isParticipant,
+            IsAdmin = isAdmin,
+            CanUpdate = canUpdate,
+            CanDelete = canDelete,
         };
     }
 
     public static ChatListModel ToListModel(
         Chat model,
-        bool isAdmin,
+        bool canUpdate,
+        bool canDelete,
         int unreadCount = 0,
         string? lastMessageText = null,
         DateTime? lastMessageAt = null,
@@ -73,7 +83,8 @@ public static class ChatMapper
         {
             Id = model.Id,
             Name = model.Name,
-            IsAdmin = isAdmin,
+            CanUpdate = canUpdate,
+            CanDelete = canDelete,
             UnreadCount = unreadCount,
             LastMessageText = lastMessageText,
             LastMessageAt = lastMessageAt,
@@ -93,13 +104,14 @@ public static class ChatMapper
         return normalized[..maxLength].TrimEnd() + "…";
     }
 
-    public static ChatDeletePageResponse ToDeletePageResponse(Chat model)
+    public static ChatDeletePageResponse ToDeletePageResponse(Chat model, bool canDelete)
     {
         return new ChatDeletePageResponse
         {
             Id = model.Id,
             RoomId = model.RoomId,
             Name = model.Name,
+            CanDelete = canDelete,
         };
     }
 }

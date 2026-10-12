@@ -8,6 +8,7 @@ using Services.Shared.Models;
 using Services.Socium.Mapping;
 using Services.Socium.Models;
 using Services.Socium.Normalizers;
+using Services.Socium.Policies;
 using Services.Socium.Ports;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
@@ -35,6 +36,7 @@ public class ServiceMessage : IServiceMessage
     private readonly IUserPort userPort;
     private readonly IFilePort filePort;
     private readonly IChatNotifyPort chatNotifyPort;
+    private readonly IMessagePolicy messagePolicy;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<ServiceMessage> logger;
 
@@ -44,6 +46,7 @@ public class ServiceMessage : IServiceMessage
         IUserPort userPort,
         IFilePort filePort,
         IChatNotifyPort chatNotifyPort,
+        IMessagePolicy messagePolicy,
         TimeProvider timeProvider,
         ILogger<ServiceMessage> logger)
     {
@@ -52,6 +55,7 @@ public class ServiceMessage : IServiceMessage
         this.userPort = userPort;
         this.filePort = filePort;
         this.chatNotifyPort = chatNotifyPort;
+        this.messagePolicy = messagePolicy;
         this.timeProvider = timeProvider;
         this.logger = logger;
     }
@@ -93,13 +97,8 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.NotFound<MessageCreatePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
-            {
-                ChatId = request.ChatId,
-                UserId = user!.Id,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var accessErrors = MessageCrudValidators.ValidateAccessParticipant(participants.SingleOrDefault());
+            var canCreate = await messagePolicy.CanCreateAsync(user!.Id, chat!.RoomId, chat.Id, cancellationToken);
+            var accessErrors = MessageCrudValidators.ValidateAccessCreate(canCreate);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -168,13 +167,8 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.NotFound<MessageCreatePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
-            {
-                ChatId = request.ChatId,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var senderParticipant = participants.SingleOrDefault(participant => participant.UserId == user!.Id);
-            var accessErrors = MessageCrudValidators.ValidateAccessParticipant(senderParticipant);
+            var canCreate = await messagePolicy.CanCreateAsync(user!.Id, chat!.RoomId, chat.Id, cancellationToken);
+            var accessErrors = MessageCrudValidators.ValidateAccessCreate(canCreate);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -182,6 +176,12 @@ public class ServiceMessage : IServiceMessage
                 logger.LogError("{Message}: {Errors}", MessageCrudTexts.Messages.Error.CreateError, errors);
                 return ResponseInfo.Forbidden<MessageCreatePageResponse>(MessageType.FORBIDDEN, messageText);
             }
+
+            var participantOptions = new ParticipantQueryOptions
+            {
+                ChatId = request.ChatId,
+            };
+            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
 
             var domainErrors = MessageCrudValidators.ValidateDomainCreateRequest(request);
             if (domainErrors.Any())
@@ -301,13 +301,23 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.NotFound<MessageUpdatePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
+            var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(model!.ChatId, cancellationToken);
+            var chatAccessibilityErrors = MessageCrudValidators.ValidateAccessibilityChat(chat);
+            if (chatAccessibilityErrors.Any())
             {
-                ChatId = model!.ChatId,
-                UserId = user!.Id,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var accessErrors = MessageCrudValidators.ValidateAccessSender(participants.SingleOrDefault(), model);
+                var errors = string.Join(Environment.NewLine, chatAccessibilityErrors);
+                var messageText = $"{MessageCrudTexts.Messages.Error.DisplayUpdateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", MessageCrudTexts.Messages.Error.DisplayUpdateError, errors);
+                return ResponseInfo.NotFound<MessageUpdatePageResponse>(MessageType.NOT_FOUND, messageText);
+            }
+
+            var canUpdate = await messagePolicy.CanUpdateAsync(
+                user!.Id,
+                chat!.RoomId,
+                model.ChatId,
+                model.Sender.UserId,
+                cancellationToken);
+            var accessErrors = MessageCrudValidators.ValidateAccessUpdate(canUpdate);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -369,13 +379,23 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.NotFound<MessageUpdatePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
+            var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(model!.ChatId, cancellationToken);
+            var chatAccessibilityErrors = MessageCrudValidators.ValidateAccessibilityChat(chat);
+            if (chatAccessibilityErrors.Any())
             {
-                ChatId = model!.ChatId,
-                UserId = user!.Id,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var accessErrors = MessageCrudValidators.ValidateAccessSender(participants.SingleOrDefault(), model);
+                var errors = string.Join(Environment.NewLine, chatAccessibilityErrors);
+                var messageText = $"{MessageCrudTexts.Messages.Error.UpdateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", MessageCrudTexts.Messages.Error.UpdateError, errors);
+                return ResponseInfo.NotFound<MessageUpdatePageResponse>(MessageType.NOT_FOUND, messageText);
+            }
+
+            var canUpdate = await messagePolicy.CanUpdateAsync(
+                user!.Id,
+                chat!.RoomId,
+                model.ChatId,
+                model.Sender.UserId,
+                cancellationToken);
+            var accessErrors = MessageCrudValidators.ValidateAccessUpdate(canUpdate);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -473,13 +493,23 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.NotFound<MessageDeletePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
+            var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(model!.ChatId, cancellationToken);
+            var chatAccessibilityErrors = MessageCrudValidators.ValidateAccessibilityChat(chat);
+            if (chatAccessibilityErrors.Any())
             {
-                ChatId = model!.ChatId,
-                UserId = user!.Id,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var accessErrors = MessageCrudValidators.ValidateAccessSender(participants.SingleOrDefault(), model);
+                var errors = string.Join(Environment.NewLine, chatAccessibilityErrors);
+                var messageText = $"{MessageCrudTexts.Messages.Error.DisplayDeleteError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", MessageCrudTexts.Messages.Error.DisplayDeleteError, errors);
+                return ResponseInfo.NotFound<MessageDeletePageResponse>(MessageType.NOT_FOUND, messageText);
+            }
+
+            var canDelete = await messagePolicy.CanDeleteAsync(
+                user!.Id,
+                chat!.RoomId,
+                model.ChatId,
+                model.Sender.UserId,
+                cancellationToken);
+            var accessErrors = MessageCrudValidators.ValidateAccessDelete(canDelete);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -541,13 +571,23 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.NotFound<MessageDeleteResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
+            var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(model!.ChatId, cancellationToken);
+            var chatAccessibilityErrors = MessageCrudValidators.ValidateAccessibilityChat(chat);
+            if (chatAccessibilityErrors.Any())
             {
-                ChatId = model!.ChatId,
-                UserId = user!.Id,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var accessErrors = MessageCrudValidators.ValidateAccessSender(participants.SingleOrDefault(), model);
+                var errors = string.Join(Environment.NewLine, chatAccessibilityErrors);
+                var messageText = $"{MessageCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", MessageCrudTexts.Messages.Error.DeleteError, errors);
+                return ResponseInfo.NotFound<MessageDeleteResponse>(MessageType.NOT_FOUND, messageText);
+            }
+
+            var canDelete = await messagePolicy.CanDeleteAsync(
+                user!.Id,
+                chat!.RoomId,
+                model.ChatId,
+                model.Sender.UserId,
+                cancellationToken);
+            var accessErrors = MessageCrudValidators.ValidateAccessDelete(canDelete);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -648,13 +688,18 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.NotFound<MessageInfoPageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
+            var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(model!.ChatId, cancellationToken);
+            var chatAccessibilityErrors = MessageCrudValidators.ValidateAccessibilityChat(chat);
+            if (chatAccessibilityErrors.Any())
             {
-                ChatId = model!.ChatId,
-                UserId = user!.Id,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var accessErrors = MessageCrudValidators.ValidateAccessParticipant(participants.SingleOrDefault());
+                var errors = string.Join(Environment.NewLine, chatAccessibilityErrors);
+                var messageText = $"{MessageCrudTexts.Messages.Error.DisplayInfoError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", MessageCrudTexts.Messages.Error.DisplayInfoError, errors);
+                return ResponseInfo.NotFound<MessageInfoPageResponse>(MessageType.NOT_FOUND, messageText);
+            }
+
+            var canRead = await messagePolicy.CanReadAsync(user!.Id, chat!.RoomId, model.ChatId, cancellationToken);
+            var accessErrors = MessageCrudValidators.ValidateAccessRead(canRead);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -716,13 +761,8 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.NotFound<MessageListPageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
-            {
-                ChatId = request.ChatId,
-                UserId = user!.Id,
-            };
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var accessErrors = MessageCrudValidators.ValidateAccessParticipant(participants.SingleOrDefault());
+            var canRead = await messagePolicy.CanReadAsync(user!.Id, chat!.RoomId, chat.Id, cancellationToken);
+            var accessErrors = MessageCrudValidators.ValidateAccessRead(canRead);
             if (accessErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, accessErrors);
@@ -743,6 +783,7 @@ public class ServiceMessage : IServiceMessage
                 }
             }
 
+            var roles = await messagePolicy.GetRolesForChatAsync(user.Id, chat.RoomId, chat.Id, cancellationToken);
             var messageOptions = new MessageQueryOptions
             {
                 ChatId = request.ChatId,
@@ -763,9 +804,13 @@ public class ServiceMessage : IServiceMessage
                 .. models.Select(model =>
                 {
                     var attachments = attachmentsByMessage.GetValueOrDefault(model.Id) ?? [];
+                    var canUpdate = messagePolicy.CanUpdate(roles, user.Id, model.Sender.UserId);
+                    var canDelete = messagePolicy.CanDelete(roles, user.Id, model.Sender.UserId);
                     return MessageMapper.ToListModel(
                         model,
                         senders.GetValueOrDefault(model.Sender.UserId),
+                        canUpdate,
+                        canDelete,
                         [.. attachments.Select(MessageMapper.ToAttachmentModel)]);
                 }),
             ];

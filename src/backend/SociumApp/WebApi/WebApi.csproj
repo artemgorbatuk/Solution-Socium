@@ -28,6 +28,7 @@
     <ProjectReference Include="..\Realtime\Services.Realtime\Services.Realtime.csproj" />
     <ProjectReference Include="..\Realtime\SignalR.Realtime\SignalR.Realtime.csproj" />
     <ProjectReference Include="..\Security\Datasource.Security.Ef\Datasource.Security.Ef.csproj" />
+    <ProjectReference Include="..\Security\Services.Security.Permissions\Services.Security.Permissions.csproj" />
     <ProjectReference Include="..\Security\Services.Security\Services.Security.csproj" />
     <ProjectReference Include="..\Messaging\Services.Messaging\Services.Messaging.csproj" />
     <ProjectReference Include="..\Socium\Datasource.Socium.Ef\Datasource.Socium.Ef.csproj" />

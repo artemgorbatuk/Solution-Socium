@@ -8,18 +8,12 @@ namespace Services.Socium.Mapping;
 
 public static class ParticipantMapper
 {
-    public static void Apply(Participant model, bool isAdmin)
-    {
-        model.IsAdmin = isAdmin;
-    }
-
-    public static ParticipantGetNewOptions ToGetNewOptions(Guid chatId, Guid userId, bool isAdmin)
+    public static ParticipantGetNewOptions ToGetNewOptions(Guid chatId, Guid userId)
     {
         return new ParticipantGetNewOptions
         {
             ChatId = chatId,
             UserId = userId,
-            IsAdmin = isAdmin,
         };
     }
 
@@ -31,12 +25,12 @@ public static class ParticipantMapper
         };
     }
 
-    public static ParticipantUpdateResponse ToUpdateResponse(Participant model)
+    public static ParticipantUpdateResponse ToUpdateResponse(Participant model, bool isAdmin)
     {
         return new ParticipantUpdateResponse
         {
             Id = model.Id,
-            IsAdmin = model.IsAdmin,
+            IsAdmin = isAdmin,
         };
     }
 
@@ -50,7 +44,7 @@ public static class ParticipantMapper
         };
     }
 
-    public static ParticipantListModel ToListModel(Participant model, UserPortModel? user)
+    public static ParticipantListModel ToListModel(Participant model, UserPortModel? user, bool isAdmin)
     {
         return new ParticipantListModel
         {
@@ -58,7 +52,7 @@ public static class ParticipantMapper
             UserId = model.UserId,
             Login = user?.Login ?? string.Empty,
             Name = user?.Name ?? UserPortTexts.DeletedUserName,
-            IsAdmin = model.IsAdmin,
+            IsAdmin = isAdmin,
         };
     }
 }

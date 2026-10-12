@@ -7,51 +7,34 @@ namespace Tests.Units.Socium;
 
 public sealed class ParticipantMapperTests
 {
-    private static Participant CreateParticipant(bool isAdmin) => new()
+    private static Participant CreateParticipant() => new()
     {
         Id = Guid.CreateVersion7(),
         ChatId = Guid.CreateVersion7(),
         UserId = Guid.CreateVersion7(),
-        IsAdmin = isAdmin,
     };
-
-    [Theory]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    public void Participant_Apply_WithRole_ShouldSetIsAdminAndKeepIds(bool isAdmin, bool newIsAdmin)
-    {
-        var participant = CreateParticipant(isAdmin);
-        var id = participant.Id;
-        var chatId = participant.ChatId;
-        var userId = participant.UserId;
-
-        ParticipantMapper.Apply(participant, newIsAdmin);
-
-        Assert.Equal(newIsAdmin, participant.IsAdmin);
-        Assert.Equal(id, participant.Id);
-        Assert.Equal(chatId, participant.ChatId);
-        Assert.Equal(userId, participant.UserId);
-    }
 
     [Fact]
     public void CreateResponse_Map_WithParticipant_ShouldCopyId()
     {
-        var participant = CreateParticipant(isAdmin: false);
+        var participant = CreateParticipant();
 
         var response = ParticipantMapper.ToCreateResponse(participant);
 
         Assert.Equal(participant.Id, response.Id);
     }
 
-    [Fact]
-    public void UpdateResponse_Map_WithParticipant_ShouldCopyIdAndRole()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void UpdateResponse_Map_WithParticipant_ShouldCopyIdAndRole(bool isAdmin)
     {
-        var participant = CreateParticipant(isAdmin: true);
+        var participant = CreateParticipant();
 
-        var response = ParticipantMapper.ToUpdateResponse(participant);
+        var response = ParticipantMapper.ToUpdateResponse(participant, isAdmin);
 
         Assert.Equal(participant.Id, response.Id);
-        Assert.True(response.IsAdmin);
+        Assert.Equal(isAdmin, response.IsAdmin);
     }
 
     [Fact]
@@ -78,10 +61,10 @@ public sealed class ParticipantMapperTests
     [Fact]
     public void ListModel_Map_WithParticipant_ShouldCopyIdsUserAndRole()
     {
-        var participant = CreateParticipant(isAdmin: true);
+        var participant = CreateParticipant();
         var user = new UserPortModel { Id = participant.UserId, Login = "ivan", Name = "Иван" };
 
-        var model = ParticipantMapper.ToListModel(participant, user);
+        var model = ParticipantMapper.ToListModel(participant, user, isAdmin: true);
 
         Assert.Equal(participant.Id, model.Id);
         Assert.Equal(participant.UserId, model.UserId);
@@ -93,12 +76,25 @@ public sealed class ParticipantMapperTests
     [Fact]
     public void ListModel_Map_WithMissingUser_ShouldShowDeletedUserWithoutLogin()
     {
-        var participant = CreateParticipant(isAdmin: false);
+        var participant = CreateParticipant();
 
-        var model = ParticipantMapper.ToListModel(participant, null);
+        var model = ParticipantMapper.ToListModel(participant, null, isAdmin: false);
 
         Assert.Equal(participant.UserId, model.UserId);
         Assert.Equal(string.Empty, model.Login);
         Assert.Equal(UserPortTexts.DeletedUserName, model.Name);
+        Assert.False(model.IsAdmin);
+    }
+
+    [Fact]
+    public void GetNewOptions_Map_ShouldCopyChatAndUserIds()
+    {
+        var chatId = Guid.CreateVersion7();
+        var userId = Guid.CreateVersion7();
+
+        var options = ParticipantMapper.ToGetNewOptions(chatId, userId);
+
+        Assert.Equal(chatId, options.ChatId);
+        Assert.Equal(userId, options.UserId);
     }
 }

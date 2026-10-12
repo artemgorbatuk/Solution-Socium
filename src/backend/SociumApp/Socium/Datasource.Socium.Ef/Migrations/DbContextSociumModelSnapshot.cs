@@ -43,6 +43,37 @@ namespace Datasource.Socium.Ef.Migrations
                     b.ToTable("Chats", (string)null);
                 });
 
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.ChatRoleAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RoleName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChatId");
+
+                    b.HasIndex(new[] { "UserId", "ChatId" }, "IX_ChatRoleAssignments_UserId_ChatId");
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "UserId", "ChatId" }, "IX_ChatRoleAssignments_UserId_ChatId"), new[] { "RoleName" });
+
+                    b.HasIndex(new[] { "UserId", "ChatId", "RoleName" }, "UX_ChatRoleAssignments_UserId_ChatId_RoleName")
+                        .IsUnique();
+
+                    b.ToTable("ChatRoleAssignments", (string)null);
+                });
+
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Message", b =>
                 {
                     b.Property<Guid>("Id")
@@ -74,9 +105,6 @@ namespace Datasource.Socium.Ef.Migrations
 
                     b.Property<Guid>("ChatId")
                         .HasColumnType("uuid");
-
-                    b.Property<bool>("IsAdmin")
-                        .HasColumnType("boolean");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -143,6 +171,37 @@ namespace Datasource.Socium.Ef.Migrations
                     b.ToTable("Rooms", (string)null);
                 });
 
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.RoomRoleAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RoleName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex(new[] { "UserId", "RoomId" }, "IX_RoomRoleAssignments_UserId_RoomId");
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "UserId", "RoomId" }, "IX_RoomRoleAssignments_UserId_RoomId"), new[] { "RoleName" });
+
+                    b.HasIndex(new[] { "UserId", "RoomId", "RoleName" }, "UX_RoomRoleAssignments_UserId_RoomId_RoleName")
+                        .IsUnique();
+
+                    b.ToTable("RoomRoleAssignments", (string)null);
+                });
+
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Sender", b =>
                 {
                     b.Property<Guid>("Id")
@@ -176,6 +235,17 @@ namespace Datasource.Socium.Ef.Migrations
                     b.Navigation("Room");
                 });
 
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.ChatRoleAssignment", b =>
+                {
+                    b.HasOne("Datasource.Socium.Ef.Models.Chat", "Chat")
+                        .WithMany()
+                        .HasForeignKey("ChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Chat");
+                });
+
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Message", b =>
                 {
                     b.HasOne("Datasource.Socium.Ef.Models.Chat", "Chat")
@@ -207,6 +277,17 @@ namespace Datasource.Socium.Ef.Migrations
                         .IsRequired();
 
                     b.Navigation("Message");
+                });
+
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.RoomRoleAssignment", b =>
+                {
+                    b.HasOne("Datasource.Socium.Ef.Models.Room", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Sender", b =>

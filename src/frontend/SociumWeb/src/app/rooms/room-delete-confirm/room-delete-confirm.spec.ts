@@ -52,11 +52,11 @@ describe('RoomDeleteConfirm', () => {
     expect(Array.from(element.querySelectorAll('.buttons button')).map((item) => item.textContent!.trim())).toEqual(['Отмена', 'Удалить']);
     expect(deleteButton().disabled).toBe(true);
 
-    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0, canDelete: true }));
   });
 
   it('Confirm_Load_WithExistingRoom_ShouldEnableDeleteWithoutWarning', () => {
-    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0, canDelete: true }));
     render();
 
     expect(element.querySelector('.warning')).toBeNull();
@@ -64,14 +64,14 @@ describe('RoomDeleteConfirm', () => {
   });
 
   it('Confirm_Load_WithRoomChats_ShouldWarnAboutChatCount', () => {
-    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 3 }));
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 3, canDelete: true }));
     render();
 
     expect(element.querySelector('.warning')!.textContent).toContain('Вместе с комнатой будут удалены чаты: 3');
   });
 
   it('Confirm_Delete_WithExistingRoom_ShouldDeleteAndEmitDeleted', () => {
-    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0, canDelete: true }));
     render();
 
     deleteButton().click();
@@ -94,7 +94,7 @@ describe('RoomDeleteConfirm', () => {
   });
 
   it('Confirm_Delete_WithServerError_ShouldShowProblemAndAllowRetry', () => {
-    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0, canDelete: true }));
     render();
 
     deleteButton().click();
@@ -112,11 +112,11 @@ describe('RoomDeleteConfirm', () => {
     await fixture.whenStable();
 
     expect(document.activeElement).toBe(cancelButton());
-    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0, canDelete: true }));
   });
 
   it('Confirm_Cancel_WithButtonOrEscape_ShouldEmitCancelledWithoutDelete', () => {
-    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0 }));
+    expectDeletePage().flush(successBody({ id: '1', name: 'Кухня', chatCount: 0, canDelete: true }));
     render();
 
     cancelButton().click();

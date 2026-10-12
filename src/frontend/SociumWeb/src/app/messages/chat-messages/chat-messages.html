@@ -19,7 +19,7 @@
           <li>
             <app-message-item
               [message]="row.message"
-              [own]="row.message.senderUserId === currentUserId()" />
+              [isSender]="row.message.senderUserId === currentUserId()" />
           </li>
         }
       }

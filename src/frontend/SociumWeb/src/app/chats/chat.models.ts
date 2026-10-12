@@ -4,8 +4,8 @@ export const chatNameMaxLength = 128;
 export interface ChatListModel {
   id: string;
   name: string;
-  /** Текущий пользователь — админ чата: ему доступны переименование и удаление. */
-  isAdmin: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
   unreadCount: number;
   lastMessageText?: string | null;
   /** UTC в формате ISO 8601. */

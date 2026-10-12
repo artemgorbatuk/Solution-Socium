@@ -19,6 +19,7 @@
     <Project Path="Security/Datasource.Security.Ef/Datasource.Security.Ef.csproj" />
     <Project Path="Security/Repositories.Security.Ef/Repositories.Security.Ef.csproj" />
     <Project Path="Security/Services.Security.Passwords/Services.Security.Passwords.csproj" />
+    <Project Path="Security/Services.Security.Permissions/Services.Security.Permissions.csproj" />
     <Project Path="Security/Services.Security.Tokens/Services.Security.Tokens.csproj" />
     <Project Path="Security/Services.Security/Services.Security.csproj" />
   </Folder>

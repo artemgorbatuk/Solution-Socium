@@ -12,6 +12,13 @@ public class RoomCreateRequest
 public class RoomCreatePageResponse
 {
     public required string Name { get; set; }
+    public required bool CanCreate { get; set; }
+}
+
+public class RoomAssignRoomAdminStageRequest
+{
+    public required Guid RoomId { get; set; }
+    public required Guid UserId { get; set; }
 }
 
 public class RoomUpdatePageRequest
@@ -23,6 +30,7 @@ public class RoomUpdatePageResponse
 {
     public required Guid Id { get; set; }
     public required string Name { get; set; }
+    public required bool CanUpdate { get; set; }
 }
 
 public class RoomUpdateRequest
@@ -41,6 +49,7 @@ public class RoomDeletePageResponse
     public required Guid Id { get; set; }
     public required string Name { get; set; }
     public required int ChatCount { get; set; }
+    public required bool CanDelete { get; set; }
 }
 
 public class RoomDeleteRequest
@@ -62,6 +71,8 @@ public class RoomInfoPageResponse
 {
     public required Guid Id { get; set; }
     public required string Name { get; set; }
+    public required bool CanUpdate { get; set; }
+    public required bool CanDelete { get; set; }
 }
 
 public class RoomListPageRequest
@@ -79,4 +90,6 @@ public class RoomListModel
 {
     public required Guid Id { get; set; }
     public required string Name { get; set; }
+    public required bool CanUpdate { get; set; }
+    public required bool CanDelete { get; set; }
 }

@@ -1,4 +1,3 @@
-using Datasource.Socium.Ef.Models;
 using Services.Socium.Models;
 using Services.Socium.Ports;
 using Services.Socium.Texts;
@@ -173,11 +172,35 @@ public static class ChatCrudValidators
         }
     }
 
-    public static IEnumerable<string> ValidateAccessAdmin(Participant? participant)
+    public static IEnumerable<string> ValidateAccessCreate(bool allowed)
     {
-        if (participant == null || !participant.IsAdmin)
+        if (!allowed)
         {
-            yield return ChatCrudTexts.Messages.Validation.NotAdmin;
+            yield return ChatCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessRead(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return ChatCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessUpdate(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return ChatCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessDelete(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return ChatCrudTexts.Messages.Validation.AccessDenied;
         }
     }
 

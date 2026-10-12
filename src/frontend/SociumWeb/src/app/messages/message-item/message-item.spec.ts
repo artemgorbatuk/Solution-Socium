@@ -12,6 +12,8 @@ describe('MessageItem', () => {
     createdAt: '2020-01-15T12:02:00Z',
     senderUserId: 'u1',
     senderName: 'Анна',
+    canUpdate: true,
+    canDelete: true,
   };
 
   let fixture: ComponentFixture<MessageItem>;
@@ -59,7 +61,7 @@ describe('MessageItem', () => {
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(MessageItem);
     fixture.componentRef.setInput('message', message);
-    fixture.componentRef.setInput('own', true);
+    fixture.componentRef.setInput('isSender', true);
     changed = 0;
     deleted = 0;
     fixture.componentInstance.changed.subscribe(() => changed++);
@@ -90,16 +92,17 @@ describe('MessageItem', () => {
     expect(element.querySelector('[role=menu]')).toBeNull();
   });
 
-  it('Message_Render_WithOwnMessage_ShouldAlignRightWithSenderName', () => {
-    expect(element.querySelector('.row')!.classList).toContain('own');
+  it('Message_Render_WithCurrentUserAsSender_ShouldAlignRightWithSenderName', () => {
+    expect(element.querySelector('.row')!.classList).toContain('is-sender');
     expect(element.querySelector('.sender')!.textContent).toBe('Анна');
   });
 
   it('Message_Render_WithOtherSender_ShouldAlignLeftWithSenderNameAndNoActions', () => {
-    fixture.componentRef.setInput('own', false);
+    fixture.componentRef.setInput('message', { ...message, canUpdate: false, canDelete: false });
+    fixture.componentRef.setInput('isSender', false);
     render();
 
-    expect(element.querySelector('.row')!.classList).not.toContain('own');
+    expect(element.querySelector('.row')!.classList).not.toContain('is-sender');
     expect(element.querySelector('.sender')!.textContent).toBe('Анна');
     expect(element.querySelector('.text')!.textContent).toBe('Привет\nмир');
     expect(element.querySelector('.actions')).toBeNull();

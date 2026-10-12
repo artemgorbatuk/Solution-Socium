@@ -4,4 +4,5 @@ public class RoomQueryOptions
 {
     public string? Name { get; set; }
     public Guid? ExcludeId { get; set; }
+    public IReadOnlyCollection<Guid>? Ids { get; set; }
 }

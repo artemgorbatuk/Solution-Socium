@@ -41,26 +41,30 @@
         <span class="unread" [attr.aria-label]="'Непрочитанных: ' + chat().unreadCount">{{ chat().unreadCount }}</span>
       }
     </a>
-    @if (chat().isAdmin) {
+    @if (chat().canUpdate || chat().canDelete) {
       <div class="actions">
-        <button
-          type="button"
-          class="icon"
-          title="Переименовать"
-          [attr.aria-label]="'Переименовать чат ' + chat().name"
-          (click)="startRename()"
-        >
-          <app-icon name="pencil" />
-        </button>
-        <button
-          type="button"
-          class="icon danger"
-          title="Удалить"
-          [attr.aria-label]="'Удалить чат ' + chat().name"
-          (click)="requestDelete()"
-        >
-          <app-icon name="trash" />
-        </button>
+        @if (chat().canUpdate) {
+          <button
+            type="button"
+            class="icon"
+            title="Переименовать"
+            [attr.aria-label]="'Переименовать чат ' + chat().name"
+            (click)="startRename()"
+          >
+            <app-icon name="pencil" />
+          </button>
+        }
+        @if (chat().canDelete) {
+          <button
+            type="button"
+            class="icon danger"
+            title="Удалить"
+            [attr.aria-label]="'Удалить чат ' + chat().name"
+            (click)="requestDelete()"
+          >
+            <app-icon name="trash" />
+          </button>
+        }
       </div>
     }
   </div>

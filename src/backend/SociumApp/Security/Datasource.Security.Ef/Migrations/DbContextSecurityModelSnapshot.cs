@@ -22,6 +22,32 @@ namespace Datasource.Security.Ef.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Datasource.Security.Ef.Models.AppRoleAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RoleName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "UserId" }, "IX_AppRoleAssignments_UserId");
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "UserId" }, "IX_AppRoleAssignments_UserId"), new[] { "RoleName" });
+
+                    b.HasIndex(new[] { "UserId", "RoleName" }, "UX_AppRoleAssignments_UserId_RoleName")
+                        .IsUnique();
+
+                    b.ToTable("AppRoleAssignments", (string)null);
+                });
+
             modelBuilder.Entity("Datasource.Security.Ef.Models.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -102,6 +128,17 @@ namespace Datasource.Security.Ef.Migrations
                         .IsUnique();
 
                     b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("Datasource.Security.Ef.Models.AppRoleAssignment", b =>
+                {
+                    b.HasOne("Datasource.Security.Ef.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Datasource.Security.Ef.Models.RefreshToken", b =>

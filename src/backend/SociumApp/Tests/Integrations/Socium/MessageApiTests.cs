@@ -335,7 +335,7 @@ public sealed class MessageApiTests(SociumApiFixture fixture)
         var unauthorized = await anonymousClient.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken);
 
         var problem = await ReadProblemAsync(forbidden, HttpStatusCode.Forbidden);
-        Assert.Contains(MessageCrudTexts.Messages.Validation.NotParticipant, problem.Detail);
+        Assert.Contains(MessageCrudTexts.Messages.Validation.AccessDenied, problem.Detail);
         await ReadProblemAsync(unauthorized, HttpStatusCode.Unauthorized);
     }
 
@@ -351,7 +351,7 @@ public sealed class MessageApiTests(SociumApiFixture fixture)
         var response = await userClient.PutAsJsonAsync(BaseUrl, new MessageUpdateRequest { Id = id, Text = UniqueText() }, TestContext.Current.CancellationToken);
 
         var problem = await ReadProblemAsync(response, HttpStatusCode.Forbidden);
-        Assert.Contains(MessageCrudTexts.Messages.Validation.NotSender, problem.Detail);
+        Assert.Contains(MessageCrudTexts.Messages.Validation.AccessDenied, problem.Detail);
     }
 
     [Fact]

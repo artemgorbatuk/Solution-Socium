@@ -26,58 +26,65 @@ public sealed class RoomMapperTests
     }
 
     [Fact]
-    public void CreatePageResponse_Map_WithExistingRoom_ShouldCopyName()
+    public void CreatePageResponse_Map_WithExistingRoom_ShouldCopyNameAndCanCreate()
     {
         var room = CreateRoom();
 
-        var response = RoomMapper.ToCreatePageResponse(room);
+        var response = RoomMapper.ToCreatePageResponse(room, canCreate: true);
 
         Assert.Equal(room.Name, response.Name);
+        Assert.True(response.CanCreate);
     }
 
     [Fact]
-    public void UpdatePageResponse_Map_WithExistingRoom_ShouldCopyIdAndName()
+    public void UpdatePageResponse_Map_WithExistingRoom_ShouldCopyIdNameAndCanUpdate()
     {
         var room = CreateRoom();
 
-        var response = RoomMapper.ToUpdatePageResponse(room);
+        var response = RoomMapper.ToUpdatePageResponse(room, canUpdate: true);
 
         Assert.Equal(room.Id, response.Id);
         Assert.Equal(room.Name, response.Name);
+        Assert.True(response.CanUpdate);
     }
 
     [Fact]
-    public void InfoPageResponse_Map_WithExistingRoom_ShouldCopyIdAndName()
+    public void InfoPageResponse_Map_WithExistingRoom_ShouldCopyIdNameAndFlags()
     {
         var room = CreateRoom();
 
-        var response = RoomMapper.ToInfoPageResponse(room);
+        var response = RoomMapper.ToInfoPageResponse(room, canUpdate: true, canDelete: false);
 
         Assert.Equal(room.Id, response.Id);
         Assert.Equal(room.Name, response.Name);
+        Assert.True(response.CanUpdate);
+        Assert.False(response.CanDelete);
     }
 
     [Fact]
-    public void DeletePageResponse_Map_WithExistingRoom_ShouldCopyIdNameAndChatCount()
+    public void DeletePageResponse_Map_WithExistingRoom_ShouldCopyIdNameChatCountAndCanDelete()
     {
         var room = CreateRoom();
 
-        var response = RoomMapper.ToDeletePageResponse(room, 3);
+        var response = RoomMapper.ToDeletePageResponse(room, 3, canDelete: true);
 
         Assert.Equal(room.Id, response.Id);
         Assert.Equal(room.Name, response.Name);
         Assert.Equal(3, response.ChatCount);
+        Assert.True(response.CanDelete);
     }
 
     [Fact]
-    public void ListModel_Map_WithExistingRoom_ShouldCopyIdAndName()
+    public void ListModel_Map_WithExistingRoom_ShouldCopyIdNameAndFlags()
     {
         var room = CreateRoom();
 
-        var model = RoomMapper.ToListModel(room);
+        var model = RoomMapper.ToListModel(room, canUpdate: false, canDelete: true);
 
         Assert.Equal(room.Id, model.Id);
         Assert.Equal(room.Name, model.Name);
+        Assert.False(model.CanUpdate);
+        Assert.True(model.CanDelete);
     }
 
     [Fact]

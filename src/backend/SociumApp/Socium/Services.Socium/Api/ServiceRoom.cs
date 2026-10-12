@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Repositories.Socium.Ef.Api;
 using Repositories.Socium.Ef.Options;
+using Services.Security.Permissions.Catalogs;
 using Services.Shared.Api;
 using Services.Shared.Enums;
 using Services.Shared.Events;
@@ -10,6 +11,7 @@ using Services.Socium.Events;
 using Services.Socium.Mapping;
 using Services.Socium.Models;
 using Services.Socium.Normalizers;
+using Services.Socium.Policies;
 using Services.Socium.Ports;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
@@ -20,6 +22,7 @@ public interface IServiceRoom
 {
     Task<ResponseInfo<RoomCreatePageResponse>> DisplayCreatePageAsync(RoomCreatePageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<RoomCreatePageResponse>> CreateAsync(RoomCreateRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<object>> AssignRoomAdminStageAsync(RoomAssignRoomAdminStageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<RoomUpdatePageResponse>> DisplayUpdatePageAsync(RoomUpdatePageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<RoomUpdatePageResponse>> UpdateAsync(RoomUpdateRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<RoomDeletePageResponse>> DisplayDeletePageAsync(RoomDeletePageRequest request, CancellationToken cancellationToken = default);
@@ -33,6 +36,7 @@ public class ServiceRoom : IServiceRoom
     private readonly IUnitOfWorkSocium unitOfWork;
     private readonly ICurrentUser currentUser;
     private readonly IUserPort userPort;
+    private readonly IRoomPolicy roomPolicy;
     private readonly IDomainEventPublisher domainEventPublisher;
     private readonly ILogger<ServiceRoom> logger;
 
@@ -40,17 +44,19 @@ public class ServiceRoom : IServiceRoom
         IUnitOfWorkSocium unitOfWork,
         ICurrentUser currentUser,
         IUserPort userPort,
+        IRoomPolicy roomPolicy,
         IDomainEventPublisher domainEventPublisher,
         ILogger<ServiceRoom> logger)
     {
         this.unitOfWork = unitOfWork;
         this.currentUser = currentUser;
         this.userPort = userPort;
+        this.roomPolicy = roomPolicy;
         this.domainEventPublisher = domainEventPublisher;
         this.logger = logger;
     }
 
-    public Task<ResponseInfo<RoomCreatePageResponse>> DisplayCreatePageAsync(RoomCreatePageRequest request, CancellationToken cancellationToken = default)
+    public async Task<ResponseInfo<RoomCreatePageResponse>> DisplayCreatePageAsync(RoomCreatePageRequest request, CancellationToken cancellationToken = default)
     {
         logger.LogInformation(RoomCrudTexts.Messages.Start.DisplayCreating);
 
@@ -62,14 +68,35 @@ public class ServiceRoom : IServiceRoom
                 var errors = string.Join(Environment.NewLine, primaryErrors);
                 var messageText = $"{RoomCrudTexts.Messages.Error.DisplayCreateError}{Environment.NewLine}{errors}";
                 logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DisplayCreateError, errors);
-                return Task.FromResult(ResponseInfo.BadRequest<RoomCreatePageResponse>(MessageType.BAD_REQUEST, messageText));
+                return ResponseInfo.BadRequest<RoomCreatePageResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            var currentUserErrors = RoomCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.DisplayCreateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DisplayCreateError, errors);
+                return ResponseInfo.Unauthorized<RoomCreatePageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
+            var canCreate = await roomPolicy.CanCreateAsync(user!.Id, cancellationToken);
+            var accessErrors = RoomCrudValidators.ValidateAccessCreate(canCreate);
+            if (accessErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.DisplayCreateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DisplayCreateError, errors);
+                return ResponseInfo.Forbidden<RoomCreatePageResponse>(MessageType.FORBIDDEN, messageText);
+            }
+
             var model = unitOfWork.Rooms.GetNew();
-            var response = RoomMapper.ToCreatePageResponse(model);
+            var response = RoomMapper.ToCreatePageResponse(model, canCreate: true);
             logger.LogInformation(RoomCrudTexts.Messages.Success.DisplayCreateCompleted);
-            return Task.FromResult(ResponseInfo.Success(response, MessageType.LOADED, RoomCrudTexts.Messages.Success.DisplayCreateCompleted));
+            return ResponseInfo.Success(response, MessageType.LOADED, RoomCrudTexts.Messages.Success.DisplayCreateCompleted);
         }
         catch (OperationCanceledException)
         {
@@ -79,7 +106,7 @@ public class ServiceRoom : IServiceRoom
         catch (Exception exception)
         {
             logger.LogError(exception, "{Message}", RoomCrudTexts.Messages.Error.DisplayCreateError);
-            return Task.FromResult(ResponseInfo.Error<RoomCreatePageResponse>(MessageType.ERROR, RoomCrudTexts.Messages.Error.DisplayCreateError));
+            return ResponseInfo.Error<RoomCreatePageResponse>(MessageType.ERROR, RoomCrudTexts.Messages.Error.DisplayCreateError);
         }
     }
 
@@ -110,6 +137,16 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.Unauthorized<RoomCreatePageResponse>(MessageType.UNAUTHORIZED, messageText);
             }
 
+            var canCreate = await roomPolicy.CanCreateAsync(user!.Id, cancellationToken);
+            var accessErrors = RoomCrudValidators.ValidateAccessCreate(canCreate);
+            if (accessErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.CreateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.CreateError, errors);
+                return ResponseInfo.Forbidden<RoomCreatePageResponse>(MessageType.FORBIDDEN, messageText);
+            }
+
             var domainErrors = RoomCrudValidators.ValidateDomainCreateRequest(request);
             if (domainErrors.Any())
             {
@@ -137,7 +174,7 @@ public class ServiceRoom : IServiceRoom
             var model = unitOfWork.Rooms.GetNew();
             RoomMapper.Apply(model, nameNormalized);
             await unitOfWork.Rooms.CreateAsync(model, cancellationToken);
-            var roomCreated = RoomMapper.ToCreatedEvent(model.Id, user!.Id);
+            var roomCreated = RoomMapper.ToCreatedEvent(model.Id, user.Id);
             await domainEventPublisher.PublishAsync(roomCreated, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             var roomChanged = RoomMapper.ToChangedEvent(RoomChangedKind.Created, model.Id, model.Name);
@@ -158,6 +195,40 @@ public class ServiceRoom : IServiceRoom
         }
     }
 
+    public async Task<ResponseInfo<object>> AssignRoomAdminStageAsync(RoomAssignRoomAdminStageRequest request, CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(RoomCrudTexts.Messages.Start.AssignRoomAdminStaging);
+
+        try
+        {
+            var primaryErrors = RoomCrudValidators.ValidatePrimaryAssignRoomAdminStageRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.AssignRoomAdminStageError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.AssignRoomAdminStageError, errors);
+                return ResponseInfo.BadRequest<object>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var model = unitOfWork.RoomRoleAssignments.GetNew();
+            RoomRoleAssignmentMapper.Apply(model, request.UserId, request.RoomId, RoleNames.RoomAdmin);
+            await unitOfWork.RoomRoleAssignments.CreateAsync(model, cancellationToken);
+
+            logger.LogInformation(RoomCrudTexts.Messages.Success.AssignRoomAdminStageCompleted);
+            return ResponseInfo.Success<object>(MessageType.SAVED, RoomCrudTexts.Messages.Success.AssignRoomAdminStageCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(RoomCrudTexts.Messages.Canceled.AssignRoomAdminStage);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", RoomCrudTexts.Messages.Error.AssignRoomAdminStageError);
+            return ResponseInfo.Error<object>(MessageType.ERROR, RoomCrudTexts.Messages.Error.AssignRoomAdminStageError);
+        }
+    }
+
     public async Task<ResponseInfo<RoomUpdatePageResponse>> DisplayUpdatePageAsync(RoomUpdatePageRequest request, CancellationToken cancellationToken = default)
     {
         logger.LogInformation(RoomCrudTexts.Messages.Start.DisplayUpdating);
@@ -173,6 +244,18 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.BadRequest<RoomUpdatePageResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            var currentUserErrors = RoomCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.DisplayUpdateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DisplayUpdateError, errors);
+                return ResponseInfo.Unauthorized<RoomUpdatePageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
             var model = await unitOfWork.Rooms.GetSingleOrDefaultAsync(request.Id, cancellationToken);
             var accessibilityErrors = RoomCrudValidators.ValidateAccessibilityRoom(model);
             if (accessibilityErrors.Any())
@@ -183,7 +266,17 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.NotFound<RoomUpdatePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var response = RoomMapper.ToUpdatePageResponse(model!);
+            var canUpdate = await roomPolicy.CanUpdateAsync(user!.Id, model!.Id, cancellationToken);
+            var accessErrors = RoomCrudValidators.ValidateAccessUpdate(canUpdate);
+            if (accessErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.DisplayUpdateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DisplayUpdateError, errors);
+                return ResponseInfo.Forbidden<RoomUpdatePageResponse>(MessageType.FORBIDDEN, messageText);
+            }
+
+            var response = RoomMapper.ToUpdatePageResponse(model, canUpdate: true);
             logger.LogInformation(RoomCrudTexts.Messages.Success.DisplayUpdateCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, RoomCrudTexts.Messages.Success.DisplayUpdateCompleted);
         }
@@ -214,6 +307,18 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.BadRequest<RoomUpdatePageResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            var currentUserErrors = RoomCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.UpdateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.UpdateError, errors);
+                return ResponseInfo.Unauthorized<RoomUpdatePageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
             var model = await unitOfWork.Rooms.GetSingleOrDefaultAsync(request.Id, cancellationToken);
             var accessibilityErrors = RoomCrudValidators.ValidateAccessibilityRoom(model);
             if (accessibilityErrors.Any())
@@ -222,6 +327,16 @@ public class ServiceRoom : IServiceRoom
                 var messageText = $"{RoomCrudTexts.Messages.Error.UpdateError}{Environment.NewLine}{errors}";
                 logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.UpdateError, errors);
                 return ResponseInfo.NotFound<RoomUpdatePageResponse>(MessageType.NOT_FOUND, messageText);
+            }
+
+            var canUpdate = await roomPolicy.CanUpdateAsync(user!.Id, model!.Id, cancellationToken);
+            var accessErrors = RoomCrudValidators.ValidateAccessUpdate(canUpdate);
+            if (accessErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.UpdateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.UpdateError, errors);
+                return ResponseInfo.Forbidden<RoomUpdatePageResponse>(MessageType.FORBIDDEN, messageText);
             }
 
             var domainErrors = RoomCrudValidators.ValidateDomainUpdateRequest(request);
@@ -249,10 +364,10 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.Invalid<RoomUpdatePageResponse>(MessageType.INVALID, messageText);
             }
 
-            RoomMapper.Apply(model!, nameNormalized);
-            await unitOfWork.Rooms.UpdateAsync(model!, cancellationToken);
+            RoomMapper.Apply(model, nameNormalized);
+            await unitOfWork.Rooms.UpdateAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            var roomChanged = RoomMapper.ToChangedEvent(RoomChangedKind.Updated, model!.Id, model.Name);
+            var roomChanged = RoomMapper.ToChangedEvent(RoomChangedKind.Updated, model.Id, model.Name);
             await domainEventPublisher.PublishAsync(roomChanged, cancellationToken);
 
             logger.LogInformation(RoomCrudTexts.Messages.Success.UpdateCompleted);
@@ -285,6 +400,18 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.BadRequest<RoomDeletePageResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            var currentUserErrors = RoomCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.DisplayDeleteError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DisplayDeleteError, errors);
+                return ResponseInfo.Unauthorized<RoomDeletePageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
             var model = await unitOfWork.Rooms.GetSingleOrDefaultAsync(request.Id, cancellationToken);
             var accessibilityErrors = RoomCrudValidators.ValidateAccessibilityRoom(model);
             if (accessibilityErrors.Any())
@@ -295,12 +422,22 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.NotFound<RoomDeletePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
+            var canDelete = await roomPolicy.CanDeleteAsync(user!.Id, model!.Id, cancellationToken);
+            var accessErrors = RoomCrudValidators.ValidateAccessDelete(canDelete);
+            if (accessErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.DisplayDeleteError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DisplayDeleteError, errors);
+                return ResponseInfo.Forbidden<RoomDeletePageResponse>(MessageType.FORBIDDEN, messageText);
+            }
+
             var chatOptions = new ChatQueryOptions
             {
-                RoomId = model!.Id,
+                RoomId = model.Id,
             };
             var chatCount = await unitOfWork.Chats.CountAsync(chatOptions, cancellationToken);
-            var response = RoomMapper.ToDeletePageResponse(model, chatCount);
+            var response = RoomMapper.ToDeletePageResponse(model, chatCount, canDelete: true);
             logger.LogInformation(RoomCrudTexts.Messages.Success.DisplayDeleteCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, RoomCrudTexts.Messages.Success.DisplayDeleteCompleted);
         }
@@ -331,6 +468,18 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.BadRequest<RoomDeleteResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            var currentUserErrors = RoomCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DeleteError, errors);
+                return ResponseInfo.Unauthorized<RoomDeleteResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
             var model = await unitOfWork.Rooms.GetSingleOrDefaultAsync(request.Id, cancellationToken);
             var accessibilityErrors = RoomCrudValidators.ValidateAccessibilityRoom(model);
             if (accessibilityErrors.Any())
@@ -341,7 +490,17 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.NotFound<RoomDeleteResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var roomId = model!.Id;
+            var canDelete = await roomPolicy.CanDeleteAsync(user!.Id, model!.Id, cancellationToken);
+            var accessErrors = RoomCrudValidators.ValidateAccessDelete(canDelete);
+            if (accessErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DeleteError, errors);
+                return ResponseInfo.Forbidden<RoomDeleteResponse>(MessageType.FORBIDDEN, messageText);
+            }
+
+            var roomId = model.Id;
             var roomName = model.Name;
             await unitOfWork.Rooms.DeleteAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -379,6 +538,18 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.BadRequest<RoomInfoPageResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            var currentUserErrors = RoomCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.DisplayInfoError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DisplayInfoError, errors);
+                return ResponseInfo.Unauthorized<RoomInfoPageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
             var model = await unitOfWork.Rooms.GetSingleOrDefaultAsync(request.Id, cancellationToken);
             var accessibilityErrors = RoomCrudValidators.ValidateAccessibilityRoom(model);
             if (accessibilityErrors.Any())
@@ -389,7 +560,19 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.NotFound<RoomInfoPageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var response = RoomMapper.ToInfoPageResponse(model!);
+            var canRead = await roomPolicy.CanReadAsync(user!.Id, model!.Id, cancellationToken);
+            var accessErrors = RoomCrudValidators.ValidateAccessRead(canRead);
+            if (accessErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.DisplayInfoError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DisplayInfoError, errors);
+                return ResponseInfo.Forbidden<RoomInfoPageResponse>(MessageType.FORBIDDEN, messageText);
+            }
+
+            var canUpdate = await roomPolicy.CanUpdateAsync(user.Id, model.Id, cancellationToken);
+            var canDelete = await roomPolicy.CanDeleteAsync(user.Id, model.Id, cancellationToken);
+            var response = RoomMapper.ToInfoPageResponse(model, canUpdate, canDelete);
             logger.LogInformation(RoomCrudTexts.Messages.Success.DisplayInfoCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, RoomCrudTexts.Messages.Success.DisplayInfoCompleted);
         }
@@ -420,9 +603,33 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.BadRequest<RoomListPageResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
-            var roomOptions = new RoomQueryOptions();
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            var currentUserErrors = RoomCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.DisplayListError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.DisplayListError, errors);
+                return ResponseInfo.Unauthorized<RoomListPageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
+            var readableRoomIds = await roomPolicy.GetReadableRoomIdsAsync(user!.Id, cancellationToken);
+            var roomOptions = new RoomQueryOptions
+            {
+                Ids = readableRoomIds,
+            };
             var models = await unitOfWork.Rooms.GetListAsync(roomOptions, cancellationToken);
-            ICollection<RoomListModel> rows = [.. models.Select(RoomMapper.ToListModel)];
+
+            ICollection<RoomListModel> rows = [];
+            foreach (var model in models)
+            {
+                var canUpdate = await roomPolicy.CanUpdateAsync(user.Id, model.Id, cancellationToken);
+                var canDelete = await roomPolicy.CanDeleteAsync(user.Id, model.Id, cancellationToken);
+                rows.Add(RoomMapper.ToListModel(model, canUpdate, canDelete));
+            }
+
             var response = new RoomListPageResponse
             {
                 Rows = rows,

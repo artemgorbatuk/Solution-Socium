@@ -50,6 +50,7 @@ public static class ParticipantCrudTexts
             public const string ParticipantNotFoundById = "Участник не найден по указанному идентификатору.";
             public const string NotParticipant = "Вы не участник этого чата.";
             public const string NotAdmin = "Менять роли может только админ чата.";
+            public const string AccessDenied = "Недостаточно прав для выполнения действия над участниками.";
             public const string AlreadyParticipant = "Вы уже участник этого чата.";
             public const string LastAdminCannotRevoke = "Нельзя снять роль с последнего админа чата — сначала назначьте админом другого участника.";
             public const string LastAdminCannotLeave = "Вы последний админ чата — сначала назначьте админом другого участника.";

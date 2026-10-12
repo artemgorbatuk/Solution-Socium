@@ -178,6 +178,38 @@ public static class MessageCrudValidators
         }
     }
 
+    public static IEnumerable<string> ValidateAccessCreate(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return MessageCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessRead(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return MessageCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessUpdate(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return MessageCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessDelete(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return MessageCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
     private static IEnumerable<string> ValidateText(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))

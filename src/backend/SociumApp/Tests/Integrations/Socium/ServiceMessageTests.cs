@@ -442,7 +442,7 @@ public sealed class ServiceMessageTests(SociumServiceFixture fixture)
         var create = await RunAsAsync(userId, service => service.CreateAsync(new MessageCreateRequest { ChatId = chatId, Text = UniqueText() }));
 
         Assert.Equal(MessageType.FORBIDDEN, list.MessageInfo.MessageType);
-        Assert.Contains(MessageCrudTexts.Messages.Validation.NotParticipant, list.MessageInfo.MessageText);
+        Assert.Contains(MessageCrudTexts.Messages.Validation.AccessDenied, list.MessageInfo.MessageText);
         Assert.Null(list.Response);
         Assert.Equal(MessageType.FORBIDDEN, createPage.MessageInfo.MessageType);
         Assert.Equal(MessageType.FORBIDDEN, create.MessageInfo.MessageType);
@@ -479,7 +479,7 @@ public sealed class ServiceMessageTests(SociumServiceFixture fixture)
 
         Assert.Equal(MessageType.FORBIDDEN, updatePage.MessageInfo.MessageType);
         Assert.Equal(MessageType.FORBIDDEN, update.MessageInfo.MessageType);
-        Assert.Contains(MessageCrudTexts.Messages.Validation.NotSender, update.MessageInfo.MessageText);
+        Assert.Contains(MessageCrudTexts.Messages.Validation.AccessDenied, update.MessageInfo.MessageText);
         Assert.Equal(MessageType.FORBIDDEN, deletePage.MessageInfo.MessageType);
         Assert.Equal(MessageType.FORBIDDEN, delete.MessageInfo.MessageType);
         Assert.Equal(MessageType.LOADED, info.MessageInfo.MessageType);

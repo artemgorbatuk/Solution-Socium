@@ -23,6 +23,7 @@ public class ChatCreatePageResponse
 {
     public required Guid RoomId { get; set; }
     public required string Name { get; set; }
+    public required bool CanCreate { get; set; }
 }
 
 public class ChatUpdatePageRequest
@@ -35,6 +36,7 @@ public class ChatUpdatePageResponse
     public required Guid Id { get; set; }
     public required Guid RoomId { get; set; }
     public required string Name { get; set; }
+    public required bool CanUpdate { get; set; }
 }
 
 public class ChatUpdateRequest
@@ -53,6 +55,7 @@ public class ChatDeletePageResponse
     public required Guid Id { get; set; }
     public required Guid RoomId { get; set; }
     public required string Name { get; set; }
+    public required bool CanDelete { get; set; }
 }
 
 public class ChatDeleteRequest
@@ -77,6 +80,8 @@ public class ChatInfoPageResponse
     public required string Name { get; set; }
     public required bool IsParticipant { get; set; }
     public required bool IsAdmin { get; set; }
+    public required bool CanUpdate { get; set; }
+    public required bool CanDelete { get; set; }
 }
 
 public class ChatListPageRequest
@@ -95,7 +100,8 @@ public class ChatListModel
 {
     public required Guid Id { get; set; }
     public required string Name { get; set; }
-    public required bool IsAdmin { get; set; }
+    public required bool CanUpdate { get; set; }
+    public required bool CanDelete { get; set; }
     public required int UnreadCount { get; set; }
     public string? LastMessageText { get; set; }
     public DateTime? LastMessageAt { get; set; }

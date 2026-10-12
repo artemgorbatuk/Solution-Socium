@@ -10,6 +10,7 @@ public class DbContextSecurity : DbContext
 
     public virtual DbSet<User> Users { get; set; }
     public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
+    public virtual DbSet<AppRoleAssignment> AppRoleAssignments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -22,8 +22,8 @@ describe('Sidebar', () => {
   let roomChanged$: Subject<RoomChangedNotify>;
 
   const rooms: RoomListModel[] = [
-    { id: '1', name: 'Кухня' },
-    { id: '2', name: 'Гостиная' },
+    { id: '1', name: 'Кухня', canUpdate: true, canDelete: true },
+    { id: '2', name: 'Гостиная', canUpdate: true, canDelete: true },
   ];
 
   function render(): void {
@@ -217,7 +217,7 @@ describe('Sidebar', () => {
 
     http
       .expectOne((request) => request.url === '/api/room/delete' && request.params.get('id') === '1')
-      .flush(successBody({ id: '1', name: 'Кухня' }));
+      .flush(successBody({ id: '1', name: 'Кухня', chatCount: 0, canDelete: true }));
     render();
     expect(element.querySelector('[role=group]')!.textContent).toContain('Кухня');
 
