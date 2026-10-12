@@ -18,6 +18,7 @@ import {
   ChatTypingStoppedNotify,
   JoinRequestChangedNotify,
   RoomChangedNotify,
+  UserAccessChangedNotify,
   UserChangedNotify,
 } from './chat-hub.models';
 
@@ -42,6 +43,7 @@ export class ChatHub {
   readonly roomChanged$ = new Subject<RoomChangedNotify>();
   readonly chatChanged$ = new Subject<ChatChangedNotify>();
   readonly userChanged$ = new Subject<UserChangedNotify>();
+  readonly userAccessChanged$ = new Subject<UserAccessChangedNotify>();
   readonly joinRequestChanged$ = new Subject<JoinRequestChangedNotify>();
   readonly typingStarted$ = new Subject<ChatTypingStartedNotify>();
   readonly typingStopped$ = new Subject<ChatTypingStoppedNotify>();
@@ -138,6 +140,9 @@ export class ChatHub {
       this.connection.on('roomChanged', (payload: RoomChangedNotify) => this.roomChanged$.next(payload));
       this.connection.on('chatChanged', (payload: ChatChangedNotify) => this.chatChanged$.next(payload));
       this.connection.on('userChanged', (payload: UserChangedNotify) => this.userChanged$.next(payload));
+      this.connection.on('userAccessChanged', (payload: UserAccessChangedNotify) =>
+        this.userAccessChanged$.next(payload),
+      );
       this.connection.on('joinRequestChanged', (payload: JoinRequestChangedNotify) =>
         this.joinRequestChanged$.next(payload),
       );

@@ -24,4 +24,9 @@ public class UserNotifyPort : IUserNotifyPort
                 Name = change.Name,
             },
             cancellationToken);
+
+    public Task NotifyUserAccessChangedAsync(Guid userId, CancellationToken cancellationToken = default)
+        => serviceChatNotify.NotifyUserAccessChangedAsync(
+            new UserAccessChangedNotifyModel { UserId = userId },
+            cancellationToken);
 }

@@ -1,3 +1,4 @@
+using Datasource.Socium.Ef.Models;
 using Services.Socium.Models;
 using Services.Socium.Ports;
 using Services.Socium.Texts;
@@ -180,6 +181,33 @@ public static class RoomCrudValidators
         if (request.UserId == Guid.Empty)
         {
             yield return RoomCrudTexts.Messages.Validation.UserIdCannotBeEmpty;
+        }
+    }
+
+    public static IEnumerable<string> ValidatePrimaryRevokeRoomAdminStageRequest(RoomRevokeRoomAdminStageRequest? request)
+    {
+        if (request == null)
+        {
+            yield return RoomCrudTexts.Messages.Validation.RequestCannotBeNull;
+            yield break;
+        }
+
+        if (request.RoomId == Guid.Empty)
+        {
+            yield return RoomCrudTexts.Messages.Validation.IdCannotBeEmpty;
+        }
+
+        if (request.UserId == Guid.Empty)
+        {
+            yield return RoomCrudTexts.Messages.Validation.UserIdCannotBeEmpty;
+        }
+    }
+
+    public static IEnumerable<string> ValidateDomainRevokeRoomAdminStage(RoomRoleAssignment? assignment)
+    {
+        if (assignment == null)
+        {
+            yield return RoomCrudTexts.Messages.Validation.NotRoomAdmin;
         }
     }
 

@@ -21,6 +21,13 @@ public class RoomAssignRoomAdminStageRequest
     public required Guid UserId { get; set; }
 }
 
+/// <summary>Снять <c>RoomAdmin</c> в текущем UoW без SaveChanges; инвариант «последний админ» проверяет вызывающий.</summary>
+public class RoomRevokeRoomAdminStageRequest
+{
+    public required Guid RoomId { get; set; }
+    public required Guid UserId { get; set; }
+}
+
 public class RoomUpdatePageRequest
 {
     public required Guid Id { get; set; }

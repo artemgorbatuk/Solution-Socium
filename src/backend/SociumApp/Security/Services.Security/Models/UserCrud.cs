@@ -79,6 +79,8 @@ public class UserListPageRequest
 {
     /// <summary>Только пользователи с этими идентификаторами; <c>null</c> — все.</summary>
     public ICollection<Guid>? Ids { get; set; }
+    /// <summary>Вместе с удалёнными — например, имя отправителя старого сообщения.</summary>
+    public bool IncludeDeleted { get; set; }
 }
 
 public class UserListPageResponse
@@ -93,6 +95,35 @@ public class UserListModel
     public required Guid Id { get; set; }
     public required string Login { get; set; }
     public required string Name { get; set; }
+    public required bool IsDeleted { get; set; }
+}
+
+/// <summary>Список всех пользователей для админа приложения (<c>UserRead</c>).</summary>
+public class UserAdminListPageRequest
+{
+    /// <summary>Только пользователи с этими идентификаторами; <c>null</c> — все.</summary>
+    public ICollection<Guid>? Ids { get; set; }
+    public bool IncludeDeleted { get; set; }
+}
+
+public class UserAdminListPageResponse
+{
+    public required bool RowExists { get; set; }
+    public required int RowCount { get; set; }
+    public required ICollection<UserAdminListModel> Rows { get; set; } = [];
+}
+
+public class UserAdminListModel
+{
+    public required Guid Id { get; set; }
+    public required string Login { get; set; }
+    public required string Name { get; set; }
+    public required string Email { get; set; }
+    public required bool IsEmailConfirmed { get; set; }
+    public required bool IsDeleted { get; set; }
+    public required bool IsAppAdmin { get; set; }
+    public required bool CanGrantAppAdmin { get; set; }
+    public required bool CanRevokeAppAdmin { get; set; }
 }
 
 public class UserSearchRequest

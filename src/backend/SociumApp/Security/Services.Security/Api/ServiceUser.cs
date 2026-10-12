@@ -6,18 +6,21 @@ using Services.Security.Mapping;
 using Services.Security.Models;
 using Services.Security.Normalizers;
 using Services.Security.Passwords.Providers;
+using Services.Security.Permissions.Catalogs;
+using Services.Security.Policies;
 using Services.Security.Texts;
 using Services.Security.Ports;
 using Services.Security.Validation;
 using Services.Shared.Api;
 using Services.Shared.Enums;
+using Services.Shared.Events;
 using Services.Shared.Models;
 
 namespace Services.Security.Api;
 
 /// <summary>
 /// Создание — регистрация, доступна без входа; остальное — только вошедшему.
-/// Изменить и удалить пользователя может только он сам.
+/// Изменить и удалить пользователя может только он сам; список с ролями приложения — только AppAdmin.
 /// </summary>
 public interface IServiceUser
 {
@@ -29,6 +32,7 @@ public interface IServiceUser
     Task<ResponseInfo<UserDeleteResponse>> DeleteAsync(UserDeleteRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<UserInfoPageResponse>> DisplayInfoPageAsync(UserInfoPageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<UserListPageResponse>> DisplayListPageAsync(UserListPageRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<UserAdminListPageResponse>> DisplayAdminListPageAsync(UserAdminListPageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<UserSearchResponse>> SearchAsync(UserSearchRequest request, CancellationToken cancellationToken = default);
 }
 
@@ -38,6 +42,10 @@ public class ServiceUser : IServiceUser
     private readonly ICurrentUser currentUser;
     private readonly IPasswordHasher passwordHasher;
     private readonly IEmailPort emailPort;
+    private readonly IUserAccessPort userAccessPort;
+    private readonly IUserNotifyPort userNotifyPort;
+    private readonly IUserPolicy userPolicy;
+    private readonly IDomainEventPublisher domainEventPublisher;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<ServiceUser> logger;
 
@@ -46,6 +54,10 @@ public class ServiceUser : IServiceUser
         ICurrentUser currentUser,
         IPasswordHasher passwordHasher,
         IEmailPort emailPort,
+        IUserAccessPort userAccessPort,
+        IUserNotifyPort userNotifyPort,
+        IUserPolicy userPolicy,
+        IDomainEventPublisher domainEventPublisher,
         TimeProvider timeProvider,
         ILogger<ServiceUser> logger)
     {
@@ -53,6 +65,10 @@ public class ServiceUser : IServiceUser
         this.currentUser = currentUser;
         this.passwordHasher = passwordHasher;
         this.emailPort = emailPort;
+        this.userAccessPort = userAccessPort;
+        this.userNotifyPort = userNotifyPort;
+        this.userPolicy = userPolicy;
+        this.domainEventPublisher = domainEventPublisher;
         this.timeProvider = timeProvider;
         this.logger = logger;
     }
@@ -141,6 +157,8 @@ public class ServiceUser : IServiceUser
             {
                 logger.LogWarning("{Message}", emailResult.MessageInfo.MessageText);
             }
+
+            await userNotifyPort.NotifyUserAccessChangedAsync(model.Id, cancellationToken);
 
             logger.LogInformation(UserCrudTexts.Messages.Success.CreateCompleted);
             return ResponseInfo.Success(UserMapper.ToCreatePageResponse(model), MessageType.SAVED, UserCrudTexts.Messages.Success.CreateCompleted);
@@ -413,8 +431,34 @@ public class ServiceUser : IServiceUser
                 return ResponseInfo.Forbidden<UserDeleteResponse>(MessageType.FORBIDDEN, messageText);
             }
 
-            model!.IsDeleted = true;
+            var appAdminOptions = AppRoleMapper.ToQueryOptions(roleName: RoleNames.AppAdmin);
+            var appAdmins = await unitOfWork.AppRoleAssignments.GetListAsync(appAdminOptions, cancellationToken);
+            var appAdminUserIds = appAdmins.Select(assignment => assignment.UserId).ToHashSet();
+            List<string> lastAdminPlaces = [];
+            if (AppRoleCrudValidators.ValidateDomainLastAppAdmin(appAdminUserIds.Contains(model!.Id), appAdminUserIds.Count).Any())
+            {
+                lastAdminPlaces.Add(UserCrudTexts.Messages.Validation.LastAppAdminPlace);
+            }
+
+            lastAdminPlaces.AddRange(await userAccessPort.GetLastAdminPlacesAsync(model.Id, cancellationToken));
+            var domainErrors = UserCrudValidators.ValidateDomainDelete(lastAdminPlaces);
+            if (domainErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, domainErrors);
+                var messageText = $"{UserCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", UserCrudTexts.Messages.Error.DeleteError, errors);
+                return ResponseInfo.Invalid<UserDeleteResponse>(MessageType.INVALID, messageText);
+            }
+
+            model.IsDeleted = true;
             await unitOfWork.Users.UpdateAsync(model, cancellationToken);
+            var ownRoleOptions = AppRoleMapper.ToQueryOptions(userId: model.Id);
+            var ownRoles = await unitOfWork.AppRoleAssignments.GetListAsync(ownRoleOptions, cancellationToken);
+            foreach (var ownRole in ownRoles)
+            {
+                await unitOfWork.AppRoleAssignments.DeleteAsync(ownRole, cancellationToken);
+            }
+
             var tokenOptions = new RefreshTokenQueryOptions
             {
                 UserId = model.Id,
@@ -428,6 +472,9 @@ public class ServiceUser : IServiceUser
             }
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var userDeleted = UserMapper.ToDeletedEvent(model.Id);
+            await domainEventPublisher.PublishAsync(userDeleted, cancellationToken);
 
             var response = new UserDeleteResponse { IsDeleted = true };
             logger.LogInformation(UserCrudTexts.Messages.Success.DeleteCompleted);
@@ -521,11 +568,7 @@ public class ServiceUser : IServiceUser
                 return ResponseInfo.Unauthorized<UserListPageResponse>(MessageType.UNAUTHORIZED, messageText);
             }
 
-            var userOptions = new UserQueryOptions
-            {
-                Ids = request.Ids,
-                IsDeleted = false,
-            };
+            var userOptions = UserMapper.ToQueryOptions(request.Ids, request.IncludeDeleted);
             var models = await unitOfWork.Users.GetListAsync(userOptions, cancellationToken);
             ICollection<UserListModel> rows = [.. models.Select(UserMapper.ToListModel)];
             var response = new UserListPageResponse
@@ -547,6 +590,72 @@ public class ServiceUser : IServiceUser
         {
             logger.LogError(exception, "{Message}", UserCrudTexts.Messages.Error.DisplayListError);
             return ResponseInfo.Error<UserListPageResponse>(MessageType.ERROR, UserCrudTexts.Messages.Error.DisplayListError);
+        }
+    }
+
+    /// <summary>Список пользователей с ролью приложения и правами текущего админа на неё; только для AppAdmin.</summary>
+    public async Task<ResponseInfo<UserAdminListPageResponse>> DisplayAdminListPageAsync(UserAdminListPageRequest request, CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(UserCrudTexts.Messages.Start.DisplayAdminListLoading);
+
+        try
+        {
+            var primaryErrors = UserCrudValidators.ValidatePrimaryAdminListPageRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{UserCrudTexts.Messages.Error.DisplayAdminListError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", UserCrudTexts.Messages.Error.DisplayAdminListError, errors);
+                return ResponseInfo.BadRequest<UserAdminListPageResponse>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var user = await GetCurrentUserAsync(cancellationToken);
+            var currentUserErrors = UserCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{UserCrudTexts.Messages.Error.DisplayAdminListError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", UserCrudTexts.Messages.Error.DisplayAdminListError, errors);
+                return ResponseInfo.Unauthorized<UserAdminListPageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
+            var canRead = await userPolicy.CanReadAsync(user!.Id, cancellationToken);
+            var accessErrors = UserCrudValidators.ValidateAccessRead(canRead);
+            if (accessErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessErrors);
+                var messageText = $"{UserCrudTexts.Messages.Error.DisplayAdminListError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", UserCrudTexts.Messages.Error.DisplayAdminListError, errors);
+                return ResponseInfo.Forbidden<UserAdminListPageResponse>(MessageType.FORBIDDEN, messageText);
+            }
+
+            var canGrant = await userPolicy.CanGrantAppAdminAsync(user.Id, cancellationToken);
+            var canRevoke = await userPolicy.CanRevokeAppAdminAsync(user.Id, cancellationToken);
+            var userOptions = UserMapper.ToQueryOptions(request.Ids, request.IncludeDeleted);
+            var models = await unitOfWork.Users.GetListAsync(userOptions, cancellationToken);
+            var appAdminOptions = AppRoleMapper.ToQueryOptions(roleName: RoleNames.AppAdmin);
+            var appAdmins = await unitOfWork.AppRoleAssignments.GetListAsync(appAdminOptions, cancellationToken);
+            var appAdminUserIds = appAdmins.Select(assignment => assignment.UserId).ToHashSet();
+            ICollection<UserAdminListModel> rows =
+            [
+                .. models
+                    .OrderBy(model => model.Login)
+                    .Select(model => UserMapper.ToAdminListModel(model, appAdminUserIds, user.Id, canGrant, canRevoke)),
+            ];
+            var response = UserMapper.ToAdminListPageResponse(rows);
+
+            logger.LogInformation(UserCrudTexts.Messages.Success.DisplayAdminListCompleted);
+            return ResponseInfo.Success(response, MessageType.LOADED, UserCrudTexts.Messages.Success.DisplayAdminListCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(UserCrudTexts.Messages.Canceled.DisplayAdminList);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", UserCrudTexts.Messages.Error.DisplayAdminListError);
+            return ResponseInfo.Error<UserAdminListPageResponse>(MessageType.ERROR, UserCrudTexts.Messages.Error.DisplayAdminListError);
         }
     }
 

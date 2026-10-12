@@ -86,6 +86,7 @@ public sealed class UserMapperTests
         Assert.Equal(user.Id, model.Id);
         Assert.Equal(user.Login, model.Login);
         Assert.Equal(user.Name, model.Name);
+        Assert.False(model.IsDeleted);
     }
 
     [Fact]
@@ -93,13 +94,81 @@ public sealed class UserMapperTests
     {
         var user = CreateUser();
 
-        var response = UserMapper.ToProfileResponse(user);
+        var response = UserMapper.ToProfileResponse(user, canManageUsers: true);
 
         Assert.Equal(user.Id, response.Id);
         Assert.Equal(user.Login, response.Login);
         Assert.Equal(user.Email, response.Email);
         Assert.Equal(user.Name, response.Name);
+        Assert.True(response.CanManageUsers);
         Assert.DoesNotContain(typeof(Services.Security.Models.AccountProfileResponse).GetProperties(), property => property.Name == nameof(User.PasswordHash));
+    }
+
+    [Fact]
+    public void QueryOptions_Map_WithIncludeDeleted_ShouldNotFilterByDeleted()
+    {
+        Assert.Null(UserMapper.ToQueryOptions(null, includeDeleted: true).IsDeleted);
+        Assert.False(UserMapper.ToQueryOptions(null, includeDeleted: false).IsDeleted);
+    }
+
+    [Fact]
+    public void AdminListModel_Map_WithOtherActiveUser_ShouldAllowGrantOnly()
+    {
+        var user = CreateUser();
+        var currentUserId = Guid.CreateVersion7();
+        HashSet<Guid> appAdmins = [currentUserId];
+
+        var model = UserMapper.ToAdminListModel(user, appAdmins, currentUserId, canGrant: true, canRevoke: true);
+
+        Assert.False(model.IsAppAdmin);
+        Assert.True(model.CanGrantAppAdmin);
+        Assert.False(model.CanRevokeAppAdmin);
+        Assert.Equal(user.Email, model.Email);
+        Assert.True(model.IsEmailConfirmed);
+    }
+
+    [Fact]
+    public void AdminListModel_Map_WithSelfAsLastAdmin_ShouldForbidGrantAndRevoke()
+    {
+        var user = CreateUser();
+        HashSet<Guid> appAdmins = [user.Id];
+
+        var model = UserMapper.ToAdminListModel(user, appAdmins, user.Id, canGrant: true, canRevoke: true);
+
+        Assert.True(model.IsAppAdmin);
+        Assert.False(model.CanGrantAppAdmin);
+        Assert.False(model.CanRevokeAppAdmin);
+    }
+
+    [Fact]
+    public void AdminListModel_Map_WithSelfAndAnotherAdmin_ShouldAllowRevokeSelf()
+    {
+        var user = CreateUser();
+        HashSet<Guid> appAdmins = [user.Id, Guid.CreateVersion7()];
+
+        var model = UserMapper.ToAdminListModel(user, appAdmins, user.Id, canGrant: true, canRevoke: true);
+
+        Assert.True(model.CanRevokeAppAdmin);
+    }
+
+    [Fact]
+    public void AdminListModel_Map_WithDeletedUser_ShouldForbidGrant()
+    {
+        var user = CreateUser();
+        user.IsDeleted = true;
+
+        var model = UserMapper.ToAdminListModel(user, new HashSet<Guid>(), Guid.CreateVersion7(), canGrant: true, canRevoke: true);
+
+        Assert.True(model.IsDeleted);
+        Assert.False(model.CanGrantAppAdmin);
+    }
+
+    [Fact]
+    public void DeletedEvent_Map_WithUserId_ShouldCopyUserId()
+    {
+        var userId = Guid.CreateVersion7();
+
+        Assert.Equal(userId, UserMapper.ToDeletedEvent(userId).UserId);
     }
 
     [Fact]

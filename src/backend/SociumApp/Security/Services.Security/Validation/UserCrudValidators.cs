@@ -117,6 +117,31 @@ public static partial class UserCrudValidators
         }
     }
 
+    public static IEnumerable<string> ValidatePrimaryAdminListPageRequest(UserAdminListPageRequest? request)
+    {
+        if (request == null)
+        {
+            yield return UserCrudTexts.Messages.Validation.RequestCannotBeNull;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessRead(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return UserCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    /// <summary>Хотя бы один админ везде: удалить последнего админа приложения, комнаты или чата нельзя.</summary>
+    public static IEnumerable<string> ValidateDomainDelete(ICollection<string> lastAdminPlaces)
+    {
+        if (lastAdminPlaces.Count > 0)
+        {
+            yield return $"{UserCrudTexts.Messages.Validation.LastAdminCannotDelete} {string.Join("; ", lastAdminPlaces)}.";
+        }
+    }
+
     public static IEnumerable<string> ValidatePrimarySearchRequest(UserSearchRequest? request)
     {
         if (request == null)

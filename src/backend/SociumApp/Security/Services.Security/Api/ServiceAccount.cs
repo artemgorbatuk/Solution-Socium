@@ -6,6 +6,7 @@ using Services.Security.Mapping;
 using Services.Security.Models;
 using Services.Security.Normalizers;
 using Services.Security.Passwords.Providers;
+using Services.Security.Policies;
 using Services.Security.Ports;
 using Services.Security.Texts;
 using Services.Security.Tokens.Providers;
@@ -43,6 +44,7 @@ public class ServiceAccount : IServiceAccount
     private readonly IAccessTokenProvider accessTokenProvider;
     private readonly IRefreshTokenProvider refreshTokenProvider;
     private readonly IEmailPort emailPort;
+    private readonly IUserPolicy userPolicy;
     private readonly IDomainEventPublisher domainEventPublisher;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<ServiceAccount> logger;
@@ -54,6 +56,7 @@ public class ServiceAccount : IServiceAccount
         IAccessTokenProvider accessTokenProvider,
         IRefreshTokenProvider refreshTokenProvider,
         IEmailPort emailPort,
+        IUserPolicy userPolicy,
         IDomainEventPublisher domainEventPublisher,
         TimeProvider timeProvider,
         ILogger<ServiceAccount> logger)
@@ -64,6 +67,7 @@ public class ServiceAccount : IServiceAccount
         this.accessTokenProvider = accessTokenProvider;
         this.refreshTokenProvider = refreshTokenProvider;
         this.emailPort = emailPort;
+        this.userPolicy = userPolicy;
         this.domainEventPublisher = domainEventPublisher;
         this.timeProvider = timeProvider;
         this.logger = logger;
@@ -227,7 +231,8 @@ public class ServiceAccount : IServiceAccount
                 return ResponseInfo.Unauthorized<AccountProfileResponse>(MessageType.UNAUTHORIZED, messageText);
             }
 
-            var response = UserMapper.ToProfileResponse(user!);
+            var canManageUsers = await userPolicy.CanReadAsync(user!.Id, cancellationToken);
+            var response = UserMapper.ToProfileResponse(user, canManageUsers);
             logger.LogInformation(AccountTexts.Messages.Success.DisplayProfileCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, AccountTexts.Messages.Success.DisplayProfileCompleted);
         }
@@ -289,7 +294,8 @@ public class ServiceAccount : IServiceAccount
                 await domainEventPublisher.PublishAsync(userChanged, cancellationToken);
             }
 
-            var response = UserMapper.ToProfileResponse(user);
+            var canManageUsers = await userPolicy.CanReadAsync(user.Id, cancellationToken);
+            var response = UserMapper.ToProfileResponse(user, canManageUsers);
             logger.LogInformation(AccountTexts.Messages.Success.ProfileUpdateCompleted);
             return ResponseInfo.Success(response, MessageType.SAVED, AccountTexts.Messages.Success.ProfileUpdateCompleted);
         }
@@ -512,6 +518,7 @@ public class ServiceAccount : IServiceAccount
             RefreshTokenMapper.Revoke(previous, now, model.Id);
         }
 
+        var canManageUsers = await userPolicy.CanReadAsync(user.Id, cancellationToken);
         return new AccountTokenResponse
         {
             AccessToken = accessToken.Token,
@@ -519,7 +526,7 @@ public class ServiceAccount : IServiceAccount
             RefreshToken = refreshToken.Token,
             RefreshTokenExpiresAt = refreshToken.ExpiresAt,
             IsPersistent = isPersistent,
-            User = UserMapper.ToProfileResponse(user),
+            User = UserMapper.ToProfileResponse(user, canManageUsers),
         };
     }
 

@@ -88,6 +88,11 @@ public class ChatNotifyPort : IChatNotifyPort
             },
             cancellationToken);
 
+    public Task NotifyUserAccessChangedAsync(Guid userId, CancellationToken cancellationToken = default)
+        => serviceChatNotify.NotifyUserAccessChangedAsync(
+            new UserAccessChangedNotifyModel { UserId = userId },
+            cancellationToken);
+
     private static ChatMessageNotifyModel ToRealtime(ChatNotifyMessageModel message) => new()
     {
         ChatId = message.ChatId,

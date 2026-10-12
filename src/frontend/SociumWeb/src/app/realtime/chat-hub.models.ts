@@ -48,6 +48,11 @@ export interface UserChangedNotify {
   name: string;
 }
 
+/** Изменились роли пользователя или список пользователей; сами роли — через REST. */
+export interface UserAccessChangedNotify {
+  userId: string;
+}
+
 export type RoomChangedKind = 'created' | 'updated' | 'deleted';
 
 export interface RoomChangedNotify {

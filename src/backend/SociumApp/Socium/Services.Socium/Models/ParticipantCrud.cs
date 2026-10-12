@@ -25,6 +25,13 @@ public class ParticipantUpdateRequest
     public required bool IsAdmin { get; set; }
 }
 
+/// <summary>Смена роли админа в текущем UoW без SaveChanges; инвариант «последний админ» проверяет вызывающий.</summary>
+public class ParticipantUpdateStageRequest
+{
+    public required Guid Id { get; set; }
+    public required bool IsAdmin { get; set; }
+}
+
 public class ParticipantUpdateResponse
 {
     public required Guid Id { get; set; }
@@ -55,6 +62,20 @@ public class ParticipantDeleteRequest
 public class ParticipantDeleteResponse
 {
     public required bool IsDeleted { get; set; }
+}
+
+/// <summary>Исключение в текущем UoW без SaveChanges: роли чата и строка участника; инварианты проверяет вызывающий.</summary>
+public class ParticipantDeleteStageRequest
+{
+    public required Guid Id { get; set; }
+}
+
+/// <summary>Кого исключили — для уведомлений после SaveChanges.</summary>
+public class ParticipantDeleteStageResponse
+{
+    public required Guid Id { get; set; }
+    public required Guid ChatId { get; set; }
+    public required Guid UserId { get; set; }
 }
 
 public class ParticipantListPageRequest

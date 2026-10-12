@@ -16,6 +16,8 @@ public interface IChatNotifyPort
     Task NotifyRoomChangedAsync(ChatNotifyRoomChangedModel change, CancellationToken cancellationToken = default);
     Task NotifyChatChangedAsync(ChatNotifyChatChangedModel change, CancellationToken cancellationToken = default);
     Task NotifyJoinRequestChangedAsync(ChatNotifyJoinRequestChangedModel change, CancellationToken cancellationToken = default);
+    /// <summary>Роли комнаты или чата пользователя изменились — всем подключениям (страницы доступов, сайдбар).</summary>
+    Task NotifyUserAccessChangedAsync(Guid userId, CancellationToken cancellationToken = default);
 }
 
 public class ChatNotifyMessageModel

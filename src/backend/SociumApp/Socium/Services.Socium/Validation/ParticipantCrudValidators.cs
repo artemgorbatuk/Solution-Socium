@@ -83,10 +83,39 @@ public static class ParticipantCrudValidators
 
     public static IEnumerable<string> ValidateDomainUpdateRequest(ParticipantUpdateRequest request, bool targetIsAdmin, int adminCount)
     {
-        var isRevoking = targetIsAdmin && !request.IsAdmin;
-        if (isRevoking && adminCount <= 1)
+        return request.IsAdmin ? [] : ValidateDomainLastChatAdmin(targetIsAdmin, adminCount);
+    }
+
+    /// <summary>У чата всегда остаётся хотя бы один админ — для снятия роли со страницы чата и со страницы <c>/users</c>.</summary>
+    public static IEnumerable<string> ValidateDomainLastChatAdmin(bool targetIsAdmin, int adminCount)
+    {
+        if (targetIsAdmin && adminCount <= 1)
         {
             yield return ParticipantCrudTexts.Messages.Validation.LastAdminCannotRevoke;
+        }
+    }
+
+    public static IEnumerable<string> ValidatePrimaryUpdateStageRequest(ParticipantUpdateStageRequest? request)
+    {
+        if (request == null)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.RequestCannotBeNull;
+        }
+        else if (request.Id == Guid.Empty)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.IdCannotBeEmpty;
+        }
+    }
+
+    public static IEnumerable<string> ValidatePrimaryDeleteStageRequest(ParticipantDeleteStageRequest? request)
+    {
+        if (request == null)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.RequestCannotBeNull;
+        }
+        else if (request.Id == Guid.Empty)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.IdCannotBeEmpty;
         }
     }
 

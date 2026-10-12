@@ -82,7 +82,7 @@ public static class MessageMapper
             Text = model.Text,
             CreatedAt = model.CreatedAt,
             SenderUserId = model.Sender.UserId,
-            SenderName = sender?.Name ?? UserPortTexts.DeletedUserName,
+            SenderName = UserPortMapper.ToDisplayName(sender),
             CanUpdate = canUpdate,
             CanDelete = canDelete,
             Attachments = attachments ?? [],

@@ -24,4 +24,9 @@ public static class PermissionNames
     public const string MessageRead = "Message.Read";
     public const string MessageUpdate = "Message.Update";
     public const string MessageDelete = "Message.Delete";
+
+    public const string UserRead = "User.Read";
+    public const string UserAccessManage = "UserAccess.Manage";
+    public const string AppAdminGrant = "AppAdmin.Grant";
+    public const string AppAdminRevoke = "AppAdmin.Revoke";
 }

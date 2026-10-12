@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard } from './account/auth.guard';
+import { authGuard, guestGuard, usersGuard } from './account/auth.guard';
 import { CheckEmailPage } from './account/check-email-page/check-email-page';
 import { ConfirmEmailPage } from './account/confirm-email-page/confirm-email-page';
 import { ForgotPasswordPage } from './account/forgot-password-page/forgot-password-page';
@@ -22,6 +22,16 @@ export const routes: Routes = [
     children: [
       { path: '', component: HomePage },
       { path: 'chat/:id', component: ChatPage },
+      {
+        path: 'users',
+        canActivate: [usersGuard],
+        loadComponent: () => import('./users/users-page/users-page').then((m) => m.UsersPage),
+      },
+      {
+        path: 'users/:id',
+        canActivate: [usersGuard],
+        loadComponent: () => import('./users/user-access-page/user-access-page').then((m) => m.UserAccessPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

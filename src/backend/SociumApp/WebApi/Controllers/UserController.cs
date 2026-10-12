@@ -94,6 +94,15 @@ public class UserController : ApiControllerBase
         return FromResponse(responseInfo);
     }
 
+    [HttpGet("admin")]
+    public async Task<IActionResult> AdminList(
+        [FromQuery] UserAdminListPageRequest request,
+        CancellationToken cancellationToken)
+    {
+        var responseInfo = await serviceUser.DisplayAdminListPageAsync(request, cancellationToken);
+        return FromResponse(responseInfo);
+    }
+
     [HttpGet("search")]
     public async Task<IActionResult> Search(
         [FromQuery] UserSearchRequest request,

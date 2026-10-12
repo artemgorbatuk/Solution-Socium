@@ -61,6 +61,8 @@ public class AccountProfileResponse
     public required string Login { get; set; }
     public required string Email { get; set; }
     public required string Name { get; set; }
+    /// <summary><c>UserRead</c> — только для показа иконки «Пользователи»; сервер проверяет права на каждый запрос.</summary>
+    public required bool CanManageUsers { get; set; }
 }
 
 public class AccountProfileUpdateRequest

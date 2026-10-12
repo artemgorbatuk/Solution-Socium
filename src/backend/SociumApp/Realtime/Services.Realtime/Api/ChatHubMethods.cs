@@ -15,6 +15,7 @@ public static class ChatHubMethods
     public const string RoomChanged = "roomChanged";
     public const string ChatChanged = "chatChanged";
     public const string UserChanged = "userChanged";
+    public const string UserAccessChanged = "userAccessChanged";
     public const string JoinRequestChanged = "joinRequestChanged";
     public const string TypingStarted = "typingStarted";
     public const string TypingStopped = "typingStopped";

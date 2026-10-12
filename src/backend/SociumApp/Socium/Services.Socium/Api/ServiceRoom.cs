@@ -22,6 +22,7 @@ public interface IServiceRoom
     Task<ResponseInfo<RoomCreatePageResponse>> DisplayCreatePageAsync(RoomCreatePageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<RoomCreatePageResponse>> CreateAsync(RoomCreateRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<object>> AssignRoomAdminStageAsync(RoomAssignRoomAdminStageRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<object>> RevokeRoomAdminStageAsync(RoomRevokeRoomAdminStageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<RoomUpdatePageResponse>> DisplayUpdatePageAsync(RoomUpdatePageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<RoomUpdatePageResponse>> UpdateAsync(RoomUpdateRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<RoomDeletePageResponse>> DisplayDeletePageAsync(RoomDeletePageRequest request, CancellationToken cancellationToken = default);
@@ -222,6 +223,52 @@ public class ServiceRoom : IServiceRoom
         {
             logger.LogError(exception, "{Message}", RoomCrudTexts.Messages.Error.AssignRoomAdminStageError);
             return ResponseInfo.Error<object>(MessageType.ERROR, RoomCrudTexts.Messages.Error.AssignRoomAdminStageError);
+        }
+    }
+
+    public async Task<ResponseInfo<object>> RevokeRoomAdminStageAsync(RoomRevokeRoomAdminStageRequest request, CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(RoomCrudTexts.Messages.Start.RevokeRoomAdminStaging);
+
+        try
+        {
+            var primaryErrors = RoomCrudValidators.ValidatePrimaryRevokeRoomAdminStageRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.RevokeRoomAdminStageError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.RevokeRoomAdminStageError, errors);
+                return ResponseInfo.BadRequest<object>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var model = await unitOfWork.RoomRoleAssignments.GetSingleOrDefaultAsync(
+                request.UserId,
+                request.RoomId,
+                RoleNames.RoomAdmin,
+                cancellationToken);
+            var domainErrors = RoomCrudValidators.ValidateDomainRevokeRoomAdminStage(model);
+            if (domainErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, domainErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.RevokeRoomAdminStageError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.RevokeRoomAdminStageError, errors);
+                return ResponseInfo.Invalid<object>(MessageType.INVALID, messageText);
+            }
+
+            await unitOfWork.RoomRoleAssignments.DeleteAsync(model!, cancellationToken);
+
+            logger.LogInformation(RoomCrudTexts.Messages.Success.RevokeRoomAdminStageCompleted);
+            return ResponseInfo.Success<object>(MessageType.SAVED, RoomCrudTexts.Messages.Success.RevokeRoomAdminStageCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(RoomCrudTexts.Messages.Canceled.RevokeRoomAdminStage);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", RoomCrudTexts.Messages.Error.RevokeRoomAdminStageError);
+            return ResponseInfo.Error<object>(MessageType.ERROR, RoomCrudTexts.Messages.Error.RevokeRoomAdminStageError);
         }
     }
 

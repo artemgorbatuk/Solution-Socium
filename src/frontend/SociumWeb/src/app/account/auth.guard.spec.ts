@@ -4,7 +4,8 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { successBody } from '../shared/api/api-response.testing';
-import { authGuard, guestGuard } from './auth.guard';
+import { Auth } from './auth';
+import { authGuard, guestGuard, usersGuard } from './auth.guard';
 import { tokenResponse } from './auth.testing';
 import { safeReturnUrl } from './login-redirect';
 
@@ -37,7 +38,15 @@ describe('authGuard and guestGuard', () => {
         provideHttpClientTesting(),
         provideRouter([
           { path: 'login', component: Blank, canActivate: [guestGuard] },
-          { path: '', canActivate: [authGuard], children: [{ path: '', component: Blank }, { path: 'chat/:id', component: Blank }] },
+          {
+            path: '',
+            canActivate: [authGuard],
+            children: [
+              { path: '', component: Blank },
+              { path: 'chat/:id', component: Blank },
+              { path: 'users', component: Blank, canActivate: [usersGuard] },
+            ],
+          },
         ]),
       ],
     });
@@ -88,6 +97,22 @@ describe('authGuard and guestGuard', () => {
 
     expect(router.url).toBe('/login?returnUrl=%2Fchat%2Fc1');
     http.expectNone('/api/account/refresh');
+  });
+
+  it('UsersGuard_Navigate_WithOrdinaryUser_ShouldOpenRoot', async () => {
+    TestBed.inject(Auth).start(tokenResponse('u1'));
+
+    await navigate('/users');
+
+    expect(router.url).toBe('/');
+  });
+
+  it('UsersGuard_Navigate_WithAppAdmin_ShouldOpenUsers', async () => {
+    TestBed.inject(Auth).start(tokenResponse('u1', undefined, undefined, true));
+
+    await navigate('/users');
+
+    expect(router.url).toBe('/users');
   });
 
   it('SafeReturnUrl_Check_WithForeignOrLoginAddress_ShouldFallBackToRoot', () => {

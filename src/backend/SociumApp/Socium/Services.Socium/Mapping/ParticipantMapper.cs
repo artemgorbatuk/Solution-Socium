@@ -36,6 +36,33 @@ public static class ParticipantMapper
         };
     }
 
+    public static ParticipantUpdateStageRequest ToUpdateStageRequest(Guid id, bool isAdmin)
+    {
+        return new ParticipantUpdateStageRequest
+        {
+            Id = id,
+            IsAdmin = isAdmin,
+        };
+    }
+
+    public static ParticipantDeleteStageRequest ToDeleteStageRequest(Guid id)
+    {
+        return new ParticipantDeleteStageRequest
+        {
+            Id = id,
+        };
+    }
+
+    public static ParticipantDeleteStageResponse ToDeleteStageResponse(Guid id, Guid chatId, Guid userId)
+    {
+        return new ParticipantDeleteStageResponse
+        {
+            Id = id,
+            ChatId = chatId,
+            UserId = userId,
+        };
+    }
+
     public static ParticipantCreateResponse ToCreateResponse(Participant model)
     {
         return new ParticipantCreateResponse
@@ -70,7 +97,7 @@ public static class ParticipantMapper
             Id = model.Id,
             UserId = model.UserId,
             Login = user?.Login ?? string.Empty,
-            Name = user?.Name ?? UserPortTexts.DeletedUserName,
+            Name = UserPortMapper.ToDisplayName(user),
             IsAdmin = isAdmin,
         };
     }

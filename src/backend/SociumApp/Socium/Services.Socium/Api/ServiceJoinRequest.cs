@@ -271,6 +271,7 @@ public class ServiceJoinRequest : IServiceJoinRequest
                 targetUser?.Name ?? UserPortTexts.DeletedUserName,
                 isAdmin: false);
             await chatNotifyPort.NotifyParticipantJoinedAsync(joinedNotify, cancellationToken);
+            await chatNotifyPort.NotifyUserAccessChangedAsync(joinRequest.UserId, cancellationToken);
 
             var pendingCount = await unitOfWork.JoinRequests.CountAsync(
                 JoinRequestMapper.ToQueryOptions(chatId: joinRequest.ChatId, status: JoinRequestStatus.Pending),

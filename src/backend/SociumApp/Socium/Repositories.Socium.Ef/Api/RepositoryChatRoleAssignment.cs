@@ -1,6 +1,7 @@
 using Datasource.Socium.Ef.Contexts;
 using Datasource.Socium.Ef.Models;
 using Microsoft.EntityFrameworkCore;
+using Repositories.Socium.Ef.Options;
 
 namespace Repositories.Socium.Ef.Api;
 
@@ -16,6 +17,7 @@ public interface IRepositoryChatRoleAssignment
     Task<int> CountByChatAndRoleAsync(Guid chatId, string roleName, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Guid>> GetUserIdsByChatAndRoleAsync(Guid chatId, string roleName, CancellationToken cancellationToken = default);
     Task<ChatRoleAssignment?> GetSingleOrDefaultAsync(Guid userId, Guid chatId, string roleName, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ChatRoleAssignment>> GetListAsync(ChatRoleAssignmentQueryOptions? options = null, CancellationToken cancellationToken = default);
 }
 
 public class RepositoryChatRoleAssignment : IRepositoryChatRoleAssignment
@@ -113,5 +115,24 @@ public class RepositoryChatRoleAssignment : IRepositoryChatRoleAssignment
                     && assignment.ChatId == chatId
                     && assignment.RoleName == roleName,
                 cancellationToken);
+    }
+
+    public async Task<IEnumerable<ChatRoleAssignment>> GetListAsync(ChatRoleAssignmentQueryOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var query = context.ChatRoleAssignments.AsNoTracking();
+
+        if (options?.UserId is Guid userId)
+        {
+            query = query.Where(assignment => assignment.UserId == userId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(options?.RoleName))
+        {
+            query = query.Where(assignment => assignment.RoleName == options.RoleName);
+        }
+
+        return await query
+            .OrderBy(assignment => assignment.Id)
+            .ToListAsync(cancellationToken);
     }
 }

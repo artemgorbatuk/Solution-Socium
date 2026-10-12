@@ -127,7 +127,7 @@ export class ChatPage {
       });
     });
     inject(DestroyRef).onDestroy(() => {
-      this.topbarTitle.text.set(null);
+      this.topbarTitle.clear();
       this.participantsPanel.available.set(false);
       this.participantsPanel.requestsAvailable.set(false);
       this.participantsPanel.pendingJoinRequestCount.set(0);

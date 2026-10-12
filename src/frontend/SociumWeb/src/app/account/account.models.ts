@@ -7,6 +7,8 @@ export interface AccountProfile {
   login: string;
   email: string;
   name: string;
+  /** Только для показа иконки «Пользователи» и guard `/users`; сервер проверяет права сам. */
+  canManageUsers: boolean;
 }
 
 export interface AccountLoginRequest {

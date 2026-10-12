@@ -31,7 +31,11 @@ public static class RoleCatalog
                     Grant(PermissionNames.RoomCreate),
                     Grant(PermissionNames.RoomRead),
                     Grant(PermissionNames.RoomAdminGrant),
-                    Grant(PermissionNames.RoomAdminRevoke)
+                    Grant(PermissionNames.RoomAdminRevoke),
+                    Grant(PermissionNames.UserRead),
+                    Grant(PermissionNames.UserAccessManage),
+                    Grant(PermissionNames.AppAdminGrant),
+                    Grant(PermissionNames.AppAdminRevoke)
                 ]
             },
             [RoleNames.RoomAdmin] = new RoleDefinition

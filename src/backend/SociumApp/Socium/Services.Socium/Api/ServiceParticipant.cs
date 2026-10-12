@@ -18,8 +18,10 @@ public interface IServiceParticipant
     Task<ResponseInfo<ParticipantCreateResponse>> CreateAsync(ParticipantCreateRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ParticipantCreateResponse>> CreateStageAsync(ParticipantCreateStageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ParticipantUpdateResponse>> UpdateAsync(ParticipantUpdateRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<ParticipantUpdateResponse>> UpdateStageAsync(ParticipantUpdateStageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ParticipantDeletePageResponse>> DisplayDeletePageAsync(ParticipantDeletePageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ParticipantDeleteResponse>> DeleteAsync(ParticipantDeleteRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<ParticipantDeleteStageResponse>> DeleteStageAsync(ParticipantDeleteStageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ParticipantListPageResponse>> DisplayListPageAsync(ParticipantListPageRequest request, CancellationToken cancellationToken = default);
 }
 
@@ -144,6 +146,7 @@ public class ServiceParticipant : IServiceParticipant
                 targetUser.Name,
                 becameAdmin);
             await chatNotifyPort.NotifyParticipantJoinedAsync(joinedNotify, cancellationToken);
+            await chatNotifyPort.NotifyUserAccessChangedAsync(targetUser.Id, cancellationToken);
 
             logger.LogInformation(ParticipantCrudTexts.Messages.Success.CreateCompleted);
             return ResponseInfo.Success(staged.Response, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.CreateCompleted);
@@ -286,18 +289,11 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.Invalid<ParticipantUpdateResponse>(MessageType.INVALID, messageText);
             }
 
-            if (request.IsAdmin)
+            var stageRequest = ParticipantMapper.ToUpdateStageRequest(model.Id, request.IsAdmin);
+            var staged = await UpdateStageAsync(stageRequest, cancellationToken);
+            if (staged.MessageInfo.MessageType != MessageType.SAVED)
             {
-                if (adminAssignment is null)
-                {
-                    var created = unitOfWork.ChatRoleAssignments.GetNew();
-                    ChatRoleAssignmentMapper.Apply(created, model.UserId, model.ChatId, RoleNames.ChatAdmin);
-                    await unitOfWork.ChatRoleAssignments.CreateAsync(created, cancellationToken);
-                }
-            }
-            else if (adminAssignment is not null)
-            {
-                await unitOfWork.ChatRoleAssignments.DeleteAsync(adminAssignment, cancellationToken);
+                return staged;
             }
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -311,10 +307,10 @@ public class ServiceParticipant : IServiceParticipant
                 targetUser?.Name ?? string.Empty,
                 request.IsAdmin);
             await chatNotifyPort.NotifyParticipantRoleChangedAsync(roleChangedNotify, cancellationToken);
+            await chatNotifyPort.NotifyUserAccessChangedAsync(model.UserId, cancellationToken);
 
-            var response = ParticipantMapper.ToUpdateResponse(model, request.IsAdmin);
             logger.LogInformation(ParticipantCrudTexts.Messages.Success.UpdateCompleted);
-            return ResponseInfo.Success(response, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.UpdateCompleted);
+            return ResponseInfo.Success(staged.Response!, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.UpdateCompleted);
         }
         catch (OperationCanceledException)
         {
@@ -325,6 +321,65 @@ public class ServiceParticipant : IServiceParticipant
         {
             logger.LogError(exception, "{Message}", ParticipantCrudTexts.Messages.Error.UpdateError);
             return ResponseInfo.Error<ParticipantUpdateResponse>(MessageType.ERROR, ParticipantCrudTexts.Messages.Error.UpdateError);
+        }
+    }
+
+    public async Task<ResponseInfo<ParticipantUpdateResponse>> UpdateStageAsync(
+        ParticipantUpdateStageRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(ParticipantCrudTexts.Messages.Start.UpdateStaging);
+
+        try
+        {
+            var primaryErrors = ParticipantCrudValidators.ValidatePrimaryUpdateStageRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{ParticipantCrudTexts.Messages.Error.UpdateStageError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.UpdateStageError, errors);
+                return ResponseInfo.BadRequest<ParticipantUpdateResponse>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var model = await unitOfWork.Participants.GetSingleOrDefaultAsync(request.Id, cancellationToken);
+            var accessibilityErrors = ParticipantCrudValidators.ValidateAccessibilityParticipant(model);
+            if (accessibilityErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessibilityErrors);
+                var messageText = $"{ParticipantCrudTexts.Messages.Error.UpdateStageError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.UpdateStageError, errors);
+                return ResponseInfo.NotFound<ParticipantUpdateResponse>(MessageType.NOT_FOUND, messageText);
+            }
+
+            var adminAssignment = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
+                model!.UserId,
+                model.ChatId,
+                RoleNames.ChatAdmin,
+                cancellationToken);
+            if (request.IsAdmin && adminAssignment is null)
+            {
+                var created = unitOfWork.ChatRoleAssignments.GetNew();
+                ChatRoleAssignmentMapper.Apply(created, model.UserId, model.ChatId, RoleNames.ChatAdmin);
+                await unitOfWork.ChatRoleAssignments.CreateAsync(created, cancellationToken);
+            }
+            else if (!request.IsAdmin && adminAssignment is not null)
+            {
+                await unitOfWork.ChatRoleAssignments.DeleteAsync(adminAssignment, cancellationToken);
+            }
+
+            var response = ParticipantMapper.ToUpdateResponse(model, request.IsAdmin);
+            logger.LogInformation(ParticipantCrudTexts.Messages.Success.UpdateStageCompleted);
+            return ResponseInfo.Success(response, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.UpdateStageCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(ParticipantCrudTexts.Messages.Canceled.UpdateStage);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", ParticipantCrudTexts.Messages.Error.UpdateStageError);
+            return ResponseInfo.Error<ParticipantUpdateResponse>(MessageType.ERROR, ParticipantCrudTexts.Messages.Error.UpdateStageError);
         }
     }
 
@@ -602,29 +657,77 @@ public class ServiceParticipant : IServiceParticipant
 
     private async Task RemoveParticipantAsync(Guid participantId, CancellationToken cancellationToken)
     {
-        var model = await unitOfWork.Participants.GetSingleOrDefaultAsync(participantId, cancellationToken);
-        var leftChatId = model!.ChatId;
-        var leftParticipantId = model.Id;
-        var leftUserId = model.UserId;
-
-        var roleNames = await unitOfWork.ChatRoleAssignments.GetRoleNamesAsync(leftUserId, leftChatId, cancellationToken);
-        foreach (var roleName in roleNames)
+        var stageRequest = ParticipantMapper.ToDeleteStageRequest(participantId);
+        var staged = await DeleteStageAsync(stageRequest, cancellationToken);
+        if (staged.MessageInfo.MessageType != MessageType.SAVED)
         {
-            var assignment = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
-                leftUserId,
-                leftChatId,
-                roleName,
-                cancellationToken);
-            if (assignment is not null)
-            {
-                await unitOfWork.ChatRoleAssignments.DeleteAsync(assignment, cancellationToken);
-            }
+            throw new InvalidOperationException(staged.MessageInfo.MessageText);
         }
 
-        await unitOfWork.Participants.DeleteAsync(model, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        await chatNotifyPort.NotifyParticipantLeftAsync(leftChatId, leftParticipantId, leftUserId, cancellationToken);
+        var left = staged.Response!;
+        await chatNotifyPort.NotifyParticipantLeftAsync(left.ChatId, left.Id, left.UserId, cancellationToken);
+        await chatNotifyPort.NotifyUserAccessChangedAsync(left.UserId, cancellationToken);
+    }
+
+    public async Task<ResponseInfo<ParticipantDeleteStageResponse>> DeleteStageAsync(
+        ParticipantDeleteStageRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(ParticipantCrudTexts.Messages.Start.DeleteStaging);
+
+        try
+        {
+            var primaryErrors = ParticipantCrudValidators.ValidatePrimaryDeleteStageRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{ParticipantCrudTexts.Messages.Error.DeleteStageError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.DeleteStageError, errors);
+                return ResponseInfo.BadRequest<ParticipantDeleteStageResponse>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var model = await unitOfWork.Participants.GetSingleOrDefaultAsync(request.Id, cancellationToken);
+            var accessibilityErrors = ParticipantCrudValidators.ValidateAccessibilityParticipant(model);
+            if (accessibilityErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, accessibilityErrors);
+                var messageText = $"{ParticipantCrudTexts.Messages.Error.DeleteStageError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.DeleteStageError, errors);
+                return ResponseInfo.NotFound<ParticipantDeleteStageResponse>(MessageType.NOT_FOUND, messageText);
+            }
+
+            var roleNames = await unitOfWork.ChatRoleAssignments.GetRoleNamesAsync(model!.UserId, model.ChatId, cancellationToken);
+            foreach (var roleName in roleNames)
+            {
+                var assignment = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
+                    model.UserId,
+                    model.ChatId,
+                    roleName,
+                    cancellationToken);
+                if (assignment is not null)
+                {
+                    await unitOfWork.ChatRoleAssignments.DeleteAsync(assignment, cancellationToken);
+                }
+            }
+
+            await unitOfWork.Participants.DeleteAsync(model, cancellationToken);
+
+            var response = ParticipantMapper.ToDeleteStageResponse(model.Id, model.ChatId, model.UserId);
+            logger.LogInformation(ParticipantCrudTexts.Messages.Success.DeleteStageCompleted);
+            return ResponseInfo.Success(response, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.DeleteStageCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(ParticipantCrudTexts.Messages.Canceled.DeleteStage);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", ParticipantCrudTexts.Messages.Error.DeleteStageError);
+            return ResponseInfo.Error<ParticipantDeleteStageResponse>(MessageType.ERROR, ParticipantCrudTexts.Messages.Error.DeleteStageError);
+        }
     }
 
     public async Task<ResponseInfo<ParticipantListPageResponse>> DisplayListPageAsync(ParticipantListPageRequest request, CancellationToken cancellationToken = default)

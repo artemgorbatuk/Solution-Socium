@@ -62,13 +62,17 @@
   text-align: center;
 }
 
+/* Высота как у крестика и иконок (32px); +1px вниз — жирный текст иначе оптически выше SVG. */
 .title {
   flex: 1;
   min-width: 0;
+  height: 32px;
   margin: 0;
   overflow: hidden;
   font-size: var(--sc-font-size-md);
   font-weight: 600;
+  line-height: 32px;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transform: translateY(1px);
 }

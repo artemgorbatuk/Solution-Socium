@@ -78,6 +78,39 @@ public sealed class PermissionProviderTests
     }
 
     [Fact]
+    public void HasPermission_AppAdmin_CanReadAndManageUsersAndAppAdmins()
+    {
+        var context = new PermissionContext { SubjectId = Guid.CreateVersion7() };
+
+        Assert.True(provider.HasPermission([RoleNames.AppAdmin], PermissionNames.UserRead, context));
+        Assert.True(provider.HasPermission([RoleNames.AppAdmin], PermissionNames.UserAccessManage, context));
+        Assert.True(provider.HasPermission([RoleNames.AppAdmin], PermissionNames.AppAdminGrant, context));
+        Assert.True(provider.HasPermission([RoleNames.AppAdmin], PermissionNames.AppAdminRevoke, context));
+    }
+
+    [Fact]
+    public void HasPermission_AppAdmin_DoesNotGetChatRoleGrants()
+    {
+        var context = new PermissionContext { SubjectId = Guid.CreateVersion7() };
+
+        Assert.False(provider.HasPermission([RoleNames.AppAdmin], PermissionNames.ChatParticipantGrant, context));
+        Assert.False(provider.HasPermission([RoleNames.AppAdmin], PermissionNames.ChatAdminGrant, context));
+        Assert.False(provider.HasPermission([RoleNames.AppAdmin], PermissionNames.MessageRead, context));
+    }
+
+    [Fact]
+    public void HasPermission_RoomAndChatRoles_CannotReadUsers()
+    {
+        var context = new PermissionContext { SubjectId = Guid.CreateVersion7() };
+
+        Assert.False(provider.HasPermission(
+            [RoleNames.RoomAdmin, RoleNames.ChatAdmin, RoleNames.ChatParticipant],
+            PermissionNames.UserRead,
+            context));
+        Assert.False(provider.HasPermission([RoleNames.RoomAdmin], PermissionNames.UserAccessManage, context));
+    }
+
+    [Fact]
     public void RoleCatalog_ChatAdmin_ScopeIsChat_AndHasNoIncludesStyleMessageGrants()
     {
         Assert.True(RoleCatalog.TryGet(RoleNames.ChatAdmin, out var chatAdmin));

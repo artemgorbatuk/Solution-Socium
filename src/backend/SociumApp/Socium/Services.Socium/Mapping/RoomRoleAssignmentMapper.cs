@@ -20,4 +20,13 @@ public static class RoomRoleAssignmentMapper
             UserId = userId,
         };
     }
+
+    public static RoomRevokeRoomAdminStageRequest ToRevokeRoomAdminStageRequest(Guid roomId, Guid userId)
+    {
+        return new RoomRevokeRoomAdminStageRequest
+        {
+            RoomId = roomId,
+            UserId = userId,
+        };
+    }
 }

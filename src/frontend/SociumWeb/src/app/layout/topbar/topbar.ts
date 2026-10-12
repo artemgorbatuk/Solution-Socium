@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { Auth } from '../../account/auth';
 import { ParticipantsPanelState } from '../../participants/participants-panel-state';
 import { Icon } from '../../shared/icon/icon';
 import { ThemeToggle } from '../theme-toggle/theme-toggle';
@@ -10,7 +11,15 @@ import { TopbarTitle } from './topbar-title';
   imports: [ThemeToggle, Icon],
   template: `
     @if (title.text(); as text) {
-      <button type="button" class="close" aria-label="Закрыть чат" title="Закрыть чат" (click)="close()">×</button>
+      <button
+        type="button"
+        class="close"
+        [attr.aria-label]="title.closeLabel()"
+        [title]="title.closeLabel()"
+        (click)="close()"
+      >
+        ×
+      </button>
       <h1 class="title" [title]="text">{{ text }}</h1>
     }
     @if (participantsPanel.available()) {
@@ -42,6 +51,11 @@ import { TopbarTitle } from './topbar-title';
         }
       </button>
     }
+    @if (auth.user()?.canManageUsers) {
+      <button type="button" class="icon users-admin" aria-label="Пользователи" title="Пользователи" (click)="openUsers()">
+        <app-icon name="shield" />
+      </button>
+    }
     <app-theme-toggle />
   `,
   styleUrl: './topbar.css',
@@ -52,8 +66,13 @@ export class Topbar {
 
   protected readonly title = inject(TopbarTitle);
   protected readonly participantsPanel = inject(ParticipantsPanelState);
+  protected readonly auth = inject(Auth);
 
   protected close(): void {
     void this.router.navigateByUrl('/');
+  }
+
+  protected openUsers(): void {
+    void this.router.navigateByUrl('/users');
   }
 }

@@ -15,6 +15,7 @@ public interface IServiceChatNotify
     Task NotifyRoomChangedAsync(RoomChangedNotifyModel change, CancellationToken cancellationToken = default);
     Task NotifyChatChangedAsync(ChatChangedNotifyModel change, CancellationToken cancellationToken = default);
     Task NotifyUserChangedAsync(UserChangedNotifyModel change, CancellationToken cancellationToken = default);
+    Task NotifyUserAccessChangedAsync(UserAccessChangedNotifyModel change, CancellationToken cancellationToken = default);
     Task NotifyJoinRequestChangedAsync(JoinRequestChangedNotifyModel change, CancellationToken cancellationToken = default);
 }
 
@@ -64,6 +65,9 @@ public class ServiceChatNotify : IServiceChatNotify
 
     public Task NotifyUserChangedAsync(UserChangedNotifyModel change, CancellationToken cancellationToken = default)
         => SendToAllSafeAsync(ChatHubMethods.UserChanged, change, cancellationToken);
+
+    public Task NotifyUserAccessChangedAsync(UserAccessChangedNotifyModel change, CancellationToken cancellationToken = default)
+        => SendToAllSafeAsync(ChatHubMethods.UserAccessChanged, change, cancellationToken);
 
     public async Task NotifyJoinRequestChangedAsync(
         JoinRequestChangedNotifyModel change,

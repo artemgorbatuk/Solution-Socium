@@ -2,10 +2,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
-import { signInAs } from '../../account/auth.testing';
+import { Auth } from '../../account/auth';
+import { signInAs, tokenResponse } from '../../account/auth.testing';
 import { ChatChanges } from '../../chats/chat-changes';
 import { ChatHub } from '../../realtime/chat-hub';
-import { ChatParticipantLeftNotify, ChatParticipantNotify, RoomChangedNotify } from '../../realtime/chat-hub.models';
+import { RoomChangedNotify, UserAccessChangedNotify } from '../../realtime/chat-hub.models';
 import { ApiSuccessResponse } from '../../shared/api/api-response';
 import { successBody } from '../../shared/api/api-response.testing';
 import { RoomExpansion } from '../../rooms/room-expansion';
@@ -21,8 +22,7 @@ describe('Sidebar', () => {
   let http: HttpTestingController;
   let element: HTMLElement;
   let roomChanged$: Subject<RoomChangedNotify>;
-  let participantJoined$: Subject<ChatParticipantNotify>;
-  let participantLeft$: Subject<ChatParticipantLeftNotify>;
+  let userAccessChanged$: Subject<UserAccessChangedNotify>;
 
   const rooms: RoomListModel[] = [
     { id: '1', name: 'Кухня', canUpdate: true, canDelete: true },
@@ -51,8 +51,7 @@ describe('Sidebar', () => {
   beforeEach(() => {
     localStorage.clear();
     roomChanged$ = new Subject<RoomChangedNotify>();
-    participantJoined$ = new Subject<ChatParticipantNotify>();
-    participantLeft$ = new Subject<ChatParticipantLeftNotify>();
+    userAccessChanged$ = new Subject<UserAccessChangedNotify>();
     TestBed.configureTestingModule({
       imports: [Sidebar],
       providers: [
@@ -63,8 +62,9 @@ describe('Sidebar', () => {
           useValue: {
             ensureConnected: () => Promise.resolve(),
             roomChanged$,
-            participantJoined$,
-            participantLeft$,
+            userAccessChanged$,
+            participantJoined$: new Subject(),
+            participantLeft$: new Subject(),
             chatListUpdated$: new Subject(),
             chatChanged$: new Subject(),
             userChanged$: new Subject(),
@@ -218,55 +218,32 @@ describe('Sidebar', () => {
     expect(roomNames()).toEqual(['Гостиная', 'Столовая']);
   });
 
-  it('ParticipantJoined_Self_ShouldReloadRoomsAndNotifyChatChanges', () => {
+  it('UserAccessChanged_Self_ShouldReloadRoomsProfileAndNotifyChatChanges', () => {
     http.expectOne('/api/room').flush(listBody([{ id: '2', name: 'Гостиная', canUpdate: true, canDelete: true }]));
     render();
     expect(roomNames()).toEqual(['Гостиная']);
 
-    participantJoined$.next({
-      chatId: 'c1',
-      id: 'p1',
-      userId: 'u1',
-      login: 'agent',
-      name: 'Agent',
-      isAdmin: false,
-    });
+    userAccessChanged$.next({ userId: 'u1' });
     http.expectOne('/api/room').flush(listBody(rooms));
+    http
+      .expectOne({ method: 'GET', url: '/api/account/profile' })
+      .flush(successBody({ ...tokenResponse('u1').user, canManageUsers: true }));
     render();
 
     expect(roomNames()).toEqual(['Кухня', 'Гостиная']);
     expect(TestBed.inject(ChatChanges).version()).toBeGreaterThanOrEqual(1);
+    expect(TestBed.inject(Auth).user()!.canManageUsers).toBe(true);
   });
 
-  it('ParticipantJoined_Other_ShouldNotReloadRooms', () => {
+  it('UserAccessChanged_Other_ShouldNotReloadRooms', () => {
     http.expectOne('/api/room').flush(listBody([{ id: '2', name: 'Гостиная', canUpdate: true, canDelete: true }]));
     render();
 
-    participantJoined$.next({
-      chatId: 'c1',
-      id: 'p1',
-      userId: 'u2',
-      login: 'other',
-      name: 'Other',
-      isAdmin: false,
-    });
+    userAccessChanged$.next({ userId: 'u2' });
     render();
 
     expect(roomNames()).toEqual(['Гостиная']);
     expect(TestBed.inject(ChatChanges).version()).toBe(0);
-  });
-
-  it('ParticipantLeft_Self_ShouldReloadRoomsAndNotifyChatChanges', () => {
-    http.expectOne('/api/room').flush(listBody(rooms));
-    render();
-    expect(roomNames()).toEqual(['Кухня', 'Гостиная']);
-
-    participantLeft$.next({ chatId: 'c1', id: 'p1', userId: 'u1' });
-    http.expectOne('/api/room').flush(listBody([{ id: '2', name: 'Гостиная', canUpdate: true, canDelete: true }]));
-    render();
-
-    expect(roomNames()).toEqual(['Гостиная']);
-    expect(TestBed.inject(ChatChanges).version()).toBeGreaterThanOrEqual(1);
   });
 
   it('DeleteConfirm_Delete_WithExistingRoom_ShouldNotifyChatChangesAndPatchViaRoomChanged', () => {

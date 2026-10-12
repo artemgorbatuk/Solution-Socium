@@ -20,3 +20,22 @@ export interface UserSearchModel {
 export interface UserSearchResponse {
   rows: UserSearchModel[];
 }
+
+/** Строка списка `/users` (`UserRead`); `canGrant*` / `canRevoke*` — подсказка для переключателя, сервер проверяет сам. */
+export interface UserAdminListModel {
+  id: string;
+  login: string;
+  name: string;
+  email: string;
+  isEmailConfirmed: boolean;
+  isDeleted: boolean;
+  isAppAdmin: boolean;
+  canGrantAppAdmin: boolean;
+  canRevokeAppAdmin: boolean;
+}
+
+export interface UserAdminListPageResponse {
+  rowExists: boolean;
+  rowCount: number;
+  rows: UserAdminListModel[];
+}

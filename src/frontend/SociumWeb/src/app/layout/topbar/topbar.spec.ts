@@ -1,5 +1,8 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { signInAs, signInAsAppAdmin } from '../../account/auth.testing';
 import { ParticipantsPanelState } from '../../participants/participants-panel-state';
 import { Topbar } from './topbar';
 import { TopbarTitle } from './topbar-title';
@@ -9,7 +12,31 @@ describe('Topbar', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.configureTestingModule({ providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] });
+  });
+
+  it('Users_Render_WithOrdinaryUser_ShouldHideShield', () => {
+    signInAs('u1');
+    const fixture = TestBed.createComponent(Topbar);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[aria-label="Пользователи"]')).toBeNull();
+  });
+
+  it('Users_Click_WithAppAdmin_ShouldShowShieldBeforeThemeToggleAndOpenUsers', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    signInAsAppAdmin('u1');
+    const fixture = TestBed.createComponent(Topbar);
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    const button = element.querySelector<HTMLButtonElement>('[aria-label="Пользователи"]')!;
+
+    expect(button.querySelector('app-icon svg')!.getAttribute('data-icon')).toBe('shield');
+    expect(button.nextElementSibling!.tagName.toLowerCase()).toBe('app-theme-toggle');
+
+    button.click();
+
+    expect(navigate).toHaveBeenCalledWith('/users');
   });
 
   it('Title_Render_WithoutPageTitle_ShouldShowOnlyThemeToggle', () => {
@@ -45,6 +72,22 @@ describe('Topbar', () => {
     fixture.detectChanges();
 
     fixture.nativeElement.querySelector('[aria-label="Закрыть чат"]').click();
+
+    expect(navigate).toHaveBeenCalledWith('/');
+  });
+
+  it('Close_Click_WithSectionTitle_ShouldUseSectionLabelAndNavigateHome', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(Topbar);
+    TestBed.inject(TopbarTitle).show('Пользователи', 'Закрыть раздел пользователей');
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    const close = element.querySelector<HTMLButtonElement>('[aria-label="Закрыть раздел пользователей"]')!;
+
+    expect(close.title).toBe('Закрыть раздел пользователей');
+    expect(element.querySelector('h1')!.textContent).toBe('Пользователи');
+
+    close.click();
 
     expect(navigate).toHaveBeenCalledWith('/');
   });

@@ -1,0 +1,139 @@
+<div class="page">
+  <a class="back" routerLink="/users">← Пользователи</a>
+
+  @if (loading() && !user()) {
+    <p class="hint">Загрузка…</p>
+  } @else if (notFound()) {
+    <p class="hint">Пользователь не найден</p>
+  } @else if (loadError(); as error) {
+    <p class="error" role="alert">{{ error }}</p>
+  } @else if (user(); as user) {
+    <header class="profile">
+      <h1>
+        {{ user.name }}
+        @if (isSelf()) {
+          <span class="self">(вы)</span>
+        }
+      </h1>
+      <span class="muted">&#64;{{ user.login }}</span>
+      <span class="muted">{{ user.email }}</span>
+      @if (user.isDeleted) {
+        <span class="badge">удалён</span>
+      }
+    </header>
+
+    <section class="section" aria-label="Приложение">
+      <h2>Приложение</h2>
+      <div class="row">
+        <label class="toggle" [title]="appAdminReason() ?? ''">
+          <input
+            type="checkbox"
+            [checked]="user.isAppAdmin"
+            [disabled]="!!appAdminReason() || !!pendingKey()"
+            (change)="toggleAppAdmin($event)"
+          />
+          Админ приложения
+        </label>
+      </div>
+      @if (errorFor('app'); as error) {
+        <p class="error" role="alert">{{ error }}</p>
+      }
+    </section>
+
+    <section class="section" aria-label="Комнаты и чаты">
+      <div class="filters">
+        <input
+          class="search"
+          type="search"
+          autocomplete="off"
+          aria-label="Поиск по названию комнаты или чата"
+          placeholder="Поиск по названию"
+          [value]="search()"
+          (input)="onSearchInput($event)"
+        />
+        <label class="toggle">
+          <input type="checkbox" [checked]="onlyWithAccess()" (change)="onOnlyWithAccessChange($event)" />
+          Только с доступом
+        </label>
+      </div>
+
+      @if (!visibleRooms().length) {
+        <p class="hint">{{ onlyWithAccess() && !search() ? 'Доступов к комнатам и чатам нет' : 'Ничего не нашлось' }}</p>
+      } @else {
+        <ul class="tree" aria-label="Комнаты">
+          @for (room of visibleRooms(); track room.roomId) {
+            <li class="room">
+              <div class="row room-row">
+                <button
+                  type="button"
+                  class="icon expander"
+                  [attr.aria-expanded]="!isCollapsed(room.roomId)"
+                  [attr.aria-label]="(isCollapsed(room.roomId) ? 'Развернуть ' : 'Свернуть ') + room.roomName"
+                  (click)="toggleCollapsed(room.roomId)"
+                >
+                  {{ isCollapsed(room.roomId) ? '▸' : '▾' }}
+                </button>
+                <span class="node-name room-name" [title]="room.roomName">{{ room.roomName }}</span>
+                <label class="toggle" [title]="roomAdminReason(room) ?? ''">
+                  <input
+                    type="checkbox"
+                    [checked]="room.isRoomAdmin"
+                    [disabled]="!!roomAdminReason(room) || !!pendingKey()"
+                    [attr.aria-label]="'Админ комнаты ' + room.roomName"
+                    (change)="toggleRoomAdmin($event, room)"
+                  />
+                  Админ комнаты
+                </label>
+              </div>
+              @if (errorFor('room:' + room.roomId); as error) {
+                <p class="error row-error" role="alert">{{ error }}</p>
+              }
+
+              @if (!isCollapsed(room.roomId)) {
+                <ul class="chats" [attr.aria-label]="'Чаты комнаты ' + room.roomName">
+                  @for (chat of room.chats; track chat.chatId) {
+                    <li>
+                      <div class="row chat-row">
+                        <span class="node-name chat-name" [title]="chat.chatName"># {{ chat.chatName }}</span>
+                        <label class="toggle" [title]="participantReason(chat) ?? ''">
+                          <input
+                            type="checkbox"
+                            [checked]="chat.isParticipant"
+                            [disabled]="!!participantReason(chat) || !!pendingKey()"
+                            [attr.aria-label]="'Участник ' + chat.chatName"
+                            (change)="toggleParticipant($event, chat)"
+                          />
+                          Участник
+                        </label>
+                        <label class="toggle" [title]="chatAdminReason(chat) ?? ''">
+                          <input
+                            type="checkbox"
+                            [checked]="chat.isChatAdmin"
+                            [disabled]="!!chatAdminReason(chat) || !!pendingKey()"
+                            [attr.aria-label]="'Админ чата ' + chat.chatName"
+                            (change)="toggleChatAdmin($event, chat)"
+                          />
+                          Админ чата
+                        </label>
+                      </div>
+                      @if (kickConfirmChatId() === chat.chatId) {
+                        <div class="confirm" role="alertdialog" [attr.aria-label]="'Исключить из чата ' + chat.chatName">
+                          <span>Исключить из чата «{{ chat.chatName }}»? Роль админа тоже будет снята</span>
+                          <button type="button" (click)="cancelKick()">Отмена</button>
+                          <button type="button" class="danger" (click)="confirmKick(chat)">Исключить</button>
+                        </div>
+                      }
+                      @if (errorFor('chat:' + chat.chatId) ?? errorFor('chat-admin:' + chat.chatId); as error) {
+                        <p class="error row-error" role="alert">{{ error }}</p>
+                      }
+                    </li>
+                  }
+                </ul>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</div>

@@ -40,6 +40,10 @@ export class AccountApi {
     return this.http.post<ApiSuccessResponse<unknown>>(`${accountBaseUrl}/logout`, null);
   }
 
+  getProfile(): Observable<ApiSuccessResponse<AccountProfile>> {
+    return this.http.get<ApiSuccessResponse<AccountProfile>>(`${accountBaseUrl}/profile`);
+  }
+
   updateProfile(request: AccountProfileUpdateRequest): Observable<ApiSuccessResponse<AccountProfile>> {
     return this.http.put<ApiSuccessResponse<AccountProfile>>(`${accountBaseUrl}/profile`, request);
   }

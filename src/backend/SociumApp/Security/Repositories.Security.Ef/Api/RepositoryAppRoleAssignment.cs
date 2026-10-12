@@ -1,6 +1,7 @@
 using Datasource.Security.Ef.Contexts;
 using Datasource.Security.Ef.Models;
 using Microsoft.EntityFrameworkCore;
+using Repositories.Security.Ef.Options;
 
 namespace Repositories.Security.Ef.Api;
 
@@ -11,6 +12,7 @@ public interface IRepositoryAppRoleAssignment
     AppRoleAssignment GetNew();
     Task<IReadOnlyList<string>> GetRoleNamesAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<AppRoleAssignment?> GetSingleOrDefaultAsync(Guid userId, string roleName, CancellationToken cancellationToken = default);
+    Task<IEnumerable<AppRoleAssignment>> GetListAsync(AppRoleAssignmentQueryOptions? options = null, CancellationToken cancellationToken = default);
 }
 
 public class RepositoryAppRoleAssignment : IRepositoryAppRoleAssignment
@@ -59,5 +61,24 @@ public class RepositoryAppRoleAssignment : IRepositoryAppRoleAssignment
             .FirstOrDefaultAsync(
                 assignment => assignment.UserId == userId && assignment.RoleName == roleName,
                 cancellationToken);
+    }
+
+    public async Task<IEnumerable<AppRoleAssignment>> GetListAsync(AppRoleAssignmentQueryOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var query = context.AppRoleAssignments.AsNoTracking();
+
+        if (options?.UserId is Guid userId)
+        {
+            query = query.Where(assignment => assignment.UserId == userId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(options?.RoleName))
+        {
+            query = query.Where(assignment => assignment.RoleName == options.RoleName);
+        }
+
+        return await query
+            .OrderBy(assignment => assignment.Id)
+            .ToListAsync(cancellationToken);
     }
 }

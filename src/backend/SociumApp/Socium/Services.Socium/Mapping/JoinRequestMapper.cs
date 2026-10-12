@@ -68,7 +68,7 @@ public static class JoinRequestMapper
             Id = model.Id,
             UserId = model.UserId,
             Login = user?.Login ?? string.Empty,
-            Name = user?.Name ?? UserPortTexts.DeletedUserName,
+            Name = UserPortMapper.ToDisplayName(user),
         };
     }
 

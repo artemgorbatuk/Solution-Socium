@@ -20,6 +20,7 @@ using Services.Security.Api;
 using Services.Security.Events;
 using Services.Security.Passwords.Providers;
 using Services.Security.Permissions.Providers;
+using Services.Security.Policies;
 using Services.Security.Ports;
 using Services.Security.Tokens.Options;
 using Services.Security.Tokens.Providers;
@@ -75,12 +76,14 @@ public static class ServiceRegistration
         services.AddScoped<IServiceEmailToken, ServiceEmailToken>();
         services.AddScoped<IEmailPort, EmailPort>();
         services.AddScoped<IUserNotifyPort, UserNotifyPort>();
+        services.AddScoped<IUserAccessPort, UserAccessPort>();
         services.AddScoped<IServiceStoredFile, ServiceStoredFile>();
         services.AddScoped<IFileOwnerAccess, MessageFileOwnerAccess>();
         services.AddScoped<IFilePort, FilePort>();
         services.AddScoped<IChatMembership, ChatMembershipPort>();
         services.AddScoped<IChatNotifyPort, ChatNotifyPort>();
 
+        services.AddScoped<IUserPolicy, UserPolicy>();
         services.AddScoped<IServiceUser, ServiceUser>();
         services.AddScoped<IServiceAccount, ServiceAccount>();
         services.AddScoped<IServiceAppRole, ServiceAppRole>();
@@ -92,6 +95,7 @@ public static class ServiceRegistration
         services.AddScoped<IChatPolicy, ChatPolicy>();
         services.AddScoped<IMessagePolicy, MessagePolicy>();
         services.AddScoped<IParticipantPolicy, ParticipantPolicy>();
+        services.AddScoped<IRoleAssignmentPolicy, RoleAssignmentPolicy>();
         services.AddScoped<IDomainEventPublisher, DomainEventPublisher>();
         services.AddScoped<IDomainEventHandler<RoomCreatedEvent>, AssignRoomAdminOnRoomCreatedHandler>();
         services.AddScoped<IDomainEventHandler<RoomCreatedEvent>, CreateDefaultChatOnRoomCreatedHandler>();
@@ -100,11 +104,14 @@ public static class ServiceRegistration
         services.AddScoped<IDomainEventHandler<ChatChangedEvent>, NotifyChatChangedOnChatChangedHandler>();
         services.AddScoped<IDomainEventHandler<JoinRequestChangedEvent>, NotifyJoinRequestChangedOnJoinRequestChangedHandler>();
         services.AddScoped<IDomainEventHandler<UserChangedEvent>, NotifyUserChangedOnUserChangedHandler>();
+        services.AddScoped<IDomainEventHandler<UserDeletedEvent>, RemoveAccessOnUserDeletedHandler>();
+        services.AddScoped<IDomainEventHandler<UserDeletedEvent>, NotifyUserAccessChangedOnUserDeletedHandler>();
         services.AddScoped<IServiceRoom, ServiceRoom>();
         services.AddScoped<IServiceChat, ServiceChat>();
         services.AddScoped<IServiceMessage, ServiceMessage>();
         services.AddScoped<IServiceParticipant, ServiceParticipant>();
         services.AddScoped<IServiceJoinRequest, ServiceJoinRequest>();
+        services.AddScoped<IServiceRoleAssignment, ServiceRoleAssignment>();
 
         return services;
     }

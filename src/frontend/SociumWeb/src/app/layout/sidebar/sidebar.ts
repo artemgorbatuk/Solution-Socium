@@ -1,6 +1,8 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AccountMenu } from '../../account/account-menu/account-menu';
+import { AccountApi } from '../../account/account-api';
+import { Auth } from '../../account/auth';
 import { ChatChanges } from '../../chats/chat-changes';
 import { ChatHub } from '../../realtime/chat-hub';
 import { RoomChangedNotify } from '../../realtime/chat-hub.models';
@@ -31,6 +33,8 @@ export class Sidebar {
   private readonly chatChanges = inject(ChatChanges);
   private readonly chatHub = inject(ChatHub);
   private readonly currentUser = inject(CurrentUser);
+  private readonly accountApi = inject(AccountApi);
+  private readonly auth = inject(Auth);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly nameMaxLength = roomNameMaxLength;
@@ -68,21 +72,21 @@ export class Sidebar {
     this.loadRooms();
     void this.chatHub.ensureConnected();
     this.chatHub.roomChanged$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((change) => this.applyRoomChanged(change));
-    this.chatHub.participantJoined$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((joined) => {
-      if (joined.userId !== this.currentUser.id()) {
+    this.chatHub.userAccessChanged$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((changed) => {
+      if (changed.userId !== this.currentUser.id()) {
         return;
       }
-      // Add/Accept: новый ChatRead — комната и чат без F5.
+      // Add / Kick / Leave / Accept / роли со страницы /users: комнаты, чаты и иконка «Пользователи» без F5.
       this.loadRooms();
       this.chatChanges.notify();
+      this.reloadProfile();
     });
-    this.chatHub.participantLeft$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((left) => {
-      if (left.userId !== this.currentUser.id()) {
-        return;
-      }
-      // Kick / leave: потеря ChatRead — убрать комнату/чат без F5.
-      this.loadRooms();
-      this.chatChanges.notify();
+  }
+
+  private reloadProfile(): void {
+    this.accountApi.getProfile().subscribe({
+      next: (body) => this.auth.updateProfile(body.response!),
+      error: () => undefined,
     });
   }
 

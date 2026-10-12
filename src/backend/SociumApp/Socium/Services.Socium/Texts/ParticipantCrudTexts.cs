@@ -9,8 +9,10 @@ public static class ParticipantCrudTexts
             public const string Creating = "Начало добавления участника в чат";
             public const string CreateStaging = "Начало подготовки участия в чате (stage)";
             public const string Updating = "Начало смены роли участника чата";
+            public const string UpdateStaging = "Начало подготовки смены роли участника чата (stage)";
             public const string DisplayDeleting = "Начало отображения страницы выхода из чата";
             public const string Deleting = "Начало выхода из чата";
+            public const string DeleteStaging = "Начало подготовки исключения из чата (stage)";
             public const string Kicking = "Начало исключения участника из чата";
             public const string DisplayListLoading = "Начало отображения страницы списка участников чата";
         }
@@ -20,8 +22,10 @@ public static class ParticipantCrudTexts
             public const string CreateCompleted = "Участник добавлен в чат";
             public const string CreateStageCompleted = "Участие в чате подготовлено";
             public const string UpdateCompleted = "Роль участника чата изменена";
+            public const string UpdateStageCompleted = "Смена роли участника чата подготовлена";
             public const string DisplayDeleteCompleted = "Страница выхода из чата успешно отображена";
             public const string DeleteCompleted = "Вы покинули чат";
+            public const string DeleteStageCompleted = "Исключение из чата подготовлено";
             public const string KickCompleted = "Участник исключён из чата";
             public const string DisplayListCompleted = "Страница списка участников чата успешно отображена";
         }
@@ -31,8 +35,10 @@ public static class ParticipantCrudTexts
             public const string CreateError = "Не удалось добавить участника в чат";
             public const string CreateStageError = "Не удалось подготовить участие в чате";
             public const string UpdateError = "Не удалось изменить роль участника чата";
+            public const string UpdateStageError = "Не удалось подготовить смену роли участника чата";
             public const string DisplayDeleteError = "Не удалось отобразить страницу выхода из чата";
             public const string DeleteError = "Не удалось покинуть чат";
+            public const string DeleteStageError = "Не удалось подготовить исключение из чата";
             public const string KickError = "Не удалось исключить участника из чата";
             public const string DisplayListError = "Не удалось отобразить страницу списка участников чата";
         }
@@ -42,8 +48,10 @@ public static class ParticipantCrudTexts
             public const string Create = "Добавление участника в чат отменено";
             public const string CreateStage = "Подготовка участия в чате (stage) отменена";
             public const string Update = "Смена роли участника чата отменена";
+            public const string UpdateStage = "Подготовка смены роли участника чата (stage) отменена";
             public const string DisplayDelete = "Отображение страницы выхода из чата отменено";
             public const string Delete = "Выход из чата отменён";
+            public const string DeleteStage = "Подготовка исключения из чата (stage) отменена";
             public const string Kick = "Исключение участника из чата отменено";
             public const string DisplayList = "Отображение страницы списка участников чата отменено";
         }

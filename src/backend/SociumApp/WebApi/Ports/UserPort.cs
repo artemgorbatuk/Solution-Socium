@@ -39,13 +39,13 @@ public class UserPort : IUserPort
             return Empty;
         }
 
-        var request = new UserListPageRequest { Ids = distinctIds };
+        var request = new UserListPageRequest { Ids = distinctIds, IncludeDeleted = true };
         var responseInfo = await serviceUser.DisplayListPageAsync(request, cancellationToken);
         ThrowIfError(responseInfo.MessageInfo.MessageType, responseInfo.MessageInfo.MessageText);
 
         return responseInfo.Response?.Rows.ToDictionary(
             row => row.Id,
-            row => new UserPortModel { Id = row.Id, Login = row.Login, Name = row.Name }) ?? Empty;
+            row => new UserPortModel { Id = row.Id, Login = row.Login, Name = row.Name, IsDeleted = row.IsDeleted }) ?? Empty;
     }
 
     private static void ThrowIfError(int messageType, string messageText)

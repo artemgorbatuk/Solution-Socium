@@ -1,6 +1,7 @@
 using Datasource.Socium.Ef.Contexts;
 using Datasource.Socium.Ef.Models;
 using Microsoft.EntityFrameworkCore;
+using Repositories.Socium.Ef.Options;
 
 namespace Repositories.Socium.Ef.Api;
 
@@ -13,6 +14,7 @@ public interface IRepositoryRoomRoleAssignment
     Task<IReadOnlyList<Guid>> GetRoomIdsAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<int> CountByRoomAndRoleAsync(Guid roomId, string roleName, CancellationToken cancellationToken = default);
     Task<RoomRoleAssignment?> GetSingleOrDefaultAsync(Guid userId, Guid roomId, string roleName, CancellationToken cancellationToken = default);
+    Task<IEnumerable<RoomRoleAssignment>> GetListAsync(RoomRoleAssignmentQueryOptions? options = null, CancellationToken cancellationToken = default);
 }
 
 public class RepositoryRoomRoleAssignment : IRepositoryRoomRoleAssignment
@@ -81,5 +83,24 @@ public class RepositoryRoomRoleAssignment : IRepositoryRoomRoleAssignment
                     && assignment.RoomId == roomId
                     && assignment.RoleName == roleName,
                 cancellationToken);
+    }
+
+    public async Task<IEnumerable<RoomRoleAssignment>> GetListAsync(RoomRoleAssignmentQueryOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var query = context.RoomRoleAssignments.AsNoTracking();
+
+        if (options?.UserId is Guid userId)
+        {
+            query = query.Where(assignment => assignment.UserId == userId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(options?.RoleName))
+        {
+            query = query.Where(assignment => assignment.RoleName == options.RoleName);
+        }
+
+        return await query
+            .OrderBy(assignment => assignment.Id)
+            .ToListAsync(cancellationToken);
     }
 }

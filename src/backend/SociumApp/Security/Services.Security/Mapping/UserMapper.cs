@@ -1,4 +1,5 @@
 using Datasource.Security.Ef.Models;
+using Repositories.Security.Ef.Options;
 using Services.Security.Events;
 using Services.Security.Models;
 using Services.Security.Ports;
@@ -51,6 +52,52 @@ public static class UserMapper
             Id = model.Id,
             Login = model.Login,
             Name = model.Name,
+            IsDeleted = model.IsDeleted,
+        };
+    }
+
+    public static UserQueryOptions ToQueryOptions(ICollection<Guid>? ids, bool includeDeleted)
+    {
+        return new UserQueryOptions
+        {
+            Ids = ids,
+            IsDeleted = includeDeleted ? null : false,
+        };
+    }
+
+    /// <summary>
+    /// Выдать AppAdmin можно другому активному пользователю без этой роли;
+    /// снять — с любого админа, пока он не последний.
+    /// </summary>
+    public static UserAdminListModel ToAdminListModel(
+        User model,
+        IReadOnlySet<Guid> appAdminUserIds,
+        Guid currentUserId,
+        bool canGrant,
+        bool canRevoke)
+    {
+        var isAppAdmin = appAdminUserIds.Contains(model.Id);
+        return new UserAdminListModel
+        {
+            Id = model.Id,
+            Login = model.Login,
+            Name = model.Name,
+            Email = model.Email,
+            IsEmailConfirmed = model.IsEmailConfirmed,
+            IsDeleted = model.IsDeleted,
+            IsAppAdmin = isAppAdmin,
+            CanGrantAppAdmin = canGrant && !isAppAdmin && !model.IsDeleted && model.Id != currentUserId,
+            CanRevokeAppAdmin = canRevoke && isAppAdmin && appAdminUserIds.Count > 1,
+        };
+    }
+
+    public static UserAdminListPageResponse ToAdminListPageResponse(ICollection<UserAdminListModel> rows)
+    {
+        return new UserAdminListPageResponse
+        {
+            Rows = rows,
+            RowExists = rows.Count > 0,
+            RowCount = rows.Count,
         };
     }
 
@@ -82,7 +129,7 @@ public static class UserMapper
         };
     }
 
-    public static AccountProfileResponse ToProfileResponse(User model)
+    public static AccountProfileResponse ToProfileResponse(User model, bool canManageUsers)
     {
         return new AccountProfileResponse
         {
@@ -90,6 +137,7 @@ public static class UserMapper
             Login = model.Login,
             Email = model.Email,
             Name = model.Name,
+            CanManageUsers = canManageUsers,
         };
     }
 
@@ -99,6 +147,14 @@ public static class UserMapper
         {
             UserId = userId,
             Name = name,
+        };
+    }
+
+    public static UserDeletedEvent ToDeletedEvent(Guid userId)
+    {
+        return new UserDeletedEvent
+        {
+            UserId = userId,
         };
     }
 

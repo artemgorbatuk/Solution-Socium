@@ -32,6 +32,7 @@ public sealed class UserPortTests
         public Task<ResponseInfo<UserDeletePageResponse>> DisplayDeletePageAsync(UserDeletePageRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ResponseInfo<UserDeleteResponse>> DeleteAsync(UserDeleteRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ResponseInfo<UserSearchResponse>> SearchAsync(UserSearchRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<ResponseInfo<UserAdminListPageResponse>> DisplayAdminListPageAsync(UserAdminListPageRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     [Fact]
@@ -87,7 +88,7 @@ public sealed class UserPortTests
             {
                 RowExists = true,
                 RowCount = 1,
-                Rows = [new UserListModel { Id = id, Login = "ivan", Name = "Иван" }],
+                Rows = [new UserListModel { Id = id, Login = "ivan", Name = "Иван", IsDeleted = false }],
             }),
         };
 
@@ -96,5 +97,25 @@ public sealed class UserPortTests
         Assert.Equal([id], service.LastListRequest!.Ids!);
         Assert.Equal("Иван", users[id].Name);
         Assert.Equal(MessageType.LOADED, service.List.MessageInfo.MessageType);
+    }
+
+    [Fact]
+    public async Task GetList_Load_WithDeletedUser_ShouldIncludeDeletedAndMarkIt()
+    {
+        var id = Guid.CreateVersion7();
+        var service = new FakeServiceUser
+        {
+            List = ResponseInfo.Success(new UserListPageResponse
+            {
+                RowExists = true,
+                RowCount = 1,
+                Rows = [new UserListModel { Id = id, Login = "ivan", Name = "Иван", IsDeleted = true }],
+            }),
+        };
+
+        var users = await new UserPort(service).GetListAsync([id], TestContext.Current.CancellationToken);
+
+        Assert.True(service.LastListRequest!.IncludeDeleted);
+        Assert.True(users[id].IsDeleted);
     }
 }

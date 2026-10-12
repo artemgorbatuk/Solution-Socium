@@ -1,0 +1,64 @@
+<div class="page">
+  <div class="filters">
+    <input
+      class="search"
+      type="search"
+      autocomplete="off"
+      aria-label="Поиск по имени и логину"
+      placeholder="Поиск по имени и логину"
+      [value]="search()"
+      (input)="onSearchInput($event)"
+    />
+    <label class="toggle">
+      <input type="checkbox" [checked]="showDeleted()" (change)="onShowDeletedChange($event)" />
+      Показать удалённых
+    </label>
+  </div>
+
+  @if (loading() && !rows().length) {
+    <p class="hint">Загрузка…</p>
+  } @else if (loadError(); as error) {
+    <p class="error" role="alert">{{ error }}</p>
+  } @else if (!filteredRows().length) {
+    <p class="hint">Никого не нашлось</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Имя</th>
+          <th scope="col">Логин</th>
+          <th scope="col">Email</th>
+          <th scope="col">Подтверждение</th>
+          <th scope="col">Роли</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of filteredRows(); track row.id) {
+          <tr [class.deleted]="row.isDeleted">
+            <td>
+              <a class="name" [routerLink]="['/users', row.id]">{{ row.name }}</a>
+              @if (row.id === currentUserId()) {
+                <span class="self">(вы)</span>
+              }
+            </td>
+            <td class="muted">&#64;{{ row.login }}</td>
+            <td>{{ row.email }}</td>
+            <td>
+              @if (!row.isEmailConfirmed) {
+                <span class="badge" title="Email не подтверждён">не подтверждён</span>
+              }
+            </td>
+            <td>
+              @if (row.isAppAdmin) {
+                <span class="badge accent">админ приложения</span>
+              }
+              @if (row.isDeleted) {
+                <span class="badge">удалён</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>
