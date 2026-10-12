@@ -1,4 +1,5 @@
 using Services.Socium.Models;
+using Services.Socium.Ports;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
 
@@ -142,5 +143,12 @@ public sealed class RoomCrudValidatorsTests
 
         Assert.Equal(expectedCount, errors.Count);
         Assert.All(errors, error => Assert.Equal(RoomCrudTexts.Messages.Validation.NameAlreadyExists, error));
+    }
+
+    [Fact]
+    public void CurrentUser_Validate_WithMissingOrFoundUser_ShouldRejectOnlyMissing()
+    {
+        Assert.Equal([RoomCrudTexts.Messages.Validation.CurrentUserNotFound], RoomCrudValidators.ValidateCurrentUser(null));
+        Assert.Empty(RoomCrudValidators.ValidateCurrentUser(new UserPortModel { Id = Guid.CreateVersion7(), Login = "ivan", Name = "Иван" }));
     }
 }

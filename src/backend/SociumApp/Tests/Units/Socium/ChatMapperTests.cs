@@ -38,6 +38,29 @@ public sealed class ChatMapperTests
     }
 
     [Fact]
+    public void CreateStageRequest_Map_WithValues_ShouldCopyRoomIdCreatorAndName()
+    {
+        var roomId = Guid.CreateVersion7();
+        var creatorUserId = Guid.CreateVersion7();
+
+        var request = ChatMapper.ToCreateStageRequest(roomId, creatorUserId, "Новый чат");
+
+        Assert.Equal(roomId, request.RoomId);
+        Assert.Equal(creatorUserId, request.CreatorUserId);
+        Assert.Equal("Новый чат", request.Name);
+    }
+
+    [Fact]
+    public void GetNewOptions_Map_WithRoomId_ShouldCopyRoomId()
+    {
+        var roomId = Guid.CreateVersion7();
+
+        var options = ChatMapper.ToGetNewOptions(roomId);
+
+        Assert.Equal(roomId, options.RoomId);
+    }
+
+    [Fact]
     public void UpdatePageResponse_Map_WithExistingChat_ShouldCopyIdRoomIdAndName()
     {
         var chat = CreateChat();

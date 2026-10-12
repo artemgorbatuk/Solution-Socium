@@ -24,6 +24,10 @@ public sealed class RoomSidebarE2eTests(E2eAppFixture fixture)
         await page.GetByRole(AriaRole.Textbox, new() { Name = "Название новой комнаты" }).FillAsync(name);
         await page.GetByRole(AriaRole.Button, new() { Name = "Создать", Exact = true }).ClickAsync();
         await Assertions.Expect(rooms.GetByText(name, new() { Exact = true })).ToBeVisibleAsync();
+        var chats = page.GetByRole(AriaRole.List, new() { Name = $"Чаты комнаты {name}", Exact = true });
+        await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = $"Чаты комнаты {name}", Exact = true }))
+            .ToHaveAttributeAsync("aria-expanded", "true");
+        await Assertions.Expect(chats.GetByText(ChatCrudTexts.Defaults.Name, new() { Exact = true })).ToBeVisibleAsync();
 
         var newName = UniqueName();
         await page.ClickRowActionAsync($"Переименовать комнату {name}");

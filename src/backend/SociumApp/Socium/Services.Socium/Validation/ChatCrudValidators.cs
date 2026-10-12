@@ -33,7 +33,35 @@ public static class ChatCrudValidators
         }
     }
 
+    public static IEnumerable<string> ValidatePrimaryCreateStageRequest(ChatCreateStageRequest? request)
+    {
+        if (request == null)
+        {
+            yield return ChatCrudTexts.Messages.Validation.RequestCannotBeNull;
+        }
+        else
+        {
+            if (request.RoomId == Guid.Empty)
+            {
+                yield return ChatCrudTexts.Messages.Validation.RoomIdCannotBeEmpty;
+            }
+
+            if (request.CreatorUserId == Guid.Empty)
+            {
+                yield return ChatCrudTexts.Messages.Validation.CreatorUserIdCannotBeEmpty;
+            }
+        }
+    }
+
     public static IEnumerable<string> ValidateDomainCreateRequest(ChatCreateRequest request)
+    {
+        foreach (var error in ValidateName(request.Name))
+        {
+            yield return error;
+        }
+    }
+
+    public static IEnumerable<string> ValidateDomainCreateStageRequest(ChatCreateStageRequest request)
     {
         foreach (var error in ValidateName(request.Name))
         {

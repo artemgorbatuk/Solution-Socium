@@ -1,4 +1,5 @@
 using Services.Socium.Models;
+using Services.Socium.Ports;
 using Services.Socium.Texts;
 
 namespace Services.Socium.Validation;
@@ -120,6 +121,14 @@ public static class RoomCrudValidators
         if (hasDuplicate)
         {
             yield return RoomCrudTexts.Messages.Validation.NameAlreadyExists;
+        }
+    }
+
+    public static IEnumerable<string> ValidateCurrentUser(UserPortModel? user)
+    {
+        if (user == null)
+        {
+            yield return RoomCrudTexts.Messages.Validation.CurrentUserNotFound;
         }
     }
 

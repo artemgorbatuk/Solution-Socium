@@ -14,6 +14,9 @@ public sealed class ServiceRoomTests(SociumServiceFixture fixture)
     private Task<ResponseInfo<T>> RunAsync<T>(Func<IServiceRoom, Task<ResponseInfo<T>>> action) where T : class
         => fixture.RunAsync(action);
 
+    private Task<ResponseInfo<T>> RunAsAsync<T>(Guid? userId, Func<IServiceRoom, Task<ResponseInfo<T>>> action) where T : class
+        => fixture.RunAsAsync(userId, action);
+
     [Fact]
     public async Task Create_Load_WithNoParameters_ShouldReturnLoadedWithEmptyName()
     {
@@ -36,6 +39,38 @@ public sealed class ServiceRoomTests(SociumServiceFixture fixture)
         var list = await RunAsync(service => service.DisplayListPageAsync(new RoomListPageRequest()));
         var row = Assert.Single(list.Response!.Rows, room => room.Name == name);
         Assert.Equal(7, row.Id.Version);
+    }
+
+    [Fact]
+    public async Task Create_Submit_WithCurrentUser_ShouldCreateDefaultChatAndAdminParticipant()
+    {
+        var name = UniqueName();
+
+        var result = await RunAsync(service => service.CreateAsync(new RoomCreateRequest { Name = name }));
+
+        Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
+        var roomId = (await RunAsync(service => service.DisplayListPageAsync(new RoomListPageRequest())))
+            .Response!.Rows.Single(room => room.Name == name).Id;
+        var chats = await fixture.RunAsync((IServiceChat service) => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }));
+        var chat = Assert.Single(chats.Response!.Rows);
+        Assert.Equal(ChatCrudTexts.Defaults.Name, chat.Name);
+        Assert.True(chat.IsAdmin);
+        var info = await fixture.RunAsync((IServiceChat service) => service.DisplayInfoPageAsync(new ChatInfoPageRequest { Id = chat.Id }));
+        Assert.True(info.Response!.IsParticipant);
+        Assert.True(info.Response.IsAdmin);
+    }
+
+    [Fact]
+    public async Task Create_Submit_WithoutCurrentUser_ShouldReturnUnauthorizedAndNotCreate()
+    {
+        var name = UniqueName();
+
+        var result = await RunAsAsync(null, service => service.CreateAsync(new RoomCreateRequest { Name = name }));
+
+        Assert.Equal(MessageType.UNAUTHORIZED, result.MessageInfo.MessageType);
+        Assert.Contains(RoomCrudTexts.Messages.Validation.CurrentUserNotFound, result.MessageInfo.MessageText);
+        var list = await RunAsync(service => service.DisplayListPageAsync(new RoomListPageRequest()));
+        Assert.DoesNotContain(list.Response!.Rows, room => room.Name == name);
     }
 
     [Fact]
@@ -233,7 +268,7 @@ public sealed class ServiceRoomTests(SociumServiceFixture fixture)
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
         Assert.Equal(id, result.Response!.Id);
         Assert.Equal(name, result.Response.Name);
-        Assert.Equal(0, result.Response.ChatCount);
+        Assert.Equal(1, result.Response.ChatCount);
     }
 
     [Fact]
@@ -248,7 +283,7 @@ public sealed class ServiceRoomTests(SociumServiceFixture fixture)
         var result = await RunAsync(service => service.DisplayDeletePageAsync(new RoomDeletePageRequest { Id = id }));
 
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
-        Assert.Equal(2, result.Response!.ChatCount);
+        Assert.Equal(3, result.Response!.ChatCount);
     }
 
     [Fact]

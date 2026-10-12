@@ -11,6 +11,14 @@ public class ChatCreateRequest
     public required string Name { get; set; }
 }
 
+/// <summary>Создание чата в текущем UoW без SaveChanges (внешняя транзакция / handler).</summary>
+public class ChatCreateStageRequest
+{
+    public required Guid RoomId { get; set; }
+    public required Guid CreatorUserId { get; set; }
+    public required string Name { get; set; }
+}
+
 public class ChatCreatePageResponse
 {
     public required Guid RoomId { get; set; }

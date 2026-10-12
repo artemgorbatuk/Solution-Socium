@@ -38,12 +38,21 @@ public sealed class RoomApiTests(SociumApiFixture fixture)
     [Fact]
     public async Task Create_POST_WithValidName_ShouldReturn200Saved()
     {
-        var response = await Client.PostAsJsonAsync(BaseUrl, new RoomCreateRequest { Name = UniqueName() }, TestContext.Current.CancellationToken);
+        var name = UniqueName();
+        var response = await Client.PostAsJsonAsync(BaseUrl, new RoomCreateRequest { Name = name }, TestContext.Current.CancellationToken);
 
         var body = await ReadSuccessAsync<RoomCreatePageResponse>(response);
         Assert.Equal(MessageType.SAVED, body.MessageInfo.MessageType);
         Assert.Equal(RoomCrudTexts.Messages.Success.CreateCompleted, body.MessageInfo.MessageText);
         Assert.Equal(MessageType.GetAlertClass(MessageType.SAVED), body.MessageAlert);
+
+        var roomId = (await ReadSuccessAsync<RoomListPageResponse>(await Client.GetAsync(BaseUrl, TestContext.Current.CancellationToken)))
+            .Response!.Rows.Single(row => row.Name == name).Id;
+        var chats = await ReadSuccessAsync<ChatListPageResponse>(
+            await Client.GetAsync($"/api/chat?roomId={roomId}", TestContext.Current.CancellationToken));
+        var chat = Assert.Single(chats.Response!.Rows);
+        Assert.Equal(ChatCrudTexts.Defaults.Name, chat.Name);
+        Assert.True(chat.IsAdmin);
     }
 
     [Fact]
@@ -206,7 +215,7 @@ public sealed class RoomApiTests(SociumApiFixture fixture)
 
         Assert.Equal(id, body.Response!.Id);
         Assert.Equal(name, body.Response.Name);
-        Assert.Equal(0, body.Response.ChatCount);
+        Assert.Equal(1, body.Response.ChatCount);
     }
 
     [Fact]
@@ -218,7 +227,7 @@ public sealed class RoomApiTests(SociumApiFixture fixture)
 
         var body = await ReadSuccessAsync<RoomDeletePageResponse>(await Client.GetAsync($"{BaseUrl}/delete?id={id}", TestContext.Current.CancellationToken));
 
-        Assert.Equal(2, body.Response!.ChatCount);
+        Assert.Equal(3, body.Response!.ChatCount);
     }
 
     [Fact]

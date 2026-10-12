@@ -47,7 +47,7 @@ public sealed class ChatApiTests(SociumApiFixture fixture)
         var body = await ReadSuccessAsync<ChatListPageResponse>(await Client.GetAsync($"{BaseUrl}?roomId={roomId}", TestContext.Current.CancellationToken));
 
         Assert.Equal(MessageType.LOADED, body.MessageInfo.MessageType);
-        var row = Assert.Single(body.Response!.Rows);
+        var row = Assert.Single(body.Response!.Rows, chat => chat.Id == id);
         Assert.Equal(id, row.Id);
         Assert.Equal(name, row.Name);
         Assert.Equal(0, row.UnreadCount);
@@ -77,7 +77,7 @@ public sealed class ChatApiTests(SociumApiFixture fixture)
         var body = await ReadSuccessAsync<ChatListPageResponse>(
             await Client.GetAsync($"{BaseUrl}?roomId={roomId}", TestContext.Current.CancellationToken));
 
-        Assert.Equal(2, body.Response!.RowCount);
+        Assert.Equal(3, body.Response!.RowCount);
         Assert.Equal(quietId, body.Response.Rows.First().Id);
         Assert.Equal(0, body.Response.Rows.First().UnreadCount);
         var active = body.Response.Rows.Single(row => row.Id == activeId);

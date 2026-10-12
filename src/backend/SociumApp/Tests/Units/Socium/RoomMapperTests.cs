@@ -77,4 +77,16 @@ public sealed class RoomMapperTests
         Assert.Equal(room.Id, model.Id);
         Assert.Equal(room.Name, model.Name);
     }
+
+    [Fact]
+    public void CreatedEvent_Map_WithIds_ShouldCopyRoomIdAndCreatorUserId()
+    {
+        var roomId = Guid.CreateVersion7();
+        var creatorUserId = Guid.CreateVersion7();
+
+        var domainEvent = RoomMapper.ToCreatedEvent(roomId, creatorUserId);
+
+        Assert.Equal(roomId, domainEvent.RoomId);
+        Assert.Equal(creatorUserId, domainEvent.CreatorUserId);
+    }
 }

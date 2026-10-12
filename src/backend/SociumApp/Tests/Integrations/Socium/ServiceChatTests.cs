@@ -59,7 +59,7 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
         Assert.Equal(ChatCrudTexts.Messages.Success.CreateCompleted, result.MessageInfo.MessageText);
         var list = await RunAsync(service => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }));
-        var row = Assert.Single(list.Response!.Rows);
+        var row = Assert.Single(list.Response!.Rows, chat => chat.Name == name);
         Assert.Equal(name, row.Name);
         Assert.Equal(7, row.Id.Version);
     }
@@ -136,7 +136,7 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
     }
 
     [Fact]
-    public async Task List_Load_WithChatsInSeveralRooms_ShouldReturnOnlyRoomChatsSortedByName()
+    public async Task List_Load_WithChatsInSeveralRooms_ShouldReturnOnlyRoomChatsIncludingDefault()
     {
         var roomId = await CreateRoomAsync();
         var otherRoomId = await CreateRoomAsync();
@@ -148,21 +148,24 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
 
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
         Assert.True(result.Response!.RowExists);
-        Assert.Equal(2, result.Response.RowCount);
-        Assert.Equal(["A", "B"], result.Response.Rows.Select(row => row.Name));
+        Assert.Equal(3, result.Response.RowCount);
+        Assert.Equal(
+            ["A", "B", ChatCrudTexts.Defaults.Name],
+            result.Response.Rows.Select(row => row.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray());
+        Assert.DoesNotContain(result.Response.Rows, row => row.Name == "C");
     }
 
     [Fact]
-    public async Task List_Load_WithRoomWithoutChats_ShouldReturnEmptyList()
+    public async Task List_Load_WithNewRoom_ShouldReturnDefaultChat()
     {
         var roomId = await CreateRoomAsync();
 
         var result = await RunAsync(service => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }));
 
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
-        Assert.False(result.Response!.RowExists);
-        Assert.Equal(0, result.Response.RowCount);
-        Assert.Empty(result.Response.Rows);
+        Assert.True(result.Response!.RowExists);
+        Assert.Equal(1, result.Response.RowCount);
+        Assert.Equal(ChatCrudTexts.Defaults.Name, Assert.Single(result.Response.Rows).Name);
     }
 
     [Fact]
@@ -367,8 +370,9 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
         Assert.True(result.Response!.IsDeleted);
         var list = await RunAsync(service => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }));
-        var row = Assert.Single(list.Response!.Rows);
-        Assert.Equal(otherId, row.Id);
+        Assert.DoesNotContain(list.Response!.Rows, row => row.Id == id);
+        Assert.Contains(list.Response.Rows, row => row.Id == otherId);
+        Assert.Contains(list.Response.Rows, row => row.Name == ChatCrudTexts.Defaults.Name);
     }
 
     [Fact]
@@ -418,19 +422,22 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
 
         Assert.True(info.Response!.IsParticipant);
         Assert.True(info.Response.IsAdmin);
-        Assert.True(Assert.Single(list.Response!.Rows).IsAdmin);
+        Assert.True(Assert.Single(list.Response!.Rows, row => row.Id == chatId).IsAdmin);
     }
 
     [Fact]
     public async Task Create_Submit_WithoutCurrentUser_ShouldReturnUnauthorizedAndNotCreate()
     {
         var roomId = await CreateRoomAsync();
+        var name = UniqueName();
 
-        var result = await RunAsAsync(null, service => service.CreateAsync(new ChatCreateRequest { RoomId = roomId, Name = UniqueName() }));
+        var result = await RunAsAsync(null, service => service.CreateAsync(new ChatCreateRequest { RoomId = roomId, Name = name }));
 
         Assert.Equal(MessageType.UNAUTHORIZED, result.MessageInfo.MessageType);
         Assert.Contains(ChatCrudTexts.Messages.Validation.CurrentUserNotFound, result.MessageInfo.MessageText);
-        Assert.Empty((await RunAsync(service => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }))).Response!.Rows);
+        var list = await RunAsync(service => service.DisplayListPageAsync(new ChatListPageRequest { RoomId = roomId }));
+        Assert.DoesNotContain(list.Response!.Rows, row => row.Name == name);
+        Assert.Equal(ChatCrudTexts.Defaults.Name, Assert.Single(list.Response.Rows).Name);
     }
 
     [Fact]
@@ -459,7 +466,7 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
         Assert.False(info.Response.IsAdmin);
         Assert.Equal(MessageType.LOADED, anonymousInfo.MessageInfo.MessageType);
         Assert.False(anonymousInfo.Response!.IsParticipant);
-        Assert.False(Assert.Single(list.Response!.Rows).IsAdmin);
+        Assert.False(Assert.Single(list.Response!.Rows, row => row.Id == chatId).IsAdmin);
     }
 
     [Fact]
@@ -475,7 +482,7 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
 
         Assert.True(info.Response!.IsParticipant);
         Assert.False(info.Response.IsAdmin);
-        Assert.False(Assert.Single(list.Response!.Rows).IsAdmin);
+        Assert.False(Assert.Single(list.Response!.Rows, row => row.Id == chatId).IsAdmin);
     }
 
     [Fact]

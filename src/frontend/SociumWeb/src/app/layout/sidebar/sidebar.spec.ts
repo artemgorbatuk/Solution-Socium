@@ -118,7 +118,10 @@ describe('Sidebar', () => {
     expect(roomNames()).toEqual(['Кухня', 'Гостиная']);
   });
 
-  it('CreateForm_Submit_WithPaddedName_ShouldCreateTrimmedAndReloadList', () => {
+  it('CreateForm_Submit_WithPaddedName_ShouldCreateTrimmedReloadListAndExpandRoom', () => {
+    const expansion = TestBed.inject(RoomExpansion);
+    expansion.toggle('3');
+
     http.expectOne('/api/room').flush(listBody([]));
     render();
 
@@ -136,6 +139,7 @@ describe('Sidebar', () => {
 
     expect(element.querySelector('.create-form')).toBeNull();
     expect(roomNames()).toEqual(['Кабинет']);
+    expect(expansion.isExpanded('3')).toBe(true);
   });
 
   it('CreateForm_Submit_WithDuplicateName_ShouldShowProblemAndKeepForm', () => {

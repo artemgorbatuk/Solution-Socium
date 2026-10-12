@@ -17,6 +17,7 @@ public interface IServiceChat
 {
     Task<ResponseInfo<ChatCreatePageResponse>> DisplayCreatePageAsync(ChatCreatePageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ChatCreatePageResponse>> CreateAsync(ChatCreateRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<ChatCreatePageResponse>> CreateStageAsync(ChatCreateStageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ChatUpdatePageResponse>> DisplayUpdatePageAsync(ChatUpdatePageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ChatUpdatePageResponse>> UpdateAsync(ChatUpdateRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ChatDeletePageResponse>> DisplayDeletePageAsync(ChatDeletePageRequest request, CancellationToken cancellationToken = default);
@@ -72,10 +73,7 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.NotFound<ChatCreatePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var newOptions = new ChatGetNewOptions
-            {
-                RoomId = request.RoomId,
-            };
+            var newOptions = ChatMapper.ToGetNewOptions(request.RoomId);
             var model = unitOfWork.Chats.GetNew(newOptions);
             var response = ChatMapper.ToCreatePageResponse(model);
             logger.LogInformation(ChatCrudTexts.Messages.Success.DisplayCreateCompleted);
@@ -130,32 +128,13 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.NotFound<ChatCreatePageResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var domainErrors = ChatCrudValidators.ValidateDomainCreateRequest(request);
-            if (domainErrors.Any())
+            var stageRequest = ChatMapper.ToCreateStageRequest(request.RoomId, user!.Id, request.Name);
+            var staged = await CreateStageAsync(stageRequest, cancellationToken);
+            if (staged.MessageInfo.MessageType != MessageType.SAVED)
             {
-                var errors = string.Join(Environment.NewLine, domainErrors);
-                var messageText = $"{ChatCrudTexts.Messages.Error.CreateError}{Environment.NewLine}{errors}";
-                logger.LogError("{Message}: {Errors}", ChatCrudTexts.Messages.Error.CreateError, errors);
-                return ResponseInfo.Invalid<ChatCreatePageResponse>(MessageType.INVALID, messageText);
+                return staged;
             }
 
-            var nameNormalized = ChatNormalizer.Name(request.Name);
-            var newOptions = new ChatGetNewOptions
-            {
-                RoomId = request.RoomId,
-            };
-            var model = unitOfWork.Chats.GetNew(newOptions);
-            ChatMapper.Apply(model, nameNormalized);
-            await unitOfWork.Chats.CreateAsync(model, cancellationToken);
-
-            var participantNewOptions = new ParticipantGetNewOptions
-            {
-                ChatId = model.Id,
-                UserId = user!.Id,
-                IsAdmin = true,
-            };
-            var participant = unitOfWork.Participants.GetNew(participantNewOptions);
-            await unitOfWork.Participants.CreateAsync(participant, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(ChatCrudTexts.Messages.Success.CreateCompleted);
@@ -170,6 +149,65 @@ public class ServiceChat : IServiceChat
         {
             logger.LogError(exception, "{Message}", ChatCrudTexts.Messages.Error.CreateError);
             return ResponseInfo.Error<ChatCreatePageResponse>(MessageType.ERROR, ChatCrudTexts.Messages.Error.CreateError);
+        }
+    }
+
+    public async Task<ResponseInfo<ChatCreatePageResponse>> CreateStageAsync(ChatCreateStageRequest request, CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(ChatCrudTexts.Messages.Start.CreateStaging);
+
+        try
+        {
+            var primaryErrors = ChatCrudValidators.ValidatePrimaryCreateStageRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{ChatCrudTexts.Messages.Error.CreateStageError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ChatCrudTexts.Messages.Error.CreateStageError, errors);
+                return ResponseInfo.BadRequest<ChatCreatePageResponse>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var creator = await userPort.GetSingleOrDefaultAsync(request.CreatorUserId, cancellationToken);
+            var creatorErrors = ChatCrudValidators.ValidateCurrentUser(creator);
+            if (creatorErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, creatorErrors);
+                var messageText = $"{ChatCrudTexts.Messages.Error.CreateStageError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ChatCrudTexts.Messages.Error.CreateStageError, errors);
+                return ResponseInfo.Unauthorized<ChatCreatePageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
+            var domainErrors = ChatCrudValidators.ValidateDomainCreateStageRequest(request);
+            if (domainErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, domainErrors);
+                var messageText = $"{ChatCrudTexts.Messages.Error.CreateStageError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ChatCrudTexts.Messages.Error.CreateStageError, errors);
+                return ResponseInfo.Invalid<ChatCreatePageResponse>(MessageType.INVALID, messageText);
+            }
+
+            var nameNormalized = ChatNormalizer.Name(request.Name);
+            var chatNewOptions = ChatMapper.ToGetNewOptions(request.RoomId);
+            var model = unitOfWork.Chats.GetNew(chatNewOptions);
+            ChatMapper.Apply(model, nameNormalized);
+            await unitOfWork.Chats.CreateAsync(model, cancellationToken);
+
+            var participantNewOptions = ParticipantMapper.ToGetNewOptions(model.Id, creator!.Id, isAdmin: true);
+            var participant = unitOfWork.Participants.GetNew(participantNewOptions);
+            await unitOfWork.Participants.CreateAsync(participant, cancellationToken);
+
+            logger.LogInformation(ChatCrudTexts.Messages.Success.CreateStageCompleted);
+            return ResponseInfo.Success<ChatCreatePageResponse>(MessageType.SAVED, ChatCrudTexts.Messages.Success.CreateStageCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(ChatCrudTexts.Messages.Canceled.CreateStage);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", ChatCrudTexts.Messages.Error.CreateStageError);
+            return ResponseInfo.Error<ChatCreatePageResponse>(MessageType.ERROR, ChatCrudTexts.Messages.Error.CreateStageError);
         }
     }
 

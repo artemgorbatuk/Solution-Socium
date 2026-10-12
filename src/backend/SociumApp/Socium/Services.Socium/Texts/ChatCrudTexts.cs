@@ -2,6 +2,11 @@ namespace Services.Socium.Texts;
 
 public static class ChatCrudTexts
 {
+    public static class Defaults
+    {
+        public const string Name = "Новый чат";
+    }
+
     public static class Messages
     {
         public static class Start
@@ -10,6 +15,7 @@ public static class ChatCrudTexts
             public const string DisplayUpdating = "Начало отображения страницы обновления чата";
             public const string DisplayDeleting = "Начало отображения страницы удаления чата";
             public const string Creating = "Начало выполнения создания чата";
+            public const string CreateStaging = "Начало подготовки создания чата";
             public const string Updating = "Начало выполнения обновления чата";
             public const string Deleting = "Начало выполнения удаления чата";
             public const string DisplayInfoLoading = "Начало отображения страницы просмотра чата";
@@ -22,6 +28,7 @@ public static class ChatCrudTexts
             public const string DisplayUpdateCompleted = "Страница обновления чата успешно отображена";
             public const string DisplayDeleteCompleted = "Страница удаления чата успешно отображена";
             public const string CreateCompleted = "Чат успешно создан";
+            public const string CreateStageCompleted = "Создание чата подготовлено";
             public const string UpdateCompleted = "Чат успешно обновлён";
             public const string DeleteCompleted = "Чат успешно удалён";
             public const string DisplayInfoCompleted = "Страница просмотра чата успешно отображена";
@@ -34,6 +41,7 @@ public static class ChatCrudTexts
             public const string DisplayUpdateError = "Не удалось отобразить страницу обновления чата";
             public const string DisplayDeleteError = "Не удалось отобразить страницу удаления чата";
             public const string CreateError = "Не удалось создать чат";
+            public const string CreateStageError = "Не удалось подготовить создание чата";
             public const string UpdateError = "Не удалось обновить чат";
             public const string DeleteError = "Не удалось удалить чат";
             public const string DisplayInfoError = "Не удалось отобразить страницу просмотра чата";
@@ -46,6 +54,7 @@ public static class ChatCrudTexts
             public const string DisplayUpdate = "Отображение страницы обновления чата отменено";
             public const string DisplayDelete = "Отображение страницы удаления чата отменено";
             public const string Create = "Создание чата отменено";
+            public const string CreateStage = "Подготовка создания чата отменена";
             public const string Update = "Обновление чата отменено";
             public const string Delete = "Удаление чата отменено";
             public const string DisplayInfo = "Отображение страницы просмотра чата отменено";
@@ -57,6 +66,7 @@ public static class ChatCrudTexts
             public const string RequestCannotBeNull = "Запрос не может быть пустым.";
             public const string IdCannotBeEmpty = "Идентификатор чата не может быть пустым.";
             public const string RoomIdCannotBeEmpty = "Идентификатор комнаты не может быть пустым.";
+            public const string CreatorUserIdCannotBeEmpty = "Идентификатор создателя чата не может быть пустым.";
             public const string ChatNotFoundById = "Чат не найден по указанному идентификатору.";
             public const string RoomNotFoundById = "Комната не найдена по указанному идентификатору.";
             public const string CurrentUserNotFound = "Текущий пользователь не выбран или не найден.";

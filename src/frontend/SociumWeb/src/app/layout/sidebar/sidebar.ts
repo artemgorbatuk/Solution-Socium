@@ -112,7 +112,12 @@ export class Sidebar {
       next: () => {
         this.saving.set(false);
         this.creating.set(false);
-        this.loadRooms();
+        this.loadRooms(() => {
+          const created = this.rooms().find((room) => room.name === name);
+          if (created) {
+            this.roomExpansion.expand(created.id);
+          }
+        });
       },
       error: (error: unknown) => {
         this.saving.set(false);
@@ -126,7 +131,7 @@ export class Sidebar {
     this.loadRooms();
   }
 
-  protected loadRooms(): void {
+  protected loadRooms(onLoaded?: () => void): void {
     this.loading.set(true);
     this.loadError.set(null);
     this.roomApi.getList().subscribe({
@@ -135,6 +140,7 @@ export class Sidebar {
         this.rooms.set(rooms);
         this.roomExpansion.retain(rooms.map((room) => room.id));
         this.loading.set(false);
+        onLoaded?.();
       },
       error: (error: unknown) => {
         this.loadError.set(problemDetail(error, 'Не удалось загрузить комнаты'));

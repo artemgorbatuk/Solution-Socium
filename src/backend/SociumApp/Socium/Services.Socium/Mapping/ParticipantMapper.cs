@@ -1,4 +1,5 @@
 using Datasource.Socium.Ef.Models;
+using Repositories.Socium.Ef.Options;
 using Services.Socium.Models;
 using Services.Socium.Ports;
 using Services.Socium.Texts;
@@ -10,6 +11,16 @@ public static class ParticipantMapper
     public static void Apply(Participant model, bool isAdmin)
     {
         model.IsAdmin = isAdmin;
+    }
+
+    public static ParticipantGetNewOptions ToGetNewOptions(Guid chatId, Guid userId, bool isAdmin)
+    {
+        return new ParticipantGetNewOptions
+        {
+            ChatId = chatId,
+            UserId = userId,
+            IsAdmin = isAdmin,
+        };
     }
 
     public static ParticipantCreateResponse ToCreateResponse(Participant model)

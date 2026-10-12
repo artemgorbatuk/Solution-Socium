@@ -17,6 +17,7 @@ public sealed class ChatCrudValidatorsTests
 
         Assert.Equal(expected, ChatCrudValidators.ValidatePrimaryCreatePageRequest(null));
         Assert.Equal(expected, ChatCrudValidators.ValidatePrimaryCreateRequest(null));
+        Assert.Equal(expected, ChatCrudValidators.ValidatePrimaryCreateStageRequest(null));
         Assert.Equal(expected, ChatCrudValidators.ValidatePrimaryListPageRequest(null));
         Assert.Equal(expected, ChatCrudValidators.ValidatePrimaryUpdatePageRequest(null));
         Assert.Equal(expected, ChatCrudValidators.ValidatePrimaryUpdateRequest(null));
@@ -32,7 +33,28 @@ public sealed class ChatCrudValidatorsTests
 
         Assert.Equal(expected, ChatCrudValidators.ValidatePrimaryCreatePageRequest(new ChatCreatePageRequest { RoomId = Guid.Empty }));
         Assert.Equal(expected, ChatCrudValidators.ValidatePrimaryCreateRequest(new ChatCreateRequest { RoomId = Guid.Empty, Name = "Chat" }));
+        Assert.Equal(
+            expected,
+            ChatCrudValidators.ValidatePrimaryCreateStageRequest(new ChatCreateStageRequest
+            {
+                RoomId = Guid.Empty,
+                CreatorUserId = Guid.CreateVersion7(),
+                Name = "Chat",
+            }));
         Assert.Equal(expected, ChatCrudValidators.ValidatePrimaryListPageRequest(new ChatListPageRequest { RoomId = Guid.Empty }));
+    }
+
+    [Fact]
+    public void CreateStageRequest_ValidatePrimary_WithEmptyCreatorUserId_ShouldReturnCreatorUserIdCannotBeEmpty()
+    {
+        var errors = ChatCrudValidators.ValidatePrimaryCreateStageRequest(new ChatCreateStageRequest
+        {
+            RoomId = Guid.CreateVersion7(),
+            CreatorUserId = Guid.Empty,
+            Name = "Chat",
+        });
+
+        Assert.Equal([ChatCrudTexts.Messages.Validation.CreatorUserIdCannotBeEmpty], errors);
     }
 
     [Fact]
@@ -55,6 +77,12 @@ public sealed class ChatCrudValidatorsTests
 
         Assert.Empty(ChatCrudValidators.ValidatePrimaryCreatePageRequest(new ChatCreatePageRequest { RoomId = roomId }));
         Assert.Empty(ChatCrudValidators.ValidatePrimaryCreateRequest(new ChatCreateRequest { RoomId = roomId, Name = "" }));
+        Assert.Empty(ChatCrudValidators.ValidatePrimaryCreateStageRequest(new ChatCreateStageRequest
+        {
+            RoomId = roomId,
+            CreatorUserId = id,
+            Name = "",
+        }));
         Assert.Empty(ChatCrudValidators.ValidatePrimaryListPageRequest(new ChatListPageRequest { RoomId = roomId }));
         Assert.Empty(ChatCrudValidators.ValidatePrimaryUpdatePageRequest(new ChatUpdatePageRequest { Id = id }));
         Assert.Empty(ChatCrudValidators.ValidatePrimaryUpdateRequest(new ChatUpdateRequest { Id = id, Name = "" }));

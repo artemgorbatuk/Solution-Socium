@@ -1,11 +1,14 @@
 using Microsoft.Extensions.Logging;
 using Repositories.Socium.Ef.Api;
 using Repositories.Socium.Ef.Options;
+using Services.Shared.Api;
 using Services.Shared.Enums;
+using Services.Shared.Events;
 using Services.Shared.Models;
 using Services.Socium.Mapping;
 using Services.Socium.Models;
 using Services.Socium.Normalizers;
+using Services.Socium.Ports;
 using Services.Socium.Texts;
 using Services.Socium.Validation;
 
@@ -26,11 +29,22 @@ public interface IServiceRoom
 public class ServiceRoom : IServiceRoom
 {
     private readonly IUnitOfWorkSocium unitOfWork;
+    private readonly ICurrentUser currentUser;
+    private readonly IUserPort userPort;
+    private readonly IDomainEventPublisher domainEventPublisher;
     private readonly ILogger<ServiceRoom> logger;
 
-    public ServiceRoom(IUnitOfWorkSocium unitOfWork, ILogger<ServiceRoom> logger)
+    public ServiceRoom(
+        IUnitOfWorkSocium unitOfWork,
+        ICurrentUser currentUser,
+        IUserPort userPort,
+        IDomainEventPublisher domainEventPublisher,
+        ILogger<ServiceRoom> logger)
     {
         this.unitOfWork = unitOfWork;
+        this.currentUser = currentUser;
+        this.userPort = userPort;
+        this.domainEventPublisher = domainEventPublisher;
         this.logger = logger;
     }
 
@@ -82,6 +96,18 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.BadRequest<RoomCreatePageResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
+            var user = currentUser.UserId is Guid currentUserId
+                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+                : null;
+            var currentUserErrors = RoomCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{RoomCrudTexts.Messages.Error.CreateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", RoomCrudTexts.Messages.Error.CreateError, errors);
+                return ResponseInfo.Unauthorized<RoomCreatePageResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
             var domainErrors = RoomCrudValidators.ValidateDomainCreateRequest(request);
             if (domainErrors.Any())
             {
@@ -109,6 +135,8 @@ public class ServiceRoom : IServiceRoom
             var model = unitOfWork.Rooms.GetNew();
             RoomMapper.Apply(model, nameNormalized);
             await unitOfWork.Rooms.CreateAsync(model, cancellationToken);
+            var roomCreated = RoomMapper.ToCreatedEvent(model.Id, user!.Id);
+            await domainEventPublisher.PublishAsync(roomCreated, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(RoomCrudTexts.Messages.Success.CreateCompleted);

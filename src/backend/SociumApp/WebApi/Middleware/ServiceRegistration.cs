@@ -23,7 +23,9 @@ using Services.Security.Tokens.Options;
 using Services.Security.Tokens.Providers;
 using Services.Security.Tokens.Validation;
 using Services.Shared.Api;
+using Services.Shared.Events;
 using Services.Socium.Api;
+using Services.Socium.Events;
 using Services.Socium.Ports;
 using SignalR.Realtime.Middleware;
 using WebApi.Ports;
@@ -77,6 +79,8 @@ public static class ServiceRegistration
         services.AddScoped<IServiceAccount, ServiceAccount>();
 
         services.AddScoped<IUserPort, UserPort>();
+        services.AddScoped<IDomainEventPublisher, DomainEventPublisher>();
+        services.AddScoped<IDomainEventHandler<RoomCreatedEvent>, CreateDefaultChatOnRoomCreatedHandler>();
         services.AddScoped<IServiceRoom, ServiceRoom>();
         services.AddScoped<IServiceChat, ServiceChat>();
         services.AddScoped<IServiceMessage, ServiceMessage>();

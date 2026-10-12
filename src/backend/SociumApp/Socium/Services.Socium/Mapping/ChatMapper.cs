@@ -1,4 +1,5 @@
 using Datasource.Socium.Ef.Models;
+using Repositories.Socium.Ef.Options;
 using Services.Socium.Models;
 
 namespace Services.Socium.Mapping;
@@ -8,6 +9,24 @@ public static class ChatMapper
     public static void Apply(Chat model, string name)
     {
         model.Name = name;
+    }
+
+    public static ChatCreateStageRequest ToCreateStageRequest(Guid roomId, Guid creatorUserId, string name)
+    {
+        return new ChatCreateStageRequest
+        {
+            RoomId = roomId,
+            CreatorUserId = creatorUserId,
+            Name = name,
+        };
+    }
+
+    public static ChatGetNewOptions ToGetNewOptions(Guid roomId)
+    {
+        return new ChatGetNewOptions
+        {
+            RoomId = roomId,
+        };
     }
 
     public static ChatCreatePageResponse ToCreatePageResponse(Chat model)

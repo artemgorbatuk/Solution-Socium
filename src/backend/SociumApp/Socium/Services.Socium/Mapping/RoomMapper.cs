@@ -1,4 +1,5 @@
 using Datasource.Socium.Ef.Models;
+using Services.Socium.Events;
 using Services.Socium.Models;
 
 namespace Services.Socium.Mapping;
@@ -8,6 +9,15 @@ public static class RoomMapper
     public static void Apply(Room model, string name)
     {
         model.Name = name;
+    }
+
+    public static RoomCreatedEvent ToCreatedEvent(Guid roomId, Guid creatorUserId)
+    {
+        return new RoomCreatedEvent
+        {
+            RoomId = roomId,
+            CreatorUserId = creatorUserId,
+        };
     }
 
     public static RoomCreatePageResponse ToCreatePageResponse(Room model)

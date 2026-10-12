@@ -59,6 +59,7 @@ public static class RoomCrudTexts
             public const string RoomNotFoundById = "Комната не найдена по указанному идентификатору.";
             public const string NameNotEmpty = "Название комнаты не может быть пустым.";
             public const string NameAlreadyExists = "Комната с таким названием уже существует.";
+            public const string CurrentUserNotFound = "Текущий пользователь не выбран или не найден.";
             public static string NameMaximumLength(int length)
                 => $"Название комнаты не может превышать {length} символов.";
         }

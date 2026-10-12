@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Playwright;
+using Services.Socium.Texts;
 using static Tests.E2Es.Socium.SociumE2eHelpers;
 
 namespace Tests.E2Es.Socium;
@@ -26,7 +27,7 @@ public sealed class ChatSidebarE2eTests(E2eAppFixture fixture)
         var toggle = page.GetByRole(AriaRole.Button, new() { Name = $"Чаты комнаты {roomName}", Exact = true });
         var chats = ChatList(page, roomName);
         await Assertions.Expect(toggle).ToHaveAttributeAsync("aria-expanded", "true");
-        string[] expectedNames = ["Арт", "Общий"];
+        string[] expectedNames = ["Арт", ChatCrudTexts.Defaults.Name, "Общий"];
         await Assertions.Expect(chats.GetByRole(AriaRole.Listitem)).ToContainTextAsync(expectedNames);
 
         await toggle.ClickAsync();
@@ -66,10 +67,11 @@ public sealed class ChatSidebarE2eTests(E2eAppFixture fixture)
         await Assertions.Expect(confirm).ToContainTextAsync($"Удалить чат «{newName}»?");
         await confirm.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
         await Assertions.Expect(confirm).ToHaveCountAsync(0);
-        await Assertions.Expect(chats).ToContainTextAsync("Чатов пока нет");
+        await Assertions.Expect(chats.GetByText(newName, new() { Exact = true })).ToHaveCountAsync(0);
+        await Assertions.Expect(chats.GetByText(ChatCrudTexts.Defaults.Name, new() { Exact = true })).ToBeVisibleAsync();
 
         var list = await fixture.Api.GetChatListAsync(roomId);
-        Assert.Empty(list.Rows);
+        Assert.Equal(ChatCrudTexts.Defaults.Name, Assert.Single(list.Rows).Name);
     }
 
     [Fact]
@@ -86,7 +88,7 @@ public sealed class ChatSidebarE2eTests(E2eAppFixture fixture)
 
         await page.ClickRowActionAsync($"Удалить комнату {roomName}");
         var confirm = page.GetByRole(AriaRole.Group, new() { Name = "Удалить комнату?" });
-        await Assertions.Expect(confirm).ToContainTextAsync("Вместе с комнатой будут удалены чаты: 2");
+        await Assertions.Expect(confirm).ToContainTextAsync("Вместе с комнатой будут удалены чаты: 3");
         await confirm.GetByRole(AriaRole.Button, new() { Name = "Удалить" }).ClickAsync();
         await Assertions.Expect(confirm).ToHaveCountAsync(0);
 
