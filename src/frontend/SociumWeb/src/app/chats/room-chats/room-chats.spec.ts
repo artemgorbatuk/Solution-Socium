@@ -6,7 +6,7 @@ import { Subject } from 'rxjs';
 import { successBody } from '../../shared/api/api-response.testing';
 import { signInAs } from '../../account/auth.testing';
 import { ChatHub } from '../../realtime/chat-hub';
-import { ChatChangedNotify, ChatListNotify } from '../../realtime/chat-hub.models';
+import { ChatChangedNotify, ChatListNotify, UserChangedNotify } from '../../realtime/chat-hub.models';
 import { ChatChanges } from '../chat-changes';
 import { ChatListModel } from '../chat.models';
 import { RoomChats } from './room-chats';
@@ -17,6 +17,7 @@ describe('RoomChats', () => {
   let element: HTMLElement;
   let chatListUpdated$: Subject<ChatListNotify>;
   let chatChanged$: Subject<ChatChangedNotify>;
+  let userChanged$: Subject<UserChangedNotify>;
 
   function render(): void {
     fixture.detectChanges();
@@ -61,6 +62,7 @@ describe('RoomChats', () => {
   beforeEach(() => {
     chatListUpdated$ = new Subject();
     chatChanged$ = new Subject();
+    userChanged$ = new Subject();
     TestBed.configureTestingModule({
       imports: [RoomChats],
       providers: [
@@ -73,6 +75,7 @@ describe('RoomChats', () => {
             ensureConnected: () => Promise.resolve(),
             chatListUpdated$,
             chatChanged$,
+            userChanged$,
           },
         },
       ],
@@ -304,6 +307,7 @@ describe('RoomChats', () => {
       lastMessageText: 'привет',
       lastMessageAt: '2020-01-02T00:00:00Z',
       lastMessageSenderName: 'Анна',
+      lastMessageSenderUserId: 'u-anna',
       lastMessageHasAttachments: false,
     });
     render();
@@ -311,5 +315,37 @@ describe('RoomChats', () => {
     expect(chatNames()).toEqual(['Старый', 'Свежий']);
     expect(element.querySelector('.chat-preview')!.textContent).toContain('Анна: привет');
     expect(element.querySelector('.unread')!.textContent).toBe('2');
+  });
+
+  it('List_Realtime_WithUserChanged_ShouldPatchLastMessageSenderName', () => {
+    create(false);
+    expectList().flush(
+      listBody([
+        row({
+          id: 'c1',
+          name: 'Общий',
+          lastMessageAt: '2020-01-01T00:00:00Z',
+          lastMessageText: 'привет',
+          lastMessageSenderName: 'Анна',
+          lastMessageSenderUserId: 'u-anna',
+        }),
+        row({
+          id: 'c2',
+          name: 'Другой',
+          lastMessageAt: '2020-01-01T12:00:00Z',
+          lastMessageText: 'ок',
+          lastMessageSenderName: 'Борис',
+          lastMessageSenderUserId: 'u-boris',
+        }),
+      ]),
+    );
+    render();
+
+    userChanged$.next({ userId: 'u-anna', name: 'Анна Петрова' });
+    render();
+
+    expect(element.querySelector('.chat-preview')!.textContent).toContain('Борис: ок');
+    const previews = Array.from(element.querySelectorAll('.chat-preview')).map((item) => item.textContent!.trim());
+    expect(previews).toEqual(['Борис: ок', 'Анна Петрова: привет']);
   });
 });

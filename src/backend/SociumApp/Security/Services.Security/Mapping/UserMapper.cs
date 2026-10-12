@@ -1,5 +1,7 @@
 using Datasource.Security.Ef.Models;
+using Services.Security.Events;
 using Services.Security.Models;
+using Services.Security.Ports;
 
 namespace Services.Security.Mapping;
 
@@ -70,6 +72,24 @@ public static class UserMapper
             Login = model.Login,
             Email = model.Email,
             Name = model.Name,
+        };
+    }
+
+    public static UserChangedEvent ToChangedEvent(Guid userId, string name)
+    {
+        return new UserChangedEvent
+        {
+            UserId = userId,
+            Name = name,
+        };
+    }
+
+    public static UserNotifyChangedModel ToNotifyUserChanged(UserChangedEvent domainEvent)
+    {
+        return new UserNotifyChangedModel
+        {
+            UserId = domainEvent.UserId,
+            Name = domainEvent.Name,
         };
     }
 }

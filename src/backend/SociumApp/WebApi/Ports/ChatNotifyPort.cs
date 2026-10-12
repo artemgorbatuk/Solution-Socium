@@ -49,6 +49,7 @@ public class ChatNotifyPort : IChatNotifyPort
                 LastMessageText = update.LastMessageText,
                 LastMessageAt = update.LastMessageAt,
                 LastMessageSenderName = update.LastMessageSenderName,
+                LastMessageSenderUserId = update.LastMessageSenderUserId,
                 LastMessageHasAttachments = update.LastMessageHasAttachments,
                 LastMessageCleared = update.LastMessageCleared,
             },

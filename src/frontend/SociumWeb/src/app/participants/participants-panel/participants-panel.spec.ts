@@ -3,8 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ChatChanges } from '../../chats/chat-changes';
 import { successBody } from '../../shared/api/api-response.testing';
-import { Auth } from '../../account/auth';
 import { signInAs } from '../../account/auth.testing';
+import { ChatHub } from '../../realtime/chat-hub';
 import { ParticipantListModel } from '../participant.models';
 import { ParticipantsPanelState, participantsPanelOpenStorageKey } from '../participants-panel-state';
 import { ParticipantsPanel } from './participants-panel';
@@ -237,13 +237,13 @@ describe('ParticipantsPanel', () => {
     expect(rowTexts()[1]).toContain('(вы)');
   });
 
-  it('List_Reload_WithOwnNameChanged_ShouldReloadList', () => {
+  it('List_Realtime_WithUserChanged_ShouldPatchNameWithoutReload', () => {
     flushList([anna, boris], false);
 
-    TestBed.inject(Auth).updateProfile({ id: 'u1', login: 'anna', email: 'anna@example.com', name: 'Анна Новая' });
+    TestBed.inject(ChatHub).userChanged$.next({ userId: 'u2', name: 'Борис Новый' });
     render();
-    flushList([{ ...anna, name: 'Анна Новая' }, boris], false);
 
-    expect(rowTexts()[0]).toContain('Анна Новая');
+    expect(rowTexts()).toEqual(['Анна (вы) | админ', 'Борис Новый']);
+    http.expectNone((request) => request.method === 'GET' && request.url === '/api/participant');
   });
 });

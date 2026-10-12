@@ -12,6 +12,7 @@ import {
   ChatParticipantNotify,
   ChatTypingStartedNotify,
   ChatTypingStoppedNotify,
+  UserChangedNotify,
 } from '../../realtime/chat-hub.models';
 import { MessageListModel } from '../message.models';
 import { ChatMessages } from './chat-messages';
@@ -44,6 +45,7 @@ describe('ChatMessages', () => {
   let messageDeleted$: Subject<ChatMessageDeletedNotify>;
   let typingStarted$: Subject<ChatTypingStartedNotify>;
   let typingStopped$: Subject<ChatTypingStoppedNotify>;
+  let userChanged$: Subject<UserChangedNotify>;
   let reconnected$: Subject<void>;
 
   function render(): void {
@@ -122,6 +124,7 @@ describe('ChatMessages', () => {
     messageDeleted$ = new Subject();
     typingStarted$ = new Subject();
     typingStopped$ = new Subject();
+    userChanged$ = new Subject();
     reconnected$ = new Subject();
 
     TestBed.configureTestingModule({
@@ -141,6 +144,7 @@ describe('ChatMessages', () => {
             messageDeleted$,
             typingStarted$,
             typingStopped$,
+            userChanged$,
             participantJoined$: new Subject<ChatParticipantNotify>(),
             participantLeft$: new Subject<ChatParticipantLeftNotify>(),
             participantRoleChanged$: new Subject<ChatParticipantNotify>(),
@@ -374,6 +378,19 @@ describe('ChatMessages', () => {
     render();
 
     expect(element.querySelector('.typing')).toBeNull();
+  });
+
+  it('Feed_Realtime_WithUserChanged_ShouldPatchSenderNameAndTyping', () => {
+    flushList('c1', [first, second]);
+    typingStarted$.next({ chatId: 'c1', userId: 'u2', name: 'Борис' });
+    render();
+
+    userChanged$.next({ userId: 'u2', name: 'Борис Новый' });
+    render();
+
+    const senders = Array.from(element.querySelectorAll('.sender')).map((item) => item.textContent!.trim());
+    expect(senders).toContain('Борис Новый');
+    expect(element.querySelector('.typing')!.textContent).toContain('Борис Новый печатает…');
   });
 
   it('Feed_Reconnect_ShouldReloadLatestPage', () => {

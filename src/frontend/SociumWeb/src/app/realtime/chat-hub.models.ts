@@ -38,8 +38,14 @@ export interface ChatListNotify {
   lastMessageText?: string | null;
   lastMessageAt?: string | null;
   lastMessageSenderName?: string | null;
+  lastMessageSenderUserId?: string | null;
   lastMessageHasAttachments?: boolean;
   lastMessageCleared?: boolean;
+}
+
+export interface UserChangedNotify {
+  userId: string;
+  name: string;
 }
 
 export type RoomChangedKind = 'created' | 'updated' | 'deleted';

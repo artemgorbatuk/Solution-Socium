@@ -54,7 +54,6 @@ export class ParticipantsPanel {
       const chatId = this.chatId();
       this.chatChanges.version();
       this.currentUserId();
-      this.currentUser.name();
       untracked(() => {
         this.bindHub(chatId);
         onCleanup(this.load(chatId));
@@ -189,6 +188,15 @@ export class ParticipantsPanel {
         if (payload.userId === this.currentUserId()) {
           this.canManageRoles.set(payload.isAdmin);
         }
+      }),
+      this.chatHub.userChanged$.subscribe((change) => {
+        const name = change.name?.trim();
+        if (!name) {
+          return;
+        }
+        this.rows.update((list) =>
+          list.map((row) => (row.userId === change.userId ? { ...row, name } : row)),
+        );
       }),
       this.chatHub.reconnected$.subscribe(() => {
         if (this.chatId() === chatId) {

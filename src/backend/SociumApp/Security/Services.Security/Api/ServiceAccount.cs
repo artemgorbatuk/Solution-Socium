@@ -12,6 +12,7 @@ using Services.Security.Tokens.Providers;
 using Services.Security.Validation;
 using Services.Shared.Api;
 using Services.Shared.Enums;
+using Services.Shared.Events;
 using Services.Shared.Models;
 
 namespace Services.Security.Api;
@@ -42,6 +43,7 @@ public class ServiceAccount : IServiceAccount
     private readonly IAccessTokenProvider accessTokenProvider;
     private readonly IRefreshTokenProvider refreshTokenProvider;
     private readonly IEmailPort emailPort;
+    private readonly IDomainEventPublisher domainEventPublisher;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<ServiceAccount> logger;
 
@@ -52,6 +54,7 @@ public class ServiceAccount : IServiceAccount
         IAccessTokenProvider accessTokenProvider,
         IRefreshTokenProvider refreshTokenProvider,
         IEmailPort emailPort,
+        IDomainEventPublisher domainEventPublisher,
         TimeProvider timeProvider,
         ILogger<ServiceAccount> logger)
     {
@@ -61,6 +64,7 @@ public class ServiceAccount : IServiceAccount
         this.accessTokenProvider = accessTokenProvider;
         this.refreshTokenProvider = refreshTokenProvider;
         this.emailPort = emailPort;
+        this.domainEventPublisher = domainEventPublisher;
         this.timeProvider = timeProvider;
         this.logger = logger;
     }
@@ -273,9 +277,17 @@ public class ServiceAccount : IServiceAccount
                 return ResponseInfo.Invalid<AccountProfileResponse>(MessageType.INVALID, messageText);
             }
 
-            UserMapper.Apply(user!, user!.Login, user.Email, UserNormalizer.Name(request.Name));
+            var previousName = user!.Name;
+            var nameNormalized = UserNormalizer.Name(request.Name);
+            UserMapper.Apply(user, user.Login, user.Email, nameNormalized);
             await unitOfWork.Users.UpdateAsync(user, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            if (!string.Equals(previousName, nameNormalized, StringComparison.Ordinal))
+            {
+                var userChanged = UserMapper.ToChangedEvent(user.Id, user.Name);
+                await domainEventPublisher.PublishAsync(userChanged, cancellationToken);
+            }
 
             var response = UserMapper.ToProfileResponse(user);
             logger.LogInformation(AccountTexts.Messages.Success.ProfileUpdateCompleted);

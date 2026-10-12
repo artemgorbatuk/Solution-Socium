@@ -103,6 +103,29 @@ public sealed class UserMapperTests
     }
 
     [Fact]
+    public void ChangedEvent_Map_WithUserIdAndName_ShouldCopyFields()
+    {
+        var userId = Guid.CreateVersion7();
+
+        var domainEvent = UserMapper.ToChangedEvent(userId, "Иван Петров");
+
+        Assert.Equal(userId, domainEvent.UserId);
+        Assert.Equal("Иван Петров", domainEvent.Name);
+    }
+
+    [Fact]
+    public void NotifyUserChanged_Map_WithChangedEvent_ShouldCopyFields()
+    {
+        var userId = Guid.CreateVersion7();
+        var domainEvent = UserMapper.ToChangedEvent(userId, "Иван Петров");
+
+        var notify = UserMapper.ToNotifyUserChanged(domainEvent);
+
+        Assert.Equal(userId, notify.UserId);
+        Assert.Equal("Иван Петров", notify.Name);
+    }
+
+    [Fact]
     public void RefreshToken_Revoke_WithReplacement_ShouldSetRevokedAtAndReplacedBy()
     {
         var token = new RefreshToken

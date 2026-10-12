@@ -55,6 +55,7 @@ public class ChatNotifyListModel
     public string? LastMessageText { get; set; }
     public DateTime? LastMessageAt { get; set; }
     public string? LastMessageSenderName { get; set; }
+    public Guid? LastMessageSenderUserId { get; set; }
     public bool LastMessageHasAttachments { get; set; }
     public bool LastMessageCleared { get; set; }
 }

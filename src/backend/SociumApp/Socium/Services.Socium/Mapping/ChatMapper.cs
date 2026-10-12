@@ -128,6 +128,7 @@ public static class ChatMapper
         string? lastMessageText = null,
         DateTime? lastMessageAt = null,
         string? lastMessageSenderName = null,
+        Guid? lastMessageSenderUserId = null,
         bool lastMessageHasAttachments = false)
     {
         return new ChatListModel
@@ -140,6 +141,7 @@ public static class ChatMapper
             LastMessageText = lastMessageText,
             LastMessageAt = lastMessageAt,
             LastMessageSenderName = lastMessageSenderName,
+            LastMessageSenderUserId = lastMessageSenderUserId,
             LastMessageHasAttachments = lastMessageHasAttachments,
         };
     }

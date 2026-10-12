@@ -186,6 +186,7 @@ public static class MessageMapper
         string? lastMessageText = null,
         DateTime? lastMessageAt = null,
         string? lastMessageSenderName = null,
+        Guid? lastMessageSenderUserId = null,
         bool lastMessageHasAttachments = false,
         bool lastMessageCleared = false)
     {
@@ -198,6 +199,7 @@ public static class MessageMapper
             LastMessageText = lastMessageCleared ? null : lastMessageText,
             LastMessageAt = lastMessageCleared ? null : lastMessageAt,
             LastMessageSenderName = lastMessageCleared ? null : lastMessageSenderName,
+            LastMessageSenderUserId = lastMessageCleared ? null : lastMessageSenderUserId,
             LastMessageHasAttachments = !lastMessageCleared && lastMessageHasAttachments,
             LastMessageCleared = lastMessageCleared,
         };

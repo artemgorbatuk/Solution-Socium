@@ -684,6 +684,7 @@ public class ServiceChat : IServiceChat
                     previewText,
                     last?.CreatedAt,
                     senderName,
+                    last?.SenderUserId,
                     hasAttachments));
             }
 

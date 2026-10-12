@@ -17,6 +17,7 @@ using Services.Messaging.Tokens.Providers;
 using Services.Realtime.Api;
 using Services.Realtime.Middleware;
 using Services.Security.Api;
+using Services.Security.Events;
 using Services.Security.Passwords.Providers;
 using Services.Security.Permissions.Providers;
 using Services.Security.Ports;
@@ -73,6 +74,7 @@ public static class ServiceRegistration
 
         services.AddScoped<IServiceEmailToken, ServiceEmailToken>();
         services.AddScoped<IEmailPort, EmailPort>();
+        services.AddScoped<IUserNotifyPort, UserNotifyPort>();
         services.AddScoped<IServiceStoredFile, ServiceStoredFile>();
         services.AddScoped<IFileOwnerAccess, MessageFileOwnerAccess>();
         services.AddScoped<IFilePort, FilePort>();
@@ -96,6 +98,7 @@ public static class ServiceRegistration
         services.AddScoped<IDomainEventHandler<RoomChangedEvent>, NotifyRoomChangedOnRoomChangedHandler>();
         services.AddScoped<IDomainEventHandler<ChatCreatedEvent>, CreateCreatorParticipantOnChatCreatedHandler>();
         services.AddScoped<IDomainEventHandler<ChatChangedEvent>, NotifyChatChangedOnChatChangedHandler>();
+        services.AddScoped<IDomainEventHandler<UserChangedEvent>, NotifyUserChangedOnUserChangedHandler>();
         services.AddScoped<IServiceRoom, ServiceRoom>();
         services.AddScoped<IServiceChat, ServiceChat>();
         services.AddScoped<IServiceMessage, ServiceMessage>();

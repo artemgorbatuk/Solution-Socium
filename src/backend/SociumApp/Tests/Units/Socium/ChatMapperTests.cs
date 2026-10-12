@@ -164,6 +164,7 @@ public sealed class ChatMapperTests
         var chat = CreateChat();
         var at = new DateTime(2020, 1, 2, 3, 4, 5, DateTimeKind.Utc);
 
+        var senderUserId = Guid.CreateVersion7();
         var model = ChatMapper.ToListModel(
             chat,
             canUpdate: false,
@@ -172,12 +173,14 @@ public sealed class ChatMapperTests
             "привет",
             at,
             "Анна",
+            senderUserId,
             lastMessageHasAttachments: true);
 
         Assert.Equal(4, model.UnreadCount);
         Assert.Equal("привет", model.LastMessageText);
         Assert.Equal(at, model.LastMessageAt);
         Assert.Equal("Анна", model.LastMessageSenderName);
+        Assert.Equal(senderUserId, model.LastMessageSenderUserId);
         Assert.True(model.LastMessageHasAttachments);
     }
 

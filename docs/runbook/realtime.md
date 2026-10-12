@@ -6,8 +6,8 @@
 |----------|----------|
 | Маршрут | `/hubs/chat` |
 | Методы клиента → сервер | `JoinChat(chatId)`, `LeaveChat(chatId)`, `StartTyping(chatId)`, `StopTyping(chatId)` |
-| Методы сервер → клиент | `messageCreated`, `messageUpdated`, `messageDeleted`, `participantJoined`, `participantLeft`, `participantRoleChanged`, `chatListUpdated`, `roomChanged`, `chatChanged`, `typingStarted`, `typingStopped` |
-| Группы | `chat:{chatId}` — открытый чат; `user:{userId}` — список чатов (при `OnConnected`); `roomChanged` / `chatChanged` — broadcast всем подключениям |
+| Методы сервер → клиент | `messageCreated`, `messageUpdated`, `messageDeleted`, `participantJoined`, `participantLeft`, `participantRoleChanged`, `chatListUpdated`, `roomChanged`, `chatChanged`, `userChanged`, `typingStarted`, `typingStopped` |
+| Группы | `chat:{chatId}` — открытый чат; `user:{userId}` — список чатов (при `OnConnected`); `roomChanged` / `chatChanged` / `userChanged` — broadcast всем подключениям |
 
 Аутентификация: тот же JWT, что у REST. Браузерный клиент передаёт токен в query `access_token` (стандарт SignalR); WebApi читает его в `JwtBearerEvents.OnMessageReceived` для путей `/hubs`.
 
@@ -21,6 +21,7 @@ Join / typing разрешены только участнику чата; ин�
 - Список чатов: `ensureConnected()` поднимает соединение (user-группа); событие `chatListUpdated` патчит превью / unread и пересортировывает строки.
 - Список комнат: то же соединение; событие `roomChanged` (`created` / `updated` / `deleted`) патчит сайдбар без GET `/api/room`.
 - Список чатов комнаты: событие `chatChanged` (`created` / `updated` / `deleted`) патчит `RoomChats` без GET `/api/chat?roomId=`; `chatListUpdated` по-прежнему только превью / unread.
+- Имя пользователя: событие `userChanged` (`userId`, `name`) патчит участников открытого чата, `senderName` в ленте / typing и `lastMessageSenderName` в сайдбаре (по `lastMessageSenderUserId`).
 - Typing: при наборе в composer — `StartTyping` (refresh ~2 с), idle ~3 с / отправка / leave — `StopTyping`; индикатор над composer.
 
 ## Notify после сохранения
@@ -32,6 +33,8 @@ Join / typing разрешены только участнику чата; ин�
 `ServiceRoom` после `SaveChanges` публикует `RoomChangedEvent` → handler → `NotifyRoomChangedAsync` (broadcast `Clients.All`).
 
 `ServiceChat` после `SaveChanges` (ручной create / update / delete) публикует `ChatChangedEvent` → handler → `NotifyChatChangedAsync` (broadcast). Авточат при создании комнаты `ChatChanged` не шлёт.
+
+`ServiceAccount.UpdateProfileAsync` после `SaveChanges` (если имя изменилось) публикует `UserChangedEvent` → handler → `IUserNotifyPort` → `NotifyUserChangedAsync` (broadcast).
 
 ## Пагинация сообщений
 

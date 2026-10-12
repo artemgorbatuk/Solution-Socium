@@ -100,7 +100,6 @@ export class ChatMessages {
   constructor() {
     effect(() => {
       const chatId = this.chatId();
-      this.currentUser.name();
       untracked(() => (chatId === this.openedChatId ? undefined : this.open(chatId)));
     });
     inject(DestroyRef).onDestroy(() => {
@@ -322,6 +321,20 @@ export class ChatMessages {
           return;
         }
         this.removeRemoteTyper(payload.userId);
+      }),
+      this.chatHub.userChanged$.subscribe((change) => {
+        const name = change.name?.trim();
+        if (!name) {
+          return;
+        }
+        this.messages.update((list) =>
+          list.map((message) =>
+            message.senderUserId === change.userId ? { ...message, senderName: name } : message,
+          ),
+        );
+        this.typingUsers.update((list) =>
+          list.map((user) => (user.userId === change.userId ? { ...user, name } : user)),
+        );
       }),
       this.chatHub.reconnected$.subscribe(() => {
         if (this.chatId() === chatId) {

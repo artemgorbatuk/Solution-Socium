@@ -11,6 +11,7 @@ export interface ChatListModel {
   /** UTC в формате ISO 8601. */
   lastMessageAt?: string | null;
   lastMessageSenderName?: string | null;
+  lastMessageSenderUserId?: string | null;
   lastMessageHasAttachments?: boolean;
 }
 

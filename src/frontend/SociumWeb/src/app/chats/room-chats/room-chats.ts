@@ -1,7 +1,7 @@
 import { Component, DestroyRef, ElementRef, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ChatHub } from '../../realtime/chat-hub';
-import { ChatChangedNotify, ChatListNotify } from '../../realtime/chat-hub.models';
+import { ChatChangedNotify, ChatListNotify, UserChangedNotify } from '../../realtime/chat-hub.models';
 import { problemDetail } from '../../shared/api/api-response';
 import { CurrentUser } from '../../users/current-user';
 import { ChatApi } from '../chat-api';
@@ -114,7 +114,27 @@ export class RoomChats {
     const subscription = new Subscription();
     subscription.add(this.chatHub.chatListUpdated$.subscribe((update) => this.applyListUpdate(roomId, update)));
     subscription.add(this.chatHub.chatChanged$.subscribe((change) => this.applyChatChanged(roomId, change)));
+    subscription.add(this.chatHub.userChanged$.subscribe((change) => this.applyUserChanged(change)));
     this.hubSubscription = subscription;
+  }
+
+  private applyUserChanged(change: UserChangedNotify): void {
+    const name = change.name?.trim();
+    if (!name) {
+      return;
+    }
+
+    this.chats.update((rows) => {
+      let changed = false;
+      const next = rows.map((row) => {
+        if (row.lastMessageSenderUserId !== change.userId) {
+          return row;
+        }
+        changed = true;
+        return { ...row, lastMessageSenderName: name };
+      });
+      return changed ? next : rows;
+    });
   }
 
   private applyChatChanged(roomId: string, change: ChatChangedNotify): void {
@@ -180,16 +200,19 @@ export class RoomChats {
         next.lastMessageText = null;
         next.lastMessageAt = null;
         next.lastMessageSenderName = null;
+        next.lastMessageSenderUserId = null;
         next.lastMessageHasAttachments = false;
       } else if (
         update.lastMessageAt != null ||
         update.lastMessageText != null ||
         update.lastMessageHasAttachments ||
-        update.lastMessageSenderName != null
+        update.lastMessageSenderName != null ||
+        update.lastMessageSenderUserId != null
       ) {
         next.lastMessageText = update.lastMessageText ?? null;
         next.lastMessageAt = update.lastMessageAt ?? null;
         next.lastMessageSenderName = update.lastMessageSenderName ?? null;
+        next.lastMessageSenderUserId = update.lastMessageSenderUserId ?? null;
         next.lastMessageHasAttachments = update.lastMessageHasAttachments ?? false;
       }
 

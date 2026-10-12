@@ -240,6 +240,7 @@ public class ServiceMessage : IServiceMessage
                 createdPreview,
                 model.CreatedAt,
                 user.Name,
+                user.Id,
                 createdAttachmentList.Count > 0,
                 lastMessageCleared: false,
                 cancellationToken);
@@ -430,6 +431,7 @@ public class ServiceMessage : IServiceMessage
                     updatedPreview,
                     model.CreatedAt,
                     user.Name,
+                    model.Sender.UserId,
                     updatedAttachmentList.Count > 0,
                     lastMessageCleared: false,
                     cancellationToken);
@@ -607,6 +609,7 @@ public class ServiceMessage : IServiceMessage
                     lastMessageText: null,
                     lastMessageAt: null,
                     lastMessageSenderName: null,
+                    lastMessageSenderUserId: null,
                     lastMessageHasAttachments: false,
                     lastMessageCleared: true,
                     cancellationToken);
@@ -624,6 +627,7 @@ public class ServiceMessage : IServiceMessage
                         : lastAfterDelete.Text),
                     lastAfterDelete.CreatedAt,
                     lastSender?.Name,
+                    lastAfterDelete.SenderUserId,
                     lastAttachmentList.Count > 0,
                     lastMessageCleared: false,
                     cancellationToken);
@@ -960,6 +964,7 @@ public class ServiceMessage : IServiceMessage
         string? lastMessageText,
         DateTime? lastMessageAt,
         string? lastMessageSenderName,
+        Guid? lastMessageSenderUserId,
         bool lastMessageHasAttachments,
         bool lastMessageCleared,
         CancellationToken cancellationToken)
@@ -989,6 +994,7 @@ public class ServiceMessage : IServiceMessage
                 lastMessageText,
                 lastMessageAt,
                 lastMessageSenderName,
+                lastMessageSenderUserId,
                 lastMessageHasAttachments,
                 lastMessageCleared);
             await chatNotifyPort.NotifyChatListUpdatedAsync(listNotify, cancellationToken);
