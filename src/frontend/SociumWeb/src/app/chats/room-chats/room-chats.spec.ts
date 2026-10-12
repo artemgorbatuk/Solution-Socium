@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { Subject } from 'rxjs';
 import { successBody } from '../../shared/api/api-response.testing';
 import { signInAs } from '../../account/auth.testing';
@@ -117,7 +117,8 @@ describe('RoomChats', () => {
     expect(element.querySelector('[role=alert]')!.textContent).toContain('Комната не найдена по указанному идентификатору.');
   });
 
-  it('CreateForm_Submit_WithPaddedName_ShouldSendTrimmedNameCloseFormAndPatchViaChatChanged', () => {
+  it('CreateForm_Submit_WithPaddedName_ShouldSendTrimmedNameOpenChatAndPatchViaChatChanged', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     create(true);
     expectList().flush(listBody([]));
     render();
@@ -126,9 +127,10 @@ describe('RoomChats', () => {
     element.querySelector('form')!.dispatchEvent(new Event('submit'));
     const request = http.expectOne({ method: 'POST', url: '/api/chat' });
     expect(request.request.body).toEqual({ roomId: '1', name: 'Общий' });
-    request.flush(successBody(null, 2));
+    request.flush(successBody({ id: 'c1', roomId: '1', name: 'Общий' }, 2));
     render();
 
+    expect(navigate).toHaveBeenCalledWith(['/chat', 'c1']);
     expect(fixture.componentInstance.creating()).toBe(false);
     expect(element.querySelector('.create-form')).toBeNull();
     expect(chatNames()).toEqual([]);

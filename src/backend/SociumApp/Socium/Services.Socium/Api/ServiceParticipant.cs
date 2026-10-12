@@ -85,10 +85,34 @@ public class ServiceParticipant : IServiceParticipant
                 return ResponseInfo.NotFound<ParticipantCreateResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            var participantOptions = ParticipantMapper.ToQueryOptions(chatId: request.ChatId);
+            var canGrant = await participantPolicy.CanGrantParticipantAsync(
+                user!.Id,
+                chat!.RoomId,
+                chat.Id,
+                cancellationToken);
+            var grantErrors = ParticipantCrudValidators.ValidateAccessGrant(canGrant);
+            if (grantErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, grantErrors);
+                var messageText = $"{ParticipantCrudTexts.Messages.Error.CreateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.CreateError, errors);
+                return ResponseInfo.Forbidden<ParticipantCreateResponse>(MessageType.FORBIDDEN, messageText);
+            }
+
+            var targetUser = await userPort.GetSingleOrDefaultAsync(request.UserId, cancellationToken);
+            var targetUserErrors = ParticipantCrudValidators.ValidateAccessibilityUser(targetUser);
+            if (targetUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, targetUserErrors);
+                var messageText = $"{ParticipantCrudTexts.Messages.Error.CreateError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.CreateError, errors);
+                return ResponseInfo.NotFound<ParticipantCreateResponse>(MessageType.NOT_FOUND, messageText);
+            }
+
+            var participantOptions = ParticipantMapper.ToQueryOptions(chatId: request.ChatId, userId: request.UserId);
             var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var currentParticipant = participants.SingleOrDefault(participant => participant.UserId == user!.Id);
-            var domainErrors = ParticipantCrudValidators.ValidateDomainCreateRequest(currentParticipant);
+            var existingParticipant = participants.SingleOrDefault();
+            var domainErrors = ParticipantCrudValidators.ValidateDomainCreateRequest(existingParticipant);
             if (domainErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, domainErrors);
@@ -103,7 +127,7 @@ public class ServiceParticipant : IServiceParticipant
                 cancellationToken);
             var becameAdmin = adminCount == 0;
 
-            var stageRequest = ParticipantMapper.ToCreateStageRequest(request.ChatId, user!.Id, becameAdmin);
+            var stageRequest = ParticipantMapper.ToCreateStageRequest(request.ChatId, request.UserId, becameAdmin);
             var staged = await CreateStageAsync(stageRequest, cancellationToken);
             if (staged.MessageInfo.MessageType != MessageType.SAVED)
             {
@@ -115,9 +139,9 @@ public class ServiceParticipant : IServiceParticipant
             var joinedNotify = ParticipantMapper.ToNotifyParticipant(
                 request.ChatId,
                 staged.Response!.Id,
-                user.Id,
-                user.Login,
-                user.Name,
+                targetUser!.Id,
+                targetUser.Login,
+                targetUser.Name,
                 becameAdmin);
             await chatNotifyPort.NotifyParticipantJoinedAsync(joinedNotify, cancellationToken);
 
@@ -391,7 +415,10 @@ public class ServiceParticipant : IServiceParticipant
 
     public async Task<ResponseInfo<ParticipantDeleteResponse>> DeleteAsync(ParticipantDeleteRequest request, CancellationToken cancellationToken = default)
     {
-        logger.LogInformation(ParticipantCrudTexts.Messages.Start.Deleting);
+        var isKick = request.Id is Guid participantId && participantId != Guid.Empty;
+        logger.LogInformation(isKick
+            ? ParticipantCrudTexts.Messages.Start.Kicking
+            : ParticipantCrudTexts.Messages.Start.Deleting);
 
         try
         {
@@ -399,113 +426,205 @@ public class ServiceParticipant : IServiceParticipant
             if (primaryErrors.Any())
             {
                 var errors = string.Join(Environment.NewLine, primaryErrors);
-                var messageText = $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
-                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.DeleteError, errors);
+                var errorPrefix = isKick
+                    ? ParticipantCrudTexts.Messages.Error.KickError
+                    : ParticipantCrudTexts.Messages.Error.DeleteError;
+                var messageText = $"{errorPrefix}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", errorPrefix, errors);
                 return ResponseInfo.BadRequest<ParticipantDeleteResponse>(MessageType.BAD_REQUEST, messageText);
             }
 
-            var user = currentUser.UserId is Guid currentUserId
-                ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
-                : null;
-            var currentUserErrors = ParticipantCrudValidators.ValidateCurrentUser(user);
-            if (currentUserErrors.Any())
-            {
-                var errors = string.Join(Environment.NewLine, currentUserErrors);
-                var messageText = $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
-                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.DeleteError, errors);
-                return ResponseInfo.Unauthorized<ParticipantDeleteResponse>(MessageType.UNAUTHORIZED, messageText);
-            }
-
-            var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(request.ChatId, cancellationToken);
-            var accessibilityErrors = ParticipantCrudValidators.ValidateAccessibilityChat(chat);
-            if (accessibilityErrors.Any())
-            {
-                var errors = string.Join(Environment.NewLine, accessibilityErrors);
-                var messageText = $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
-                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.DeleteError, errors);
-                return ResponseInfo.NotFound<ParticipantDeleteResponse>(MessageType.NOT_FOUND, messageText);
-            }
-
-            var canLeave = await participantPolicy.CanLeaveAsync(user!.Id, chat!.RoomId, chat.Id, cancellationToken);
-            var accessErrors = ParticipantCrudValidators.ValidateAccessLeave(canLeave);
-            if (accessErrors.Any())
-            {
-                var errors = string.Join(Environment.NewLine, accessErrors);
-                var messageText = $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
-                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.DeleteError, errors);
-                return ResponseInfo.Forbidden<ParticipantDeleteResponse>(MessageType.FORBIDDEN, messageText);
-            }
-
-            var participantOptions = ParticipantMapper.ToQueryOptions(chatId: request.ChatId);
-            var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
-            var currentParticipant = participants.SingleOrDefault(participant => participant.UserId == user.Id);
-            if (currentParticipant is null)
-            {
-                var messageText =
-                    $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{ParticipantCrudTexts.Messages.Validation.NotParticipant}";
-                logger.LogError("{Message}", messageText);
-                return ResponseInfo.Forbidden<ParticipantDeleteResponse>(MessageType.FORBIDDEN, messageText);
-            }
-
-            var currentIsAdmin = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
-                currentParticipant.UserId,
-                currentParticipant.ChatId,
-                RoleNames.ChatAdmin,
-                cancellationToken) is not null;
-            var adminCount = await unitOfWork.ChatRoleAssignments.CountByChatAndRoleAsync(
-                request.ChatId,
-                RoleNames.ChatAdmin,
-                cancellationToken);
-            var domainErrors = ParticipantCrudValidators.ValidateDomainDelete(
-                currentIsAdmin,
-                participants.Count(),
-                adminCount);
-            if (domainErrors.Any())
-            {
-                var errors = string.Join(Environment.NewLine, domainErrors);
-                var messageText = $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
-                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.DeleteError, errors);
-                return ResponseInfo.Invalid<ParticipantDeleteResponse>(MessageType.INVALID, messageText);
-            }
-
-            var model = await unitOfWork.Participants.GetSingleOrDefaultAsync(currentParticipant.Id, cancellationToken);
-            var leftChatId = model!.ChatId;
-            var leftParticipantId = model.Id;
-            var leftUserId = model.UserId;
-
-            var roleNames = await unitOfWork.ChatRoleAssignments.GetRoleNamesAsync(leftUserId, leftChatId, cancellationToken);
-            foreach (var roleName in roleNames)
-            {
-                var assignment = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
-                    leftUserId,
-                    leftChatId,
-                    roleName,
-                    cancellationToken);
-                if (assignment is not null)
-                {
-                    await unitOfWork.ChatRoleAssignments.DeleteAsync(assignment, cancellationToken);
-                }
-            }
-
-            await unitOfWork.Participants.DeleteAsync(model, cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await chatNotifyPort.NotifyParticipantLeftAsync(leftChatId, leftParticipantId, leftUserId, cancellationToken);
-
-            var response = ParticipantMapper.ToDeleteResponse();
-            logger.LogInformation(ParticipantCrudTexts.Messages.Success.DeleteCompleted);
-            return ResponseInfo.Success(response, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.DeleteCompleted);
+            return isKick
+                ? await KickAsync(request.Id!.Value, cancellationToken)
+                : await LeaveAsync(request.ChatId!.Value, cancellationToken);
         }
         catch (OperationCanceledException)
         {
-            logger.LogInformation(ParticipantCrudTexts.Messages.Canceled.Delete);
+            logger.LogInformation(isKick
+                ? ParticipantCrudTexts.Messages.Canceled.Kick
+                : ParticipantCrudTexts.Messages.Canceled.Delete);
             throw;
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "{Message}", ParticipantCrudTexts.Messages.Error.DeleteError);
-            return ResponseInfo.Error<ParticipantDeleteResponse>(MessageType.ERROR, ParticipantCrudTexts.Messages.Error.DeleteError);
+            var errorPrefix = isKick
+                ? ParticipantCrudTexts.Messages.Error.KickError
+                : ParticipantCrudTexts.Messages.Error.DeleteError;
+            logger.LogError(exception, "{Message}", errorPrefix);
+            return ResponseInfo.Error<ParticipantDeleteResponse>(MessageType.ERROR, errorPrefix);
         }
+    }
+
+    private async Task<ResponseInfo<ParticipantDeleteResponse>> LeaveAsync(Guid chatId, CancellationToken cancellationToken)
+    {
+        var user = currentUser.UserId is Guid currentUserId
+            ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+            : null;
+        var currentUserErrors = ParticipantCrudValidators.ValidateCurrentUser(user);
+        if (currentUserErrors.Any())
+        {
+            var errors = string.Join(Environment.NewLine, currentUserErrors);
+            var messageText = $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
+            logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.DeleteError, errors);
+            return ResponseInfo.Unauthorized<ParticipantDeleteResponse>(MessageType.UNAUTHORIZED, messageText);
+        }
+
+        var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(chatId, cancellationToken);
+        var accessibilityErrors = ParticipantCrudValidators.ValidateAccessibilityChat(chat);
+        if (accessibilityErrors.Any())
+        {
+            var errors = string.Join(Environment.NewLine, accessibilityErrors);
+            var messageText = $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
+            logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.DeleteError, errors);
+            return ResponseInfo.NotFound<ParticipantDeleteResponse>(MessageType.NOT_FOUND, messageText);
+        }
+
+        var canLeave = await participantPolicy.CanLeaveAsync(user!.Id, chat!.RoomId, chat.Id, cancellationToken);
+        var accessErrors = ParticipantCrudValidators.ValidateAccessLeave(canLeave);
+        if (accessErrors.Any())
+        {
+            var errors = string.Join(Environment.NewLine, accessErrors);
+            var messageText = $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
+            logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.DeleteError, errors);
+            return ResponseInfo.Forbidden<ParticipantDeleteResponse>(MessageType.FORBIDDEN, messageText);
+        }
+
+        var participantOptions = ParticipantMapper.ToQueryOptions(chatId: chatId);
+        var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
+        var currentParticipant = participants.SingleOrDefault(participant => participant.UserId == user.Id);
+        if (currentParticipant is null)
+        {
+            var messageText =
+                $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{ParticipantCrudTexts.Messages.Validation.NotParticipant}";
+            logger.LogError("{Message}", messageText);
+            return ResponseInfo.Forbidden<ParticipantDeleteResponse>(MessageType.FORBIDDEN, messageText);
+        }
+
+        var currentIsAdmin = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
+            currentParticipant.UserId,
+            currentParticipant.ChatId,
+            RoleNames.ChatAdmin,
+            cancellationToken) is not null;
+        var adminCount = await unitOfWork.ChatRoleAssignments.CountByChatAndRoleAsync(
+            chatId,
+            RoleNames.ChatAdmin,
+            cancellationToken);
+        var domainErrors = ParticipantCrudValidators.ValidateDomainDelete(
+            currentIsAdmin,
+            participants.Count(),
+            adminCount);
+        if (domainErrors.Any())
+        {
+            var errors = string.Join(Environment.NewLine, domainErrors);
+            var messageText = $"{ParticipantCrudTexts.Messages.Error.DeleteError}{Environment.NewLine}{errors}";
+            logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.DeleteError, errors);
+            return ResponseInfo.Invalid<ParticipantDeleteResponse>(MessageType.INVALID, messageText);
+        }
+
+        await RemoveParticipantAsync(currentParticipant.Id, cancellationToken);
+
+        var response = ParticipantMapper.ToDeleteResponse();
+        logger.LogInformation(ParticipantCrudTexts.Messages.Success.DeleteCompleted);
+        return ResponseInfo.Success(response, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.DeleteCompleted);
+    }
+
+    private async Task<ResponseInfo<ParticipantDeleteResponse>> KickAsync(Guid participantId, CancellationToken cancellationToken)
+    {
+        var user = currentUser.UserId is Guid currentUserId
+            ? await userPort.GetSingleOrDefaultAsync(currentUserId, cancellationToken)
+            : null;
+        var currentUserErrors = ParticipantCrudValidators.ValidateCurrentUser(user);
+        if (currentUserErrors.Any())
+        {
+            var errors = string.Join(Environment.NewLine, currentUserErrors);
+            var messageText = $"{ParticipantCrudTexts.Messages.Error.KickError}{Environment.NewLine}{errors}";
+            logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.KickError, errors);
+            return ResponseInfo.Unauthorized<ParticipantDeleteResponse>(MessageType.UNAUTHORIZED, messageText);
+        }
+
+        var model = await unitOfWork.Participants.GetSingleOrDefaultAsync(participantId, cancellationToken);
+        var accessibilityErrors = ParticipantCrudValidators.ValidateAccessibilityParticipant(model);
+        if (accessibilityErrors.Any())
+        {
+            var errors = string.Join(Environment.NewLine, accessibilityErrors);
+            var messageText = $"{ParticipantCrudTexts.Messages.Error.KickError}{Environment.NewLine}{errors}";
+            logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.KickError, errors);
+            return ResponseInfo.NotFound<ParticipantDeleteResponse>(MessageType.NOT_FOUND, messageText);
+        }
+
+        var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(model!.ChatId, cancellationToken);
+        var chatAccessibilityErrors = ParticipantCrudValidators.ValidateAccessibilityChat(chat);
+        if (chatAccessibilityErrors.Any())
+        {
+            var errors = string.Join(Environment.NewLine, chatAccessibilityErrors);
+            var messageText = $"{ParticipantCrudTexts.Messages.Error.KickError}{Environment.NewLine}{errors}";
+            logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.KickError, errors);
+            return ResponseInfo.NotFound<ParticipantDeleteResponse>(MessageType.NOT_FOUND, messageText);
+        }
+
+        var canKick = await participantPolicy.CanRevokeParticipantAsync(user!.Id, chat!.RoomId, model.ChatId, cancellationToken);
+        var accessErrors = ParticipantCrudValidators.ValidateAccessKick(canKick);
+        if (accessErrors.Any())
+        {
+            var errors = string.Join(Environment.NewLine, accessErrors);
+            var messageText = $"{ParticipantCrudTexts.Messages.Error.KickError}{Environment.NewLine}{errors}";
+            logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.KickError, errors);
+            return ResponseInfo.Forbidden<ParticipantDeleteResponse>(MessageType.FORBIDDEN, messageText);
+        }
+
+        var targetIsAdmin = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
+            model.UserId,
+            model.ChatId,
+            RoleNames.ChatAdmin,
+            cancellationToken) is not null;
+        var adminCount = await unitOfWork.ChatRoleAssignments.CountByChatAndRoleAsync(
+            model.ChatId,
+            RoleNames.ChatAdmin,
+            cancellationToken);
+        var domainErrors = ParticipantCrudValidators.ValidateDomainKick(
+            isSelf: model.UserId == user.Id,
+            targetIsAdmin,
+            adminCount);
+        if (domainErrors.Any())
+        {
+            var errors = string.Join(Environment.NewLine, domainErrors);
+            var messageText = $"{ParticipantCrudTexts.Messages.Error.KickError}{Environment.NewLine}{errors}";
+            logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.KickError, errors);
+            return ResponseInfo.Invalid<ParticipantDeleteResponse>(MessageType.INVALID, messageText);
+        }
+
+        await RemoveParticipantAsync(model.Id, cancellationToken);
+
+        var response = ParticipantMapper.ToDeleteResponse();
+        logger.LogInformation(ParticipantCrudTexts.Messages.Success.KickCompleted);
+        return ResponseInfo.Success(response, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.KickCompleted);
+    }
+
+    private async Task RemoveParticipantAsync(Guid participantId, CancellationToken cancellationToken)
+    {
+        var model = await unitOfWork.Participants.GetSingleOrDefaultAsync(participantId, cancellationToken);
+        var leftChatId = model!.ChatId;
+        var leftParticipantId = model.Id;
+        var leftUserId = model.UserId;
+
+        var roleNames = await unitOfWork.ChatRoleAssignments.GetRoleNamesAsync(leftUserId, leftChatId, cancellationToken);
+        foreach (var roleName in roleNames)
+        {
+            var assignment = await unitOfWork.ChatRoleAssignments.GetSingleOrDefaultAsync(
+                leftUserId,
+                leftChatId,
+                roleName,
+                cancellationToken);
+            if (assignment is not null)
+            {
+                await unitOfWork.ChatRoleAssignments.DeleteAsync(assignment, cancellationToken);
+            }
+        }
+
+        await unitOfWork.Participants.DeleteAsync(model, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await chatNotifyPort.NotifyParticipantLeftAsync(leftChatId, leftParticipantId, leftUserId, cancellationToken);
     }
 
     public async Task<ResponseInfo<ParticipantListPageResponse>> DisplayListPageAsync(ParticipantListPageRequest request, CancellationToken cancellationToken = default)
@@ -574,8 +693,14 @@ public class ServiceParticipant : IServiceParticipant
                     .ThenBy(row => row.Login)
                     .ThenBy(row => row.Id)
             ];
-            var canChangeRole = await participantPolicy.CanGrantAdminAsync(user.Id, chat.RoomId, chat.Id, cancellationToken);
-            var response = ParticipantMapper.ToListPageResponse(rows, canChangeRole);
+            var canChangeAdmin = await participantPolicy.CanGrantAdminAsync(user.Id, chat.RoomId, chat.Id, cancellationToken);
+            var canGrantParticipant = await participantPolicy.CanGrantParticipantAsync(
+                user.Id,
+                chat.RoomId,
+                chat.Id,
+                cancellationToken);
+            var canKick = await participantPolicy.CanRevokeParticipantAsync(user.Id, chat.RoomId, chat.Id, cancellationToken);
+            var response = ParticipantMapper.ToListPageResponse(rows, canChangeAdmin, canGrantParticipant, canKick);
 
             logger.LogInformation(ParticipantCrudTexts.Messages.Success.DisplayListCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, ParticipantCrudTexts.Messages.Success.DisplayListCompleted);

@@ -98,11 +98,13 @@ public static class ServiceRegistration
         services.AddScoped<IDomainEventHandler<RoomChangedEvent>, NotifyRoomChangedOnRoomChangedHandler>();
         services.AddScoped<IDomainEventHandler<ChatCreatedEvent>, CreateCreatorParticipantOnChatCreatedHandler>();
         services.AddScoped<IDomainEventHandler<ChatChangedEvent>, NotifyChatChangedOnChatChangedHandler>();
+        services.AddScoped<IDomainEventHandler<JoinRequestChangedEvent>, NotifyJoinRequestChangedOnJoinRequestChangedHandler>();
         services.AddScoped<IDomainEventHandler<UserChangedEvent>, NotifyUserChangedOnUserChangedHandler>();
         services.AddScoped<IServiceRoom, ServiceRoom>();
         services.AddScoped<IServiceChat, ServiceChat>();
         services.AddScoped<IServiceMessage, ServiceMessage>();
         services.AddScoped<IServiceParticipant, ServiceParticipant>();
+        services.AddScoped<IServiceJoinRequest, ServiceJoinRequest>();
 
         return services;
     }

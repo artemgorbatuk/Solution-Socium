@@ -14,6 +14,7 @@ public static class UserCrudTexts
             public const string Deleting = "Начало выполнения удаления пользователя";
             public const string DisplayInfoLoading = "Начало отображения страницы просмотра пользователя";
             public const string DisplayListLoading = "Начало отображения страницы списка пользователей";
+            public const string Searching = "Начало поиска пользователей";
         }
 
         public static class Success
@@ -26,6 +27,7 @@ public static class UserCrudTexts
             public const string DeleteCompleted = "Пользователь успешно удалён";
             public const string DisplayInfoCompleted = "Страница просмотра пользователя успешно отображена";
             public const string DisplayListCompleted = "Страница списка пользователей успешно отображена";
+            public const string SearchCompleted = "Поиск пользователей выполнен";
         }
 
         public static class Error
@@ -38,6 +40,7 @@ public static class UserCrudTexts
             public const string DeleteError = "Не удалось удалить пользователя";
             public const string DisplayInfoError = "Не удалось отобразить страницу просмотра пользователя";
             public const string DisplayListError = "Не удалось отобразить страницу списка пользователей";
+            public const string SearchError = "Не удалось выполнить поиск пользователей";
         }
 
         public static class Canceled
@@ -50,6 +53,7 @@ public static class UserCrudTexts
             public const string Delete = "Удаление пользователя отменено";
             public const string DisplayInfo = "Отображение страницы просмотра пользователя отменено";
             public const string DisplayList = "Отображение страницы списка пользователей отменено";
+            public const string Search = "Поиск пользователей отменён";
         }
 
         public static class Validation
@@ -60,6 +64,7 @@ public static class UserCrudTexts
             public const string CurrentUserNotFound = "Требуется вход в систему.";
             public const string NotSelf = "Изменить или удалить можно только свою учётную запись.";
             public const string LoginNotEmpty = "Логин не может быть пустым.";
+            public const string SearchLoginNotEmpty = "Строка поиска по логину не может быть пустой.";
             public const string LoginFormat = "Логин может содержать только латинские буквы, цифры и символы «.», «_», «-».";
             public const string LoginAlreadyExists = "Пользователь с таким логином уже существует.";
             public const string EmailAlreadyExists = "Пользователь с таким email уже существует.";

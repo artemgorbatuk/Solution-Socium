@@ -4,13 +4,21 @@
       <app-chat-messages [chatId]="chat.id" [chatName]="chat.name" />
       @if (participantsPanel.open()) {
         <app-participants-panel [chatId]="chat.id" [chatName]="chat.name" />
+      } @else if (participantsPanel.requestsOpen()) {
+        <app-join-requests-panel [chatId]="chat.id" />
       }
     </div>
   } @else {
     <div class="state">
       <p>Вы не участник этого чата</p>
-      <button type="button" class="primary" [disabled]="joining()" (click)="join(chat.id)">Вступить в чат</button>
-      @if (joinError(); as error) {
+      @if (chat.hasPendingJoinRequest) {
+        <p class="hint">Заявка отправлена</p>
+      } @else {
+        <button type="button" class="primary" [disabled]="requesting()" (click)="requestJoin(chat.id)">
+          Подать заявку
+        </button>
+      }
+      @if (requestError(); as error) {
         <p class="error" role="alert">{{ error }}</p>
       }
     </div>

@@ -2,9 +2,10 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
+import { signInAs } from '../../account/auth.testing';
 import { ChatChanges } from '../../chats/chat-changes';
 import { ChatHub } from '../../realtime/chat-hub';
-import { RoomChangedNotify } from '../../realtime/chat-hub.models';
+import { ChatParticipantLeftNotify, ChatParticipantNotify, RoomChangedNotify } from '../../realtime/chat-hub.models';
 import { ApiSuccessResponse } from '../../shared/api/api-response';
 import { successBody } from '../../shared/api/api-response.testing';
 import { RoomExpansion } from '../../rooms/room-expansion';
@@ -20,6 +21,8 @@ describe('Sidebar', () => {
   let http: HttpTestingController;
   let element: HTMLElement;
   let roomChanged$: Subject<RoomChangedNotify>;
+  let participantJoined$: Subject<ChatParticipantNotify>;
+  let participantLeft$: Subject<ChatParticipantLeftNotify>;
 
   const rooms: RoomListModel[] = [
     { id: '1', name: 'Кухня', canUpdate: true, canDelete: true },
@@ -48,6 +51,8 @@ describe('Sidebar', () => {
   beforeEach(() => {
     localStorage.clear();
     roomChanged$ = new Subject<RoomChangedNotify>();
+    participantJoined$ = new Subject<ChatParticipantNotify>();
+    participantLeft$ = new Subject<ChatParticipantLeftNotify>();
     TestBed.configureTestingModule({
       imports: [Sidebar],
       providers: [
@@ -58,12 +63,17 @@ describe('Sidebar', () => {
           useValue: {
             ensureConnected: () => Promise.resolve(),
             roomChanged$,
+            participantJoined$,
+            participantLeft$,
             chatListUpdated$: new Subject(),
+            chatChanged$: new Subject(),
+            userChanged$: new Subject(),
           },
         },
       ],
     });
     http = TestBed.inject(HttpTestingController);
+    signInAs('u1');
     fixture = TestBed.createComponent(Sidebar);
     element = fixture.nativeElement;
     render();
@@ -206,6 +216,57 @@ describe('Sidebar', () => {
     render();
 
     expect(roomNames()).toEqual(['Гостиная', 'Столовая']);
+  });
+
+  it('ParticipantJoined_Self_ShouldReloadRoomsAndNotifyChatChanges', () => {
+    http.expectOne('/api/room').flush(listBody([{ id: '2', name: 'Гостиная', canUpdate: true, canDelete: true }]));
+    render();
+    expect(roomNames()).toEqual(['Гостиная']);
+
+    participantJoined$.next({
+      chatId: 'c1',
+      id: 'p1',
+      userId: 'u1',
+      login: 'agent',
+      name: 'Agent',
+      isAdmin: false,
+    });
+    http.expectOne('/api/room').flush(listBody(rooms));
+    render();
+
+    expect(roomNames()).toEqual(['Кухня', 'Гостиная']);
+    expect(TestBed.inject(ChatChanges).version()).toBeGreaterThanOrEqual(1);
+  });
+
+  it('ParticipantJoined_Other_ShouldNotReloadRooms', () => {
+    http.expectOne('/api/room').flush(listBody([{ id: '2', name: 'Гостиная', canUpdate: true, canDelete: true }]));
+    render();
+
+    participantJoined$.next({
+      chatId: 'c1',
+      id: 'p1',
+      userId: 'u2',
+      login: 'other',
+      name: 'Other',
+      isAdmin: false,
+    });
+    render();
+
+    expect(roomNames()).toEqual(['Гостиная']);
+    expect(TestBed.inject(ChatChanges).version()).toBe(0);
+  });
+
+  it('ParticipantLeft_Self_ShouldReloadRoomsAndNotifyChatChanges', () => {
+    http.expectOne('/api/room').flush(listBody(rooms));
+    render();
+    expect(roomNames()).toEqual(['Кухня', 'Гостиная']);
+
+    participantLeft$.next({ chatId: 'c1', id: 'p1', userId: 'u1' });
+    http.expectOne('/api/room').flush(listBody([{ id: '2', name: 'Гостиная', canUpdate: true, canDelete: true }]));
+    render();
+
+    expect(roomNames()).toEqual(['Гостиная']);
+    expect(TestBed.inject(ChatChanges).version()).toBeGreaterThanOrEqual(1);
   });
 
   it('DeleteConfirm_Delete_WithExistingRoom_ShouldNotifyChatChangesAndPatchViaRoomChanged', () => {

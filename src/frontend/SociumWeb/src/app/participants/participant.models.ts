@@ -9,8 +9,12 @@ export interface ParticipantListModel {
 export interface ParticipantListPageResponse {
   rowExists: boolean;
   rowCount: number;
-  /** Текущему пользователю разрешена смена админ-роли участников. */
-  canChangeRole: boolean;
+  /** ChatAdminGrant — смена админ-роли. */
+  canChangeAdmin: boolean;
+  /** ChatParticipantGrant — добавление и Accept заявок. */
+  canGrantParticipant: boolean;
+  /** ChatParticipantRevoke — исключение другого участника. */
+  canKick: boolean;
   rows: ParticipantListModel[];
 }
 

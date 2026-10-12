@@ -29,6 +29,7 @@ public interface IServiceUser
     Task<ResponseInfo<UserDeleteResponse>> DeleteAsync(UserDeleteRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<UserInfoPageResponse>> DisplayInfoPageAsync(UserInfoPageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<UserListPageResponse>> DisplayListPageAsync(UserListPageRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<UserSearchResponse>> SearchAsync(UserSearchRequest request, CancellationToken cancellationToken = default);
 }
 
 public class ServiceUser : IServiceUser
@@ -546,6 +547,60 @@ public class ServiceUser : IServiceUser
         {
             logger.LogError(exception, "{Message}", UserCrudTexts.Messages.Error.DisplayListError);
             return ResponseInfo.Error<UserListPageResponse>(MessageType.ERROR, UserCrudTexts.Messages.Error.DisplayListError);
+        }
+    }
+
+    public async Task<ResponseInfo<UserSearchResponse>> SearchAsync(
+        UserSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(UserCrudTexts.Messages.Start.Searching);
+
+        try
+        {
+            var primaryErrors = UserCrudValidators.ValidatePrimarySearchRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{UserCrudTexts.Messages.Error.SearchError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", UserCrudTexts.Messages.Error.SearchError, errors);
+                return ResponseInfo.BadRequest<UserSearchResponse>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var user = await GetCurrentUserAsync(cancellationToken);
+            var currentUserErrors = UserCrudValidators.ValidateCurrentUser(user);
+            if (currentUserErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, currentUserErrors);
+                var messageText = $"{UserCrudTexts.Messages.Error.SearchError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", UserCrudTexts.Messages.Error.SearchError, errors);
+                return ResponseInfo.Unauthorized<UserSearchResponse>(MessageType.UNAUTHORIZED, messageText);
+            }
+
+            var userOptions = new UserQueryOptions
+            {
+                LoginContains = request.Login.Trim(),
+                IsDeleted = false,
+            };
+            var models = await unitOfWork.Users.GetListAsync(userOptions, cancellationToken);
+            ICollection<UserSearchModel> rows =
+            [
+                .. models.Take(20).Select(UserMapper.ToSearchModel),
+            ];
+            var response = UserMapper.ToSearchResponse(rows);
+
+            logger.LogInformation(UserCrudTexts.Messages.Success.SearchCompleted);
+            return ResponseInfo.Success(response, MessageType.LOADED, UserCrudTexts.Messages.Success.SearchCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(UserCrudTexts.Messages.Canceled.Search);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", UserCrudTexts.Messages.Error.SearchError);
+            return ResponseInfo.Error<UserSearchResponse>(MessageType.ERROR, UserCrudTexts.Messages.Error.SearchError);
         }
     }
 

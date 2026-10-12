@@ -27,9 +27,21 @@ export interface ChatInfoPageResponse {
   name: string;
   isParticipant: boolean;
   isAdmin: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
+  /** ChatParticipantGrant — заявки и добавление. */
+  canManageParticipants: boolean;
+  hasPendingJoinRequest: boolean;
+  pendingJoinRequestCount: number;
 }
 
 export interface ChatCreateRequest {
+  roomId: string;
+  name: string;
+}
+
+export interface ChatCreateResponse {
+  id: string;
   roomId: string;
   name: string;
 }

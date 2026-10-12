@@ -10,6 +10,7 @@ import { RoomApi } from '../../rooms/room-api';
 import { RoomExpansion } from '../../rooms/room-expansion';
 import { RoomListItem } from '../../rooms/room-list-item/room-list-item';
 import { RoomListModel, roomNameMaxLength } from '../../rooms/room.models';
+import { CurrentUser } from '../../users/current-user';
 
 const widthStorageKey = 'socium.sidebar.width';
 
@@ -29,6 +30,7 @@ export class Sidebar {
   private readonly roomExpansion = inject(RoomExpansion);
   private readonly chatChanges = inject(ChatChanges);
   private readonly chatHub = inject(ChatHub);
+  private readonly currentUser = inject(CurrentUser);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly nameMaxLength = roomNameMaxLength;
@@ -66,6 +68,22 @@ export class Sidebar {
     this.loadRooms();
     void this.chatHub.ensureConnected();
     this.chatHub.roomChanged$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((change) => this.applyRoomChanged(change));
+    this.chatHub.participantJoined$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((joined) => {
+      if (joined.userId !== this.currentUser.id()) {
+        return;
+      }
+      // Add/Accept: новый ChatRead — комната и чат без F5.
+      this.loadRooms();
+      this.chatChanges.notify();
+    });
+    this.chatHub.participantLeft$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((left) => {
+      if (left.userId !== this.currentUser.id()) {
+        return;
+      }
+      // Kick / leave: потеря ChatRead — убрать комнату/чат без F5.
+      this.loadRooms();
+      this.chatChanges.notify();
+    });
   }
 
   protected toggleCollapsed(): void {

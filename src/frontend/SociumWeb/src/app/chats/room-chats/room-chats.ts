@@ -1,4 +1,5 @@
 import { Component, DestroyRef, ElementRef, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
+import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ChatHub } from '../../realtime/chat-hub';
 import { ChatChangedNotify, ChatListNotify, UserChangedNotify } from '../../realtime/chat-hub.models';
@@ -20,6 +21,7 @@ export class RoomChats {
   private readonly chatChanges = inject(ChatChanges);
   private readonly chatHub = inject(ChatHub);
   private readonly currentUser = inject(CurrentUser);
+  private readonly router = inject(Router);
 
   readonly roomId = input.required<string>();
   readonly roomName = input.required<string>();
@@ -78,9 +80,13 @@ export class RoomChats {
     this.saving.set(true);
     this.createError.set(null);
     this.chatApi.create({ roomId: this.roomId(), name }).subscribe({
-      next: () => {
+      next: (body) => {
         this.saving.set(false);
         this.cancelCreate();
+        const id = body.response?.id;
+        if (id) {
+          void this.router.navigate(['/chat', id]);
+        }
       },
       error: (error: unknown) => {
         this.saving.set(false);

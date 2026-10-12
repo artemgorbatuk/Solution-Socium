@@ -76,6 +76,18 @@ public class ChatNotifyPort : IChatNotifyPort
             },
             cancellationToken);
 
+    public Task NotifyJoinRequestChangedAsync(ChatNotifyJoinRequestChangedModel change, CancellationToken cancellationToken = default)
+        => serviceChatNotify.NotifyJoinRequestChangedAsync(
+            new JoinRequestChangedNotifyModel
+            {
+                Kind = change.Kind,
+                ChatId = change.ChatId,
+                JoinRequestId = change.JoinRequestId,
+                UserId = change.UserId,
+                PendingCount = change.PendingCount,
+            },
+            cancellationToken);
+
     private static ChatMessageNotifyModel ToRealtime(ChatNotifyMessageModel message) => new()
     {
         ChatId = message.ChatId,

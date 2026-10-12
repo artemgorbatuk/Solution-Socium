@@ -15,6 +15,7 @@ public interface IServiceChatNotify
     Task NotifyRoomChangedAsync(RoomChangedNotifyModel change, CancellationToken cancellationToken = default);
     Task NotifyChatChangedAsync(ChatChangedNotifyModel change, CancellationToken cancellationToken = default);
     Task NotifyUserChangedAsync(UserChangedNotifyModel change, CancellationToken cancellationToken = default);
+    Task NotifyJoinRequestChangedAsync(JoinRequestChangedNotifyModel change, CancellationToken cancellationToken = default);
 }
 
 public class ServiceChatNotify : IServiceChatNotify
@@ -37,11 +38,17 @@ public class ServiceChatNotify : IServiceChatNotify
     public Task NotifyMessageDeletedAsync(ChatMessageDeletedNotifyModel deleted, CancellationToken cancellationToken = default)
         => SendSafeAsync(deleted.ChatId, ChatHubMethods.MessageDeleted, deleted, cancellationToken);
 
-    public Task NotifyParticipantJoinedAsync(ChatParticipantNotifyModel participant, CancellationToken cancellationToken = default)
-        => SendSafeAsync(participant.ChatId, ChatHubMethods.ParticipantJoined, participant, cancellationToken);
+    public async Task NotifyParticipantJoinedAsync(ChatParticipantNotifyModel participant, CancellationToken cancellationToken = default)
+    {
+        await SendSafeAsync(participant.ChatId, ChatHubMethods.ParticipantJoined, participant, cancellationToken);
+        await SendToUserSafeAsync(participant.UserId, ChatHubMethods.ParticipantJoined, participant, cancellationToken);
+    }
 
-    public Task NotifyParticipantLeftAsync(ChatParticipantLeftNotifyModel left, CancellationToken cancellationToken = default)
-        => SendSafeAsync(left.ChatId, ChatHubMethods.ParticipantLeft, left, cancellationToken);
+    public async Task NotifyParticipantLeftAsync(ChatParticipantLeftNotifyModel left, CancellationToken cancellationToken = default)
+    {
+        await SendSafeAsync(left.ChatId, ChatHubMethods.ParticipantLeft, left, cancellationToken);
+        await SendToUserSafeAsync(left.UserId, ChatHubMethods.ParticipantLeft, left, cancellationToken);
+    }
 
     public Task NotifyParticipantRoleChangedAsync(ChatParticipantNotifyModel participant, CancellationToken cancellationToken = default)
         => SendSafeAsync(participant.ChatId, ChatHubMethods.ParticipantRoleChanged, participant, cancellationToken);
@@ -57,6 +64,14 @@ public class ServiceChatNotify : IServiceChatNotify
 
     public Task NotifyUserChangedAsync(UserChangedNotifyModel change, CancellationToken cancellationToken = default)
         => SendToAllSafeAsync(ChatHubMethods.UserChanged, change, cancellationToken);
+
+    public async Task NotifyJoinRequestChangedAsync(
+        JoinRequestChangedNotifyModel change,
+        CancellationToken cancellationToken = default)
+    {
+        await SendSafeAsync(change.ChatId, ChatHubMethods.JoinRequestChanged, change, cancellationToken);
+        await SendToUserSafeAsync(change.UserId, ChatHubMethods.JoinRequestChanged, change, cancellationToken);
+    }
 
     private async Task SendSafeAsync(Guid chatId, string method, object payload, CancellationToken cancellationToken)
     {

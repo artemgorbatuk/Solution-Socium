@@ -6,8 +6,8 @@
 |----------|----------|
 | Маршрут | `/hubs/chat` |
 | Методы клиента → сервер | `JoinChat(chatId)`, `LeaveChat(chatId)`, `StartTyping(chatId)`, `StopTyping(chatId)` |
-| Методы сервер → клиент | `messageCreated`, `messageUpdated`, `messageDeleted`, `participantJoined`, `participantLeft`, `participantRoleChanged`, `chatListUpdated`, `roomChanged`, `chatChanged`, `userChanged`, `typingStarted`, `typingStopped` |
-| Группы | `chat:{chatId}` — открытый чат; `user:{userId}` — список чатов (при `OnConnected`); `roomChanged` / `chatChanged` / `userChanged` — broadcast всем подключениям |
+| Методы сервер → клиент | `messageCreated`, `messageUpdated`, `messageDeleted`, `participantJoined`, `participantLeft`, `participantRoleChanged`, `chatListUpdated`, `roomChanged`, `chatChanged`, `userChanged`, `joinRequestChanged`, `typingStarted`, `typingStopped` |
+| Группы | `chat:{chatId}` — открытый чат; `user:{userId}` — список чатов (при `OnConnected`); `roomChanged` / `chatChanged` / `userChanged` — broadcast всем подключениям; `joinRequestChanged` — группа чата и заявитель (`user:{id}`); `participantJoined` / `participantLeft` — группа чата и затронутый (`user:{id}`) |
 
 Аутентификация: тот же JWT, что у REST. Браузерный клиент передаёт токен в query `access_token` (стандарт SignalR); WebApi читает его в `JwtBearerEvents.OnMessageReceived` для путей `/hubs`.
 
@@ -35,6 +35,18 @@ Join / typing разрешены только участнику чата; ин�
 `ServiceChat` после `SaveChanges` (ручной create / update / delete) публикует `ChatChangedEvent` → handler → `NotifyChatChangedAsync` (broadcast). Авточат при создании комнаты `ChatChanged` не шлёт.
 
 `ServiceAccount.UpdateProfileAsync` после `SaveChanges` (если имя изменилось) публикует `UserChangedEvent` → handler → `IUserNotifyPort` → `NotifyUserChangedAsync` (broadcast).
+
+`ServiceJoinRequest` после `SaveChanges` (create / accept / reject) публикует `JoinRequestChangedEvent` → handler → `NotifyJoinRequestChangedAsync` (группа чата + заявитель). Accept также шлёт `participantJoined`.
+
+### Membership (leave / kick)
+
+| Событие | Кому | Клиент |
+|---------|------|--------|
+| `participantLeft` | `chat:{id}` + `user:{leftUserId}` | у остальных — убрать из списка участников; у себя — leave hub, reload комнат/чатов в сайдбаре; открытый чат: stub если остался `ChatRead`, иначе info 403 → главная |
+| `participantJoined` | `chat:{id}` + `user:{joinedUserId}` | у остальных — список участников; у добавленного — reload комнат/чатов в сайдбаре (`ChatRead` без F5) |
+| `joinRequestChanged` | группа чата + заявитель | бейдж / stub |
+
+Kick = `ChatParticipantRevoke`; Leave = снятие своей роли. UI-флаги list: `canChangeAdmin` / `canGrantParticipant` / `canKick` — [task-0028](../tasks/task-0028.md).
 
 ## Пагинация сообщений
 

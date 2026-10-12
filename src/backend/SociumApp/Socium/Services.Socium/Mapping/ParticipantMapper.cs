@@ -85,14 +85,18 @@ public static class ParticipantMapper
 
     public static ParticipantListPageResponse ToListPageResponse(
         ICollection<ParticipantListModel> rows,
-        bool canChangeRole)
+        bool canChangeAdmin,
+        bool canGrantParticipant,
+        bool canKick)
     {
         return new ParticipantListPageResponse
         {
             Rows = rows,
             RowExists = rows.Count > 0,
             RowCount = rows.Count,
-            CanChangeRole = canChangeRole,
+            CanChangeAdmin = canChangeAdmin,
+            CanGrantParticipant = canGrantParticipant,
+            CanKick = canKick,
         };
     }
 

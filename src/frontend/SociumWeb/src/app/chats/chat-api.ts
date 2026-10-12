@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { ApiSuccessResponse } from '../shared/api/api-response';
 import {
   ChatCreateRequest,
+  ChatCreateResponse,
   ChatDeletePageResponse,
   ChatDeleteResponse,
   ChatInfoPageResponse,
@@ -24,8 +25,8 @@ export class ChatApi {
     return this.http.get<ApiSuccessResponse<ChatInfoPageResponse>>(`${this.baseUrl}/info`, { params: { id } });
   }
 
-  create(request: ChatCreateRequest): Observable<ApiSuccessResponse<null>> {
-    return this.http.post<ApiSuccessResponse<null>>(this.baseUrl, request);
+  create(request: ChatCreateRequest): Observable<ApiSuccessResponse<ChatCreateResponse>> {
+    return this.http.post<ApiSuccessResponse<ChatCreateResponse>>(this.baseUrl, request);
   }
 
   update(request: ChatUpdateRequest): Observable<ApiSuccessResponse<null>> {

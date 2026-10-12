@@ -62,6 +62,7 @@ public sealed class ServiceChatTests(SociumServiceFixture fixture)
         var row = Assert.Single(list.Response!.Rows, chat => chat.Name == name);
         Assert.Equal(name, row.Name);
         Assert.Equal(7, row.Id.Version);
+        Assert.Equal(row.Id, result.Response!.Id);
     }
 
     [Fact]

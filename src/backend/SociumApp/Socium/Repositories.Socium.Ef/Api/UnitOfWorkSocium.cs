@@ -9,6 +9,7 @@ public interface IUnitOfWorkSocium
     IRepositoryChat Chats { get; }
     IRepositoryMessage Messages { get; }
     IRepositoryParticipant Participants { get; }
+    IRepositoryJoinRequest JoinRequests { get; }
     IRepositoryRecipient Recipients { get; }
     IRepositoryRoomRoleAssignment RoomRoleAssignments { get; }
     IRepositoryChatRoleAssignment ChatRoleAssignments { get; }
@@ -31,6 +32,7 @@ public class UnitOfWorkSocium : IUnitOfWorkSocium
         Chats = new RepositoryChat(context);
         Messages = new RepositoryMessage(context);
         Participants = new RepositoryParticipant(context);
+        JoinRequests = new RepositoryJoinRequest(context);
         Recipients = new RepositoryRecipient(context);
         RoomRoleAssignments = new RepositoryRoomRoleAssignment(context);
         ChatRoleAssignments = new RepositoryChatRoleAssignment(context);
@@ -40,6 +42,7 @@ public class UnitOfWorkSocium : IUnitOfWorkSocium
     public IRepositoryChat Chats { get; }
     public IRepositoryMessage Messages { get; }
     public IRepositoryParticipant Participants { get; }
+    public IRepositoryJoinRequest JoinRequests { get; }
     public IRepositoryRecipient Recipients { get; }
     public IRepositoryRoomRoleAssignment RoomRoleAssignments { get; }
     public IRepositoryChatRoleAssignment ChatRoleAssignments { get; }

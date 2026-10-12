@@ -83,6 +83,12 @@ public class ChatInfoPageResponse
     public required bool IsAdmin { get; set; }
     public required bool CanUpdate { get; set; }
     public required bool CanDelete { get; set; }
+    /// <summary><c>ChatParticipantGrant</c> — заявки / добавление участников.</summary>
+    public required bool CanManageParticipants { get; set; }
+    /// <summary>У текущего пользователя есть pending-заявка в этот чат.</summary>
+    public required bool HasPendingJoinRequest { get; set; }
+    /// <summary>Число pending-заявок чата; без <c>CanManageParticipants</c> — 0.</summary>
+    public required int PendingJoinRequestCount { get; set; }
 }
 
 public class ChatListPageRequest

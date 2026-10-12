@@ -89,9 +89,9 @@
   opacity: 0;
 }
 
+/* :focus-visible, а не :focus-within: после клика мышью ссылка остаётся в фокусе. */
 .row:hover .actions,
-.row:focus-within .actions,
-.row:has(.chat-link.active) .actions {
+.row:has(:focus-visible) .actions {
   opacity: 1;
 }
 

@@ -42,6 +42,26 @@
   color: var(--sc-color-text);
 }
 
+.requests {
+  position: relative;
+}
+
+.requests .badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--sc-color-danger, #c62828);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
 .title {
   flex: 1;
   min-width: 0;

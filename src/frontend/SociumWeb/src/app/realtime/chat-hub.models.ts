@@ -75,3 +75,13 @@ export interface ChatTypingStoppedNotify {
   chatId: string;
   userId: string;
 }
+
+export type JoinRequestChangedKind = 'created' | 'accepted' | 'rejected';
+
+export interface JoinRequestChangedNotify {
+  kind: JoinRequestChangedKind;
+  chatId: string;
+  joinRequestId: string;
+  userId: string;
+  pendingCount: number;
+}

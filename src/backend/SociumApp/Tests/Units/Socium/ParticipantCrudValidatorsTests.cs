@@ -35,7 +35,13 @@ public sealed class ParticipantCrudValidatorsTests
     {
         string[] expected = [ParticipantCrudTexts.Messages.Validation.ChatIdCannotBeEmpty];
 
-        Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryCreateRequest(new ParticipantCreateRequest { ChatId = Guid.Empty }));
+        Assert.Equal(
+            expected,
+            ParticipantCrudValidators.ValidatePrimaryCreateRequest(new ParticipantCreateRequest
+            {
+                ChatId = Guid.Empty,
+                UserId = Guid.CreateVersion7(),
+            }));
         Assert.Equal(
             expected,
             ParticipantCrudValidators.ValidatePrimaryCreateStageRequest(new ParticipantCreateStageRequest
@@ -45,8 +51,30 @@ public sealed class ParticipantCrudValidatorsTests
                 AssignChatAdmin = false,
             }));
         Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryDeletePageRequest(new ParticipantDeletePageRequest { ChatId = Guid.Empty }));
-        Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryDeleteRequest(new ParticipantDeleteRequest { ChatId = Guid.Empty }));
         Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryListPageRequest(new ParticipantListPageRequest { ChatId = Guid.Empty }));
+    }
+
+    [Fact]
+    public void DeleteRequest_ValidatePrimary_WithoutTarget_ShouldReturnDeleteTargetRequired()
+    {
+        Assert.Equal(
+            [ParticipantCrudTexts.Messages.Validation.DeleteTargetRequired],
+            ParticipantCrudValidators.ValidatePrimaryDeleteRequest(new ParticipantDeleteRequest()));
+        Assert.Equal(
+            [ParticipantCrudTexts.Messages.Validation.DeleteTargetRequired],
+            ParticipantCrudValidators.ValidatePrimaryDeleteRequest(new ParticipantDeleteRequest { ChatId = Guid.Empty }));
+    }
+
+    [Fact]
+    public void DeleteRequest_ValidatePrimary_WithBothTargets_ShouldReturnDeleteTargetAmbiguous()
+    {
+        var errors = ParticipantCrudValidators.ValidatePrimaryDeleteRequest(new ParticipantDeleteRequest
+        {
+            ChatId = ChatId,
+            Id = Guid.CreateVersion7(),
+        });
+
+        Assert.Equal([ParticipantCrudTexts.Messages.Validation.DeleteTargetAmbiguous], errors);
     }
 
     [Fact]
@@ -63,6 +91,18 @@ public sealed class ParticipantCrudValidatorsTests
     }
 
     [Fact]
+    public void CreateRequest_ValidatePrimary_WithEmptyUserId_ShouldReturnUserIdCannotBeEmpty()
+    {
+        var errors = ParticipantCrudValidators.ValidatePrimaryCreateRequest(new ParticipantCreateRequest
+        {
+            ChatId = ChatId,
+            UserId = Guid.Empty,
+        });
+
+        Assert.Equal([ParticipantCrudTexts.Messages.Validation.UserIdCannotBeEmpty], errors);
+    }
+
+    [Fact]
     public void UpdateRequest_ValidatePrimary_WithEmptyId_ShouldReturnIdCannotBeEmpty()
     {
         var errors = ParticipantCrudValidators.ValidatePrimaryUpdateRequest(new ParticipantUpdateRequest { Id = Guid.Empty, IsAdmin = true });
@@ -73,7 +113,11 @@ public sealed class ParticipantCrudValidatorsTests
     [Fact]
     public void FilledRequests_ValidatePrimary_WithIds_ShouldReturnNoErrors()
     {
-        Assert.Empty(ParticipantCrudValidators.ValidatePrimaryCreateRequest(new ParticipantCreateRequest { ChatId = ChatId }));
+        Assert.Empty(ParticipantCrudValidators.ValidatePrimaryCreateRequest(new ParticipantCreateRequest
+        {
+            ChatId = ChatId,
+            UserId = Guid.CreateVersion7(),
+        }));
         Assert.Empty(ParticipantCrudValidators.ValidatePrimaryCreateStageRequest(new ParticipantCreateStageRequest
         {
             ChatId = ChatId,
@@ -83,7 +127,31 @@ public sealed class ParticipantCrudValidatorsTests
         Assert.Empty(ParticipantCrudValidators.ValidatePrimaryUpdateRequest(new ParticipantUpdateRequest { Id = Guid.CreateVersion7(), IsAdmin = false }));
         Assert.Empty(ParticipantCrudValidators.ValidatePrimaryDeletePageRequest(new ParticipantDeletePageRequest { ChatId = ChatId }));
         Assert.Empty(ParticipantCrudValidators.ValidatePrimaryDeleteRequest(new ParticipantDeleteRequest { ChatId = ChatId }));
+        Assert.Empty(ParticipantCrudValidators.ValidatePrimaryDeleteRequest(new ParticipantDeleteRequest { Id = Guid.CreateVersion7() }));
         Assert.Empty(ParticipantCrudValidators.ValidatePrimaryListPageRequest(new ParticipantListPageRequest { ChatId = ChatId }));
+    }
+
+    [Fact]
+    public void Kick_ValidateDomain_WithSelf_ShouldReturnCannotKickSelf()
+    {
+        Assert.Equal(
+            [ParticipantCrudTexts.Messages.Validation.CannotKickSelf],
+            ParticipantCrudValidators.ValidateDomainKick(isSelf: true, targetIsAdmin: false, adminCount: 1));
+    }
+
+    [Fact]
+    public void Kick_ValidateDomain_WithLastAdmin_ShouldReturnLastAdminCannotKick()
+    {
+        Assert.Equal(
+            [ParticipantCrudTexts.Messages.Validation.LastAdminCannotKick],
+            ParticipantCrudValidators.ValidateDomainKick(isSelf: false, targetIsAdmin: true, adminCount: 1));
+    }
+
+    [Fact]
+    public void Kick_ValidateDomain_WithOrdinaryOrOneOfAdmins_ShouldReturnNoErrors()
+    {
+        Assert.Empty(ParticipantCrudValidators.ValidateDomainKick(isSelf: false, targetIsAdmin: false, adminCount: 1));
+        Assert.Empty(ParticipantCrudValidators.ValidateDomainKick(isSelf: false, targetIsAdmin: true, adminCount: 2));
     }
 
     [Fact]

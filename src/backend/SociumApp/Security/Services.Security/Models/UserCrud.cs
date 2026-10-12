@@ -94,3 +94,20 @@ public class UserListModel
     public required string Login { get; set; }
     public required string Name { get; set; }
 }
+
+public class UserSearchRequest
+{
+    public required string Login { get; set; }
+}
+
+public class UserSearchResponse
+{
+    public required ICollection<UserSearchModel> Rows { get; set; } = [];
+}
+
+public class UserSearchModel
+{
+    public required Guid Id { get; set; }
+    public required string Login { get; set; }
+    public required string Name { get; set; }
+}

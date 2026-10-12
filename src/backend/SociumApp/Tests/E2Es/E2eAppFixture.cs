@@ -91,6 +91,24 @@ public sealed class E2eAppFixture : IAsyncLifetime
     /// <summary>Подтверждает email в БД без письма — для сценариев после регистрации в UI.</summary>
     public Task ConfirmEmailForLoginAsync(string login) => ConfirmEmailAsync(login);
 
+    /// <summary>Назначает <c>RoomAdmin</c> в БД (для stub заявки после выхода из чата).</summary>
+    public async Task GrantRoomAdminAsync(Guid roomId, Guid userId)
+    {
+        await using var connection = new Npgsql.NpgsqlConnection(postgres!.ConnectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using var command = new Npgsql.NpgsqlCommand(
+            """
+            INSERT INTO "RoomRoleAssignments" ("Id", "UserId", "RoomId", "RoleName")
+            VALUES (@id, @userId, @roomId, @roleName)
+            """,
+            connection);
+        command.Parameters.AddWithValue("id", Guid.CreateVersion7());
+        command.Parameters.AddWithValue("userId", userId);
+        command.Parameters.AddWithValue("roomId", roomId);
+        command.Parameters.AddWithValue("roleName", Services.Security.Permissions.Catalogs.RoleNames.RoomAdmin);
+        await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+    }
+
     private async Task ConfirmEmailAsync(string login)
     {
         await using var connection = new Npgsql.NpgsqlConnection(postgres!.ConnectionString);

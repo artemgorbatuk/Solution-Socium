@@ -15,6 +15,7 @@ public interface IChatNotifyPort
     Task NotifyChatListUpdatedAsync(ChatNotifyListModel update, CancellationToken cancellationToken = default);
     Task NotifyRoomChangedAsync(ChatNotifyRoomChangedModel change, CancellationToken cancellationToken = default);
     Task NotifyChatChangedAsync(ChatNotifyChatChangedModel change, CancellationToken cancellationToken = default);
+    Task NotifyJoinRequestChangedAsync(ChatNotifyJoinRequestChangedModel change, CancellationToken cancellationToken = default);
 }
 
 public class ChatNotifyMessageModel
@@ -75,4 +76,14 @@ public class ChatNotifyChatChangedModel
     public required Guid RoomId { get; set; }
     public required Guid ChatId { get; set; }
     public string? Name { get; set; }
+}
+
+public class ChatNotifyJoinRequestChangedModel
+{
+    /// <summary>created | accepted | rejected</summary>
+    public required string Kind { get; set; }
+    public required Guid ChatId { get; set; }
+    public required Guid JoinRequestId { get; set; }
+    public required Guid UserId { get; set; }
+    public required int PendingCount { get; set; }
 }

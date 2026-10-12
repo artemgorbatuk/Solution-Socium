@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using Services.Shared.Enums;
 using Services.Socium.Models;
@@ -15,7 +15,7 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
 
     private HttpClient Client => fixture.Client;
 
-    /// <summary>Чат, созданный пользователем по умолчанию (он участник и админ).</summary>
+    /// <summary>???, ????????? ????????????? ?? ????????? (?? ???????? ? ?????).</summary>
     private async Task<Guid> CreateChatAsync()
     {
         var roomName = $"Room {Guid.NewGuid():N}";
@@ -33,12 +33,15 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
 
     private async Task<HttpClient> CreateUserClientAsync()
     {
-        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Пётр");
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Petr");
         return fixture.CreateClientAs(userId);
     }
 
-    private static Task<HttpResponseMessage> JoinAsync(HttpClient client, Guid chatId)
-        => client.PostAsJsonAsync(BaseUrl, new ParticipantCreateRequest { ChatId = chatId }, TestContext.Current.CancellationToken);
+    private static Task<HttpResponseMessage> AddAsync(HttpClient adminClient, Guid chatId, Guid userId)
+        => adminClient.PostAsJsonAsync(
+            BaseUrl,
+            new ParticipantCreateRequest { ChatId = chatId, UserId = userId },
+            TestContext.Current.CancellationToken);
 
     [Fact]
     public async Task List_GET_WithParticipant_ShouldReturn200WithParticipants()
@@ -48,7 +51,9 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
         var body = await ReadSuccessAsync<ParticipantListPageResponse>(await Client.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken));
 
         Assert.Equal(MessageType.LOADED, body.MessageInfo.MessageType);
-        Assert.True(body.Response!.CanChangeRole);
+        Assert.True(body.Response!.CanChangeAdmin);
+        Assert.True(body.Response.CanGrantParticipant);
+        Assert.True(body.Response.CanKick);
         var row = Assert.Single(body.Response.Rows);
         Assert.Equal(fixture.DefaultUserId, row.UserId);
         Assert.True(row.IsAdmin);
@@ -79,26 +84,30 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
     }
 
     [Fact]
-    public async Task Create_POST_WithNewUser_ShouldReturn200AndJoin()
+    public async Task Create_POST_WithAdminAddingUser_ShouldReturn200AndJoin()
     {
         var chatId = await CreateChatAsync();
-        using var client = await CreateUserClientAsync();
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Petr");
+        using var client = fixture.CreateClientAs(userId);
 
-        var body = await ReadSuccessAsync<ParticipantCreateResponse>(await JoinAsync(client, chatId));
+        var body = await ReadSuccessAsync<ParticipantCreateResponse>(await AddAsync(Client, chatId, userId));
 
         Assert.Equal(MessageType.SAVED, body.MessageInfo.MessageType);
         var list = await ReadSuccessAsync<ParticipantListPageResponse>(await client.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken));
         Assert.Equal(2, list.Response!.RowCount);
-        Assert.False(list.Response.CanChangeRole);
+        Assert.False(list.Response.CanChangeAdmin);
+        Assert.False(list.Response.CanGrantParticipant);
+        Assert.False(list.Response.CanKick);
     }
 
     [Fact]
     public async Task Create_POST_WithExistingParticipantOrUnknownChat_ShouldReturn422Or404()
     {
         var chatId = await CreateChatAsync();
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Petr");
 
-        var repeated = await JoinAsync(Client, chatId);
-        var unknown = await JoinAsync(Client, Guid.CreateVersion7());
+        var repeated = await AddAsync(Client, chatId, fixture.DefaultUserId);
+        var unknown = await AddAsync(Client, Guid.CreateVersion7(), userId);
 
         var problem = await ReadProblemAsync(repeated, HttpStatusCode.UnprocessableEntity);
         Assert.Contains(ParticipantCrudTexts.Messages.Validation.AlreadyParticipant, problem.Detail);
@@ -109,8 +118,9 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
     public async Task Update_PUT_WithAdminAndOrdinaryParticipant_ShouldReturn200And403()
     {
         var chatId = await CreateChatAsync();
-        using var client = await CreateUserClientAsync();
-        await JoinAsync(client, chatId);
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Petr");
+        using var client = fixture.CreateClientAs(userId);
+        await AddAsync(Client, chatId, userId);
         var list = await ReadSuccessAsync<ParticipantListPageResponse>(await Client.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken));
         var memberId = list.Response!.Rows.Single(row => row.UserId != fixture.DefaultUserId).Id;
         var adminId = list.Response.Rows.Single(row => row.UserId == fixture.DefaultUserId).Id;
@@ -151,8 +161,9 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
     public async Task Delete_DELETE_WithOrdinaryParticipantAndLastAdmin_ShouldReturn200And422()
     {
         var chatId = await CreateChatAsync();
-        using var client = await CreateUserClientAsync();
-        await JoinAsync(client, chatId);
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Petr");
+        using var client = fixture.CreateClientAs(userId);
+        await AddAsync(Client, chatId, userId);
 
         var adminLeave = await Client.DeleteAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken);
         var memberLeave = await client.DeleteAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken);
@@ -161,5 +172,24 @@ public sealed class ParticipantApiTests(SociumApiFixture fixture)
         Assert.Contains(ParticipantCrudTexts.Messages.Validation.LastAdminCannotLeave, problem.Detail);
         var body = await ReadSuccessAsync<ParticipantDeleteResponse>(memberLeave);
         Assert.True(body.Response!.IsDeleted);
+    }
+
+    [Fact]
+    public async Task Delete_DELETE_WithParticipantId_ShouldKickMember()
+    {
+        var chatId = await CreateChatAsync();
+        var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Petr");
+        await AddAsync(Client, chatId, userId);
+        var list = await ReadSuccessAsync<ParticipantListPageResponse>(
+            await Client.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken));
+        var memberId = list.Response!.Rows.Single(row => row.UserId == userId).Id;
+
+        var response = await Client.DeleteAsync($"{BaseUrl}?id={memberId}", TestContext.Current.CancellationToken);
+
+        var body = await ReadSuccessAsync<ParticipantDeleteResponse>(response);
+        Assert.True(body.Response!.IsDeleted);
+        var after = await ReadSuccessAsync<ParticipantListPageResponse>(
+            await Client.GetAsync($"{BaseUrl}?chatId={chatId}", TestContext.Current.CancellationToken));
+        Assert.DoesNotContain(after.Response!.Rows, row => row.UserId == userId);
     }
 }

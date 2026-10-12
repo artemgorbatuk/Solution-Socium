@@ -31,6 +31,7 @@ public sealed class UserPortTests
         public Task<ResponseInfo<UserUpdatePageResponse>> UpdateAsync(UserUpdateRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ResponseInfo<UserDeletePageResponse>> DisplayDeletePageAsync(UserDeletePageRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ResponseInfo<UserDeleteResponse>> DeleteAsync(UserDeleteRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<ResponseInfo<UserSearchResponse>> SearchAsync(UserSearchRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     [Fact]

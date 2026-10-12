@@ -20,9 +20,9 @@ export class ParticipantApi {
     return this.http.get<ApiSuccessResponse<ParticipantListPageResponse>>(this.baseUrl, { params: { chatId } });
   }
 
-  /** Вступление текущего пользователя в чат. */
-  join(chatId: string): Observable<ApiSuccessResponse<ParticipantCreateResponse>> {
-    return this.http.post<ApiSuccessResponse<ParticipantCreateResponse>>(this.baseUrl, { chatId });
+  /** Добавление пользователя в чат админом (`ChatParticipantGrant`). */
+  create(chatId: string, userId: string): Observable<ApiSuccessResponse<ParticipantCreateResponse>> {
+    return this.http.post<ApiSuccessResponse<ParticipantCreateResponse>>(this.baseUrl, { chatId, userId });
   }
 
   update(request: ParticipantUpdateRequest): Observable<ApiSuccessResponse<ParticipantUpdateResponse>> {
@@ -36,5 +36,10 @@ export class ParticipantApi {
 
   leave(chatId: string): Observable<ApiSuccessResponse<ParticipantDeleteResponse>> {
     return this.http.delete<ApiSuccessResponse<ParticipantDeleteResponse>>(this.baseUrl, { params: { chatId } });
+  }
+
+  /** Исключение участника админом (`ChatParticipantRevoke`). */
+  kick(participantId: string): Observable<ApiSuccessResponse<ParticipantDeleteResponse>> {
+    return this.http.delete<ApiSuccessResponse<ParticipantDeleteResponse>>(this.baseUrl, { params: { id: participantId } });
   }
 }

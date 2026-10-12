@@ -37,6 +37,7 @@ public class ServiceChat : IServiceChat
     private readonly IUserPort userPort;
     private readonly IFilePort filePort;
     private readonly IChatPolicy chatPolicy;
+    private readonly IParticipantPolicy participantPolicy;
     private readonly IRoleAssignmentProvider roleAssignmentProvider;
     private readonly IDomainEventPublisher domainEventPublisher;
     private readonly ILogger<ServiceChat> logger;
@@ -47,6 +48,7 @@ public class ServiceChat : IServiceChat
         IUserPort userPort,
         IFilePort filePort,
         IChatPolicy chatPolicy,
+        IParticipantPolicy participantPolicy,
         IRoleAssignmentProvider roleAssignmentProvider,
         IDomainEventPublisher domainEventPublisher,
         ILogger<ServiceChat> logger)
@@ -56,6 +58,7 @@ public class ServiceChat : IServiceChat
         this.userPort = userPort;
         this.filePort = filePort;
         this.chatPolicy = chatPolicy;
+        this.participantPolicy = participantPolicy;
         this.roleAssignmentProvider = roleAssignmentProvider;
         this.domainEventPublisher = domainEventPublisher;
         this.logger = logger;
@@ -187,7 +190,7 @@ public class ServiceChat : IServiceChat
             await domainEventPublisher.PublishAsync(chatChanged, cancellationToken);
 
             logger.LogInformation(ChatCrudTexts.Messages.Success.CreateCompleted);
-            return ResponseInfo.Success<ChatCreatePageResponse>(MessageType.SAVED, ChatCrudTexts.Messages.Success.CreateCompleted);
+            return ResponseInfo.Success(created, MessageType.SAVED, ChatCrudTexts.Messages.Success.CreateCompleted);
         }
         catch (OperationCanceledException)
         {
@@ -586,10 +589,46 @@ public class ServiceChat : IServiceChat
 
             var canUpdate = await chatPolicy.CanUpdateAsync(user.Id, model.RoomId, model.Id, cancellationToken);
             var canDelete = await chatPolicy.CanDeleteAsync(user.Id, model.RoomId, model.Id, cancellationToken);
+            var canManageParticipants = await participantPolicy.CanGrantParticipantAsync(
+                user.Id,
+                model.RoomId,
+                model.Id,
+                cancellationToken);
             var chatRoles = await roleAssignmentProvider.GetChatRolesAsync(user.Id, model.Id, cancellationToken);
             var isParticipant = chatRoles.Contains(RoleNames.ChatParticipant, StringComparer.Ordinal);
             var isAdmin = chatRoles.Contains(RoleNames.ChatAdmin, StringComparer.Ordinal);
-            var response = ChatMapper.ToInfoPageResponse(model, isParticipant, isAdmin, canUpdate, canDelete);
+
+            var hasPendingJoinRequest = false;
+            if (!isParticipant)
+            {
+                var ownPendingCount = await unitOfWork.JoinRequests.CountAsync(
+                    JoinRequestMapper.ToQueryOptions(
+                        chatId: model.Id,
+                        userId: user.Id,
+                        status: Datasource.Socium.Ef.Enums.JoinRequestStatus.Pending),
+                    cancellationToken);
+                hasPendingJoinRequest = ownPendingCount > 0;
+            }
+
+            var pendingJoinRequestCount = 0;
+            if (canManageParticipants)
+            {
+                pendingJoinRequestCount = await unitOfWork.JoinRequests.CountAsync(
+                    JoinRequestMapper.ToQueryOptions(
+                        chatId: model.Id,
+                        status: Datasource.Socium.Ef.Enums.JoinRequestStatus.Pending),
+                    cancellationToken);
+            }
+
+            var response = ChatMapper.ToInfoPageResponse(
+                model,
+                isParticipant,
+                isAdmin,
+                canUpdate,
+                canDelete,
+                canManageParticipants,
+                hasPendingJoinRequest,
+                pendingJoinRequestCount);
             logger.LogInformation(ChatCrudTexts.Messages.Success.DisplayInfoCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, ChatCrudTexts.Messages.Success.DisplayInfoCompleted);
         }

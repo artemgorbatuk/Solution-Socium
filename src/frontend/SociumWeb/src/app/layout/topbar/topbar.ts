@@ -16,13 +16,30 @@ import { TopbarTitle } from './topbar-title';
     @if (participantsPanel.available()) {
       <button
         type="button"
-        class="icon"
+        class="icon participants"
         aria-label="Участники"
         title="Участники"
         [attr.aria-pressed]="participantsPanel.open()"
         (click)="participantsPanel.toggle()"
       >
         <app-icon name="users" />
+      </button>
+    }
+    @if (participantsPanel.requestsAvailable()) {
+      <button
+        type="button"
+        class="icon requests"
+        aria-label="Заявки"
+        title="Заявки"
+        [attr.aria-pressed]="participantsPanel.requestsOpen()"
+        (click)="participantsPanel.toggleRequests()"
+      >
+        <app-icon name="inbox" />
+        @if (participantsPanel.pendingJoinRequestCount(); as count) {
+          @if (count > 0) {
+            <span class="badge" aria-label="Заявок: {{ count }}">{{ count }}</span>
+          }
+        }
       </button>
     }
     <app-theme-toggle />

@@ -126,6 +126,9 @@ public sealed class ChatMapperTests
         Assert.Equal(isAdmin, response.IsAdmin);
         Assert.Equal(canUpdate, response.CanUpdate);
         Assert.Equal(canDelete, response.CanDelete);
+        Assert.False(response.CanManageParticipants);
+        Assert.False(response.HasPendingJoinRequest);
+        Assert.Equal(0, response.PendingJoinRequestCount);
     }
 
     [Fact]

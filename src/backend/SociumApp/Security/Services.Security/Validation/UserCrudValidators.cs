@@ -117,6 +117,18 @@ public static partial class UserCrudValidators
         }
     }
 
+    public static IEnumerable<string> ValidatePrimarySearchRequest(UserSearchRequest? request)
+    {
+        if (request == null)
+        {
+            yield return UserCrudTexts.Messages.Validation.RequestCannotBeNull;
+        }
+        else if (string.IsNullOrWhiteSpace(request.Login))
+        {
+            yield return UserCrudTexts.Messages.Validation.SearchLoginNotEmpty;
+        }
+    }
+
     public static IEnumerable<string> ValidateCurrentUser(User? user)
     {
         if (user == null || user.IsDeleted)

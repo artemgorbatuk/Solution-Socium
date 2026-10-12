@@ -65,7 +65,10 @@ public sealed class ChatApiTests(SociumApiFixture fixture)
 
         var peerId = await fixture.CreateUserAsync($"peer.{Guid.NewGuid():N}", "Пётр");
         using var peer = fixture.CreateClientAs(peerId);
-        await peer.PostAsJsonAsync("/api/participant", new ParticipantCreateRequest { ChatId = activeId }, TestContext.Current.CancellationToken);
+        await Client.PostAsJsonAsync(
+            "/api/participant",
+            new ParticipantCreateRequest { ChatId = activeId, UserId = peerId },
+            TestContext.Current.CancellationToken);
 
         var text = $"Hi {Guid.NewGuid():N}";
         var created = await peer.PostAsJsonAsync(
@@ -348,7 +351,10 @@ public sealed class ChatApiTests(SociumApiFixture fixture)
         var id = await CreateChatAsync(roomId, UniqueName());
         var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Пётр");
         using var userClient = fixture.CreateClientAs(userId);
-        await userClient.PostAsJsonAsync("/api/participant", new ParticipantCreateRequest { ChatId = id }, TestContext.Current.CancellationToken);
+        await Client.PostAsJsonAsync(
+            "/api/participant",
+            new ParticipantCreateRequest { ChatId = id, UserId = userId },
+            TestContext.Current.CancellationToken);
 
         var update = await userClient.PutAsJsonAsync(BaseUrl, new ChatUpdateRequest { Id = id, Name = UniqueName() }, TestContext.Current.CancellationToken);
         var delete = await userClient.DeleteAsync($"{BaseUrl}?id={id}", TestContext.Current.CancellationToken);

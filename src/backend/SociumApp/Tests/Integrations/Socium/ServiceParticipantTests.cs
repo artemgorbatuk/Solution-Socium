@@ -1,4 +1,4 @@
-п»їusing Datasource.Socium.Ef.Contexts;
+using Datasource.Socium.Ef.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Services.Shared.Enums;
 using Services.Shared.Models;
@@ -16,7 +16,7 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
 
     private Task<Guid> CreateUserAsync() => fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", $"User {Guid.NewGuid():N}");
 
-    /// <summary>Р§Р°С‚, СЃРѕР·РґР°РЅРЅС‹Р№ РїРѕР»СЊР·РѕРІР°С‚РµР»РµРј РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ (РѕРЅ СѓС‡Р°СЃС‚РЅРёРє Рё Р°РґРјРёРЅ).</summary>
+    /// <summary>Чат, созданный пользователем по умолчанию (он участник и админ).</summary>
     private async Task<Guid> CreateChatAsync()
     {
         var roomId = await fixture.CreateRoomAsync($"Room {Guid.NewGuid():N}");
@@ -40,7 +40,9 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
         var result = await GetListAsync(chatId, fixture.DefaultUserId);
 
         Assert.Equal(MessageType.LOADED, result.MessageInfo.MessageType);
-        Assert.True(result.Response!.CanChangeRole);
+        Assert.True(result.Response!.CanChangeAdmin);
+        Assert.True(result.Response.CanGrantParticipant);
+        Assert.True(result.Response.CanKick);
         var row = Assert.Single(result.Response.Rows);
         Assert.Equal(fixture.DefaultUserId, row.UserId);
         Assert.Equal("default-user", row.Login);
@@ -81,17 +83,19 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
     }
 
     [Fact]
-    public async Task Create_Submit_WithNewUser_ShouldJoinAsOrdinaryParticipant()
+    public async Task Create_Submit_WithAdminAddingUser_ShouldJoinAsOrdinaryParticipant()
     {
         var chatId = await CreateChatAsync();
         var userId = await CreateUserAsync();
 
-        var result = await RunAsAsync(userId, service => service.CreateAsync(new ParticipantCreateRequest { ChatId = chatId }));
+        var result = await RunAsAsync(
+            fixture.DefaultUserId,
+            service => service.CreateAsync(new ParticipantCreateRequest { ChatId = chatId, UserId = userId }));
 
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
         Assert.Equal(ParticipantCrudTexts.Messages.Success.CreateCompleted, result.MessageInfo.MessageText);
         var list = await GetListAsync(chatId, userId);
-        Assert.False(list.Response!.CanChangeRole);
+        Assert.False(list.Response!.CanChangeAdmin);
         Assert.Equal(2, list.Response.RowCount);
         var row = list.Response.Rows.Single(row => row.UserId == userId);
         Assert.Equal(result.Response!.Id, row.Id);
@@ -103,7 +107,9 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
     {
         var chatId = await CreateChatAsync();
 
-        var result = await RunAsAsync(fixture.DefaultUserId, service => service.CreateAsync(new ParticipantCreateRequest { ChatId = chatId }));
+        var result = await RunAsAsync(
+            fixture.DefaultUserId,
+            service => service.CreateAsync(new ParticipantCreateRequest { ChatId = chatId, UserId = fixture.DefaultUserId }));
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(ParticipantCrudTexts.Messages.Validation.AlreadyParticipant, result.MessageInfo.MessageText);
@@ -117,10 +123,34 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
         await fixture.RunAsync((DbContextSocium db) => db.Participants.Where(participant => participant.ChatId == chatId).ExecuteDeleteAsync());
         var userId = await CreateUserAsync();
 
-        await fixture.JoinChatAsync(chatId, userId);
+        // Пустой чат: CreateAsync требует ChatParticipantGrant; первый участник через Stage+Save в одном UoW.
+        await fixture.RunAsAsync(fixture.DefaultUserId, async (Repositories.Socium.Ef.Api.IUnitOfWorkSocium unitOfWork) =>
+        {
+            var participant = unitOfWork.Participants.GetNew(new Repositories.Socium.Ef.Options.ParticipantGetNewOptions
+            {
+                ChatId = chatId,
+                UserId = userId,
+            });
+            await unitOfWork.Participants.CreateAsync(participant);
+
+            var participantRole = unitOfWork.ChatRoleAssignments.GetNew();
+            participantRole.UserId = userId;
+            participantRole.ChatId = chatId;
+            participantRole.RoleName = Services.Security.Permissions.Catalogs.RoleNames.ChatParticipant;
+            await unitOfWork.ChatRoleAssignments.CreateAsync(participantRole);
+
+            var adminRole = unitOfWork.ChatRoleAssignments.GetNew();
+            adminRole.UserId = userId;
+            adminRole.ChatId = chatId;
+            adminRole.RoleName = Services.Security.Permissions.Catalogs.RoleNames.ChatAdmin;
+            await unitOfWork.ChatRoleAssignments.CreateAsync(adminRole);
+
+            await unitOfWork.SaveChangesAsync();
+            return 0;
+        });
 
         var list = await GetListAsync(chatId, userId);
-        Assert.True(list.Response!.CanChangeRole);
+        Assert.True(list.Response!.CanChangeAdmin);
         Assert.True(list.Response.Rows.Single(row => row.UserId == userId).IsAdmin);
     }
 
@@ -128,10 +158,17 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
     public async Task Create_Submit_WithoutCurrentUserOrUnknownChat_ShouldReturnUnauthorizedOrNotFound()
     {
         var chatId = await CreateChatAsync();
+        var userId = await CreateUserAsync();
 
-        var unauthorized = await RunAsAsync(null, service => service.CreateAsync(new ParticipantCreateRequest { ChatId = chatId }));
-        var notFound = await RunAsAsync(fixture.DefaultUserId, service => service.CreateAsync(new ParticipantCreateRequest { ChatId = Guid.CreateVersion7() }));
-        var badRequest = await RunAsAsync(fixture.DefaultUserId, service => service.CreateAsync(new ParticipantCreateRequest { ChatId = Guid.Empty }));
+        var unauthorized = await RunAsAsync(
+            null,
+            service => service.CreateAsync(new ParticipantCreateRequest { ChatId = chatId, UserId = userId }));
+        var notFound = await RunAsAsync(
+            fixture.DefaultUserId,
+            service => service.CreateAsync(new ParticipantCreateRequest { ChatId = Guid.CreateVersion7(), UserId = userId }));
+        var badRequest = await RunAsAsync(
+            fixture.DefaultUserId,
+            service => service.CreateAsync(new ParticipantCreateRequest { ChatId = Guid.Empty, UserId = userId }));
 
         Assert.Equal(MessageType.UNAUTHORIZED, unauthorized.MessageInfo.MessageType);
         Assert.Equal(MessageType.NOT_FOUND, notFound.MessageInfo.MessageType);
@@ -139,15 +176,18 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
     }
 
     [Fact]
-    public async Task Create_Submit_WithDeletedUser_ShouldReturnUnauthorized()
+    public async Task Create_Submit_WithDeletedUser_ShouldReturnNotFound()
     {
         var chatId = await CreateChatAsync();
         var userId = await CreateUserAsync();
         await fixture.RunAsAsync(userId, (Services.Security.Api.IServiceUser service) => service.DeleteAsync(new Services.Security.Models.UserDeleteRequest { Id = userId }));
 
-        var result = await RunAsAsync(userId, service => service.CreateAsync(new ParticipantCreateRequest { ChatId = chatId }));
+        var result = await RunAsAsync(
+            fixture.DefaultUserId,
+            service => service.CreateAsync(new ParticipantCreateRequest { ChatId = chatId, UserId = userId }));
 
-        Assert.Equal(MessageType.UNAUTHORIZED, result.MessageInfo.MessageType);
+        Assert.Equal(MessageType.NOT_FOUND, result.MessageInfo.MessageType);
+        Assert.Contains(ParticipantCrudTexts.Messages.Validation.UserNotFoundById, result.MessageInfo.MessageText);
     }
 
     [Fact]
@@ -162,7 +202,7 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
 
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
         Assert.True(result.Response!.IsAdmin);
-        Assert.True((await GetListAsync(chatId, userId)).Response!.CanChangeRole);
+        Assert.True((await GetListAsync(chatId, userId)).Response!.CanChangeAdmin);
     }
 
     [Fact]
@@ -177,7 +217,7 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
 
         Assert.Equal(MessageType.FORBIDDEN, result.MessageInfo.MessageType);
         Assert.Contains(ParticipantCrudTexts.Messages.Validation.AccessDenied, result.MessageInfo.MessageText);
-        Assert.False((await GetListAsync(chatId, userId)).Response!.CanChangeRole);
+        Assert.False((await GetListAsync(chatId, userId)).Response!.CanChangeAdmin);
     }
 
     [Fact]
@@ -190,7 +230,7 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
 
         Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
         Assert.Contains(ParticipantCrudTexts.Messages.Validation.LastAdminCannotRevoke, result.MessageInfo.MessageText);
-        Assert.True((await GetListAsync(chatId, fixture.DefaultUserId)).Response!.CanChangeRole);
+        Assert.True((await GetListAsync(chatId, fixture.DefaultUserId)).Response!.CanChangeAdmin);
     }
 
     [Fact]
@@ -208,10 +248,10 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
         var creatorList = await GetListAsync(chatId, fixture.DefaultUserId);
         var otherList = await GetListAsync(chatId, userId);
-        // РЎРѕР·РґР°С‚РµР»СЊ РєРѕРјРЅР°С‚С‹ РѕСЃС‚Р°С‘С‚СЃСЏ RoomAdmin в†’ ChatAdminGrant/Revoke; Р±РµР№РґР¶ ChatAdmin СЃРЅСЏС‚.
-        Assert.True(creatorList.Response!.CanChangeRole);
+        // Создатель комнаты остаётся RoomAdmin > ChatAdminGrant/Revoke; бейдж ChatAdmin снят.
+        Assert.True(creatorList.Response!.CanChangeAdmin);
         Assert.False(creatorList.Response.Rows.Single(row => row.UserId == fixture.DefaultUserId).IsAdmin);
-        Assert.True(otherList.Response!.CanChangeRole);
+        Assert.True(otherList.Response!.CanChangeAdmin);
         Assert.True(otherList.Response.Rows.Single(row => row.UserId == userId).IsAdmin);
     }
 
@@ -324,5 +364,55 @@ public sealed class ServiceParticipantTests(SociumServiceFixture fixture)
         Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
         var row = Assert.Single((await GetListAsync(chatId, userId)).Response!.Rows);
         Assert.Equal(userId, row.UserId);
+    }
+
+    [Fact]
+    public async Task Delete_Submit_WithOtherParticipantId_ShouldKick()
+    {
+        var chatId = await CreateChatAsync();
+        var userId = await CreateUserAsync();
+        await fixture.JoinChatAsync(chatId, userId);
+        var memberId = await GetParticipantIdAsync(chatId, userId);
+
+        var result = await RunAsAsync(
+            fixture.DefaultUserId,
+            service => service.DeleteAsync(new ParticipantDeleteRequest { Id = memberId }));
+
+        Assert.Equal(MessageType.SAVED, result.MessageInfo.MessageType);
+        Assert.True(result.Response!.IsDeleted);
+        Assert.Equal(MessageType.FORBIDDEN, (await GetListAsync(chatId, userId)).MessageInfo.MessageType);
+        var row = Assert.Single((await GetListAsync(chatId, fixture.DefaultUserId)).Response!.Rows);
+        Assert.Equal(fixture.DefaultUserId, row.UserId);
+    }
+
+    [Fact]
+    public async Task Delete_Submit_WithOwnParticipantId_ShouldReturnInvalid()
+    {
+        var chatId = await CreateChatAsync();
+        var userId = await CreateUserAsync();
+        await fixture.JoinChatAsync(chatId, userId);
+        var adminId = await GetParticipantIdAsync(chatId, fixture.DefaultUserId);
+
+        var result = await RunAsAsync(
+            fixture.DefaultUserId,
+            service => service.DeleteAsync(new ParticipantDeleteRequest { Id = adminId }));
+
+        Assert.Equal(MessageType.INVALID, result.MessageInfo.MessageType);
+        Assert.Contains(ParticipantCrudTexts.Messages.Validation.CannotKickSelf, result.MessageInfo.MessageText);
+    }
+
+    [Fact]
+    public async Task Delete_Submit_WithMemberKickingAdmin_ShouldReturnForbidden()
+    {
+        var chatId = await CreateChatAsync();
+        var userId = await CreateUserAsync();
+        await fixture.JoinChatAsync(chatId, userId);
+        var adminId = await GetParticipantIdAsync(chatId, fixture.DefaultUserId);
+
+        var result = await RunAsAsync(
+            userId,
+            service => service.DeleteAsync(new ParticipantDeleteRequest { Id = adminId }));
+
+        Assert.Equal(MessageType.FORBIDDEN, result.MessageInfo.MessageType);
     }
 }

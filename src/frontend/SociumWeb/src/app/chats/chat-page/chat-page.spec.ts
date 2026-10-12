@@ -2,10 +2,17 @@ import { HttpRequest, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { TopbarTitle } from '../../layout/topbar/topbar-title';
-import { ParticipantsPanelState, participantsPanelOpenStorageKey } from '../../participants/participants-panel-state';
-import { successBody } from '../../shared/api/api-response.testing';
+import { Subject } from 'rxjs';
 import { signInAs } from '../../account/auth.testing';
+import { TopbarTitle } from '../../layout/topbar/topbar-title';
+import {
+  ParticipantsPanelState,
+  joinRequestsPanelOpenStorageKey,
+  participantsPanelOpenStorageKey,
+} from '../../participants/participants-panel-state';
+import { ChatHub } from '../../realtime/chat-hub';
+import { ChatChangedNotify, ChatParticipantLeftNotify, JoinRequestChangedNotify } from '../../realtime/chat-hub.models';
+import { successBody } from '../../shared/api/api-response.testing';
 import { ChatChanges } from '../chat-changes';
 import { ChatPage } from './chat-page';
 
@@ -13,6 +20,8 @@ describe('ChatPage', () => {
   let fixture: ComponentFixture<ChatPage>;
   let http: HttpTestingController;
   let element: HTMLElement;
+  let participantLeft$: Subject<ChatParticipantLeftNotify>;
+  let chatChanged$: Subject<ChatChangedNotify>;
 
   function render(): void {
     fixture.detectChanges();
@@ -27,8 +36,30 @@ describe('ChatPage', () => {
       request.method === 'GET' && request.url === '/api/message' && request.params.get('chatId') === chatId;
   }
 
-  function flushChat(id: string, name: string, isParticipant = true): void {
-    expectInfo(id).flush(successBody({ id, roomId: 'r1', name, isParticipant, isAdmin: false }));
+  function flushChat(
+    id: string,
+    name: string,
+    isParticipant = true,
+    options?: {
+      hasPendingJoinRequest?: boolean;
+      isAdmin?: boolean;
+      canManageParticipants?: boolean;
+      pendingJoinRequestCount?: number;
+    },
+  ): void {
+    const canManageParticipants = options?.canManageParticipants ?? options?.isAdmin ?? false;
+    expectInfo(id).flush(
+      successBody({
+        id,
+        roomId: 'r1',
+        name,
+        isParticipant,
+        isAdmin: options?.isAdmin ?? false,
+        canManageParticipants,
+        hasPendingJoinRequest: options?.hasPendingJoinRequest ?? false,
+        pendingJoinRequestCount: options?.pendingJoinRequestCount ?? 0,
+      }),
+    );
     render();
   }
 
@@ -59,9 +90,37 @@ describe('ChatPage', () => {
   }
 
   beforeEach(() => {
+    participantLeft$ = new Subject<ChatParticipantLeftNotify>();
+    chatChanged$ = new Subject<ChatChangedNotify>();
     TestBed.configureTestingModule({
       imports: [ChatPage],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: ChatHub,
+          useValue: {
+            ensureConnected: () => Promise.resolve(),
+            joinChat: () => Promise.resolve(),
+            leaveChat: () => Promise.resolve(),
+            startTyping: () => Promise.resolve(),
+            stopTyping: () => Promise.resolve(),
+            messageCreated$: new Subject(),
+            messageUpdated$: new Subject(),
+            messageDeleted$: new Subject(),
+            typingStarted$: new Subject(),
+            typingStopped$: new Subject(),
+            userChanged$: new Subject(),
+            participantJoined$: new Subject(),
+            participantLeft$,
+            participantRoleChanged$: new Subject(),
+            reconnected$: new Subject(),
+            joinRequestChanged$: new Subject<JoinRequestChangedNotify>(),
+            chatChanged$,
+          },
+        },
+      ],
     });
     http = TestBed.inject(HttpTestingController);
     signInAs('u1');
@@ -72,6 +131,7 @@ describe('ChatPage', () => {
   afterEach(() => {
     http.verify();
     localStorage.removeItem(participantsPanelOpenStorageKey);
+    localStorage.removeItem(joinRequestsPanelOpenStorageKey);
   });
 
   it('Chat_Load_WithExistingChat_ShouldSetTopbarTitleAndShowMessagesWithComposer', () => {
@@ -108,46 +168,72 @@ describe('ChatPage', () => {
     expect(element.querySelector('[role=alert]')!.textContent).toContain('База недоступна.');
   });
 
-  it('Chat_Load_WithNotParticipant_ShouldShowJoinStubWithoutMessages', () => {
+  it('Chat_Load_WithNotParticipant_ShouldShowJoinRequestStubWithoutMessages', () => {
     open('c1');
     flushChat('c1', 'Общий', false);
 
     expect(element.textContent).toContain('Вы не участник этого чата');
-    expect(button('Вступить в чат')!.classList).toContain('primary');
+    expect(button('Подать заявку')!.classList).toContain('primary');
     expect(element.querySelector('textarea')).toBeNull();
     expect(TestBed.inject(TopbarTitle).text()).toBe('Общий');
     expect(TestBed.inject(ParticipantsPanelState).available()).toBe(false);
   });
 
-  it('Join_Click_WithNotParticipant_ShouldJoinNotifyChangesAndShowMessages', () => {
+  it('ParticipantLeft_Hub_WithSelf_ShouldShowNotParticipantStub', () => {
     open('c1');
-    flushChat('c1', 'Общий', false);
-
-    button('Вступить в чат')!.click();
-    const request = http.expectOne({ method: 'POST', url: '/api/participant' });
-    expect(request.request.body).toEqual({ chatId: 'c1' });
-    request.flush(successBody({ id: 'p1' }, 2));
-    render();
-    flushChat('c1', 'Общий');
+    flushChat('c1', 'Общий', true, { isAdmin: true, canManageParticipants: true });
     flushMessages('c1');
 
-    expect(TestBed.inject(ChatChanges).version()).toBe(1);
-    expect(textarea()).not.toBeNull();
-    expect(TestBed.inject(ParticipantsPanelState).available()).toBe(true);
+    participantLeft$.next({ chatId: 'c1', id: 'p1', userId: 'u1' });
+    render();
+    flushChat('c1', 'Общий', false);
+
+    expect(element.textContent).toContain('Вы не участник этого чата');
+    expect(element.querySelector('textarea')).toBeNull();
+    expect(TestBed.inject(ParticipantsPanelState).available()).toBe(false);
   });
 
-  it('Join_Click_WithServerError_ShouldShowProblemAndKeepStub', () => {
+  it('ParticipantLeft_Hub_WithSelfForbidden_ShouldNavigateHome', () => {
+    const navigateByUrl = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    open('c1');
+    flushChat('c1', 'Общий', true);
+    flushMessages('c1');
+
+    participantLeft$.next({ chatId: 'c1', id: 'p1', userId: 'u1' });
+    render();
+    expectInfo('c1').flush({ detail: 'Нет доступа' }, { status: 403, statusText: 'Forbidden' });
+    render();
+
+    expect(navigateByUrl).toHaveBeenCalledWith('/');
+  });
+
+  it('RequestJoin_Click_WithNotParticipant_ShouldMarkPendingWithoutMessages', () => {
     open('c1');
     flushChat('c1', 'Общий', false);
 
-    button('Вступить в чат')!.click();
-    http
-      .expectOne({ method: 'POST', url: '/api/participant' })
-      .flush({ detail: 'Вы уже участник этого чата.' }, { status: 422, statusText: 'Unprocessable Entity' });
+    button('Подать заявку')!.click();
+    const request = http.expectOne({ method: 'POST', url: '/api/joinRequest' });
+    expect(request.request.body).toEqual({ chatId: 'c1' });
+    request.flush(successBody({ id: 'jr1' }, 2));
     render();
 
-    expect(element.querySelector('[role=alert]')!.textContent).toContain('Вы уже участник этого чата.');
-    expect(button('Вступить в чат')!.disabled).toBe(false);
+    expect(element.textContent).toContain('Заявка отправлена');
+    expect(button('Подать заявку')).toBeUndefined();
+    expect(element.querySelector('textarea')).toBeNull();
+  });
+
+  it('RequestJoin_Click_WithServerError_ShouldShowProblemAndKeepStub', () => {
+    open('c1');
+    flushChat('c1', 'Общий', false);
+
+    button('Подать заявку')!.click();
+    http
+      .expectOne({ method: 'POST', url: '/api/joinRequest' })
+      .flush({ detail: 'Заявка на вступление в этот чат уже отправлена.' }, { status: 422, statusText: 'Unprocessable Entity' });
+    render();
+
+    expect(element.querySelector('[role=alert]')!.textContent).toContain('Заявка на вступление в этот чат уже отправлена.');
+    expect(button('Подать заявку')!.disabled).toBe(false);
   });
 
   it('CurrentUser_Change_WithOpenChat_ShouldReloadChatForNewUser', () => {
@@ -176,7 +262,16 @@ describe('ChatPage', () => {
 
     http
       .expectOne((request) => request.method === 'GET' && request.url === '/api/participant' && request.params.get('chatId') === 'c1')
-      .flush(successBody({ rowExists: false, rowCount: 0, canChangeRole: false, rows: [] }));
+      .flush(
+        successBody({
+          rowExists: false,
+          rowCount: 0,
+          canChangeAdmin: false,
+          canGrantParticipant: false,
+          canKick: false,
+          rows: [],
+        }),
+      );
     render();
     expect(element.querySelector('.chat-body app-participants-panel')).not.toBeNull();
   });
@@ -243,6 +338,30 @@ describe('ChatPage', () => {
     expect(navigate).toHaveBeenCalledWith('/');
   });
 
+  it('ChatChanged_Hub_WithOpenChatDeleted_ShouldNavigateHome', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    open('c1');
+    flushChat('c1', 'Общий');
+    flushMessages('c1');
+
+    chatChanged$.next({ kind: 'deleted', roomId: 'r1', chatId: 'c1' });
+    render();
+
+    expect(navigate).toHaveBeenCalledWith('/');
+  });
+
+  it('ChatChanged_Hub_WithOtherChatDeleted_ShouldStayOnPage', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    open('c1');
+    flushChat('c1', 'Общий');
+    flushMessages('c1');
+
+    chatChanged$.next({ kind: 'deleted', roomId: 'r1', chatId: 'c2' });
+    render();
+
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('Page_Destroy_WithLoadedChat_ShouldClearTopbarTitleAndParticipantsButton', () => {
     open('c1');
     flushChat('c1', 'Общий');
@@ -262,7 +381,16 @@ describe('ChatPage', () => {
 
     http
       .expectOne((request) => request.url === '/api/participant')
-      .flush(successBody({ rowExists: false, rowCount: 0, canChangeRole: false, rows: [] }));
+      .flush(
+        successBody({
+          rowExists: false,
+          rowCount: 0,
+          canChangeAdmin: false,
+          canGrantParticipant: false,
+          canKick: false,
+          rows: [],
+        }),
+      );
     render();
     expect(element.querySelector('app-participants-panel')).not.toBeNull();
   });

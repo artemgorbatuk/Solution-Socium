@@ -106,7 +106,10 @@ public static class ChatMapper
         bool isParticipant,
         bool isAdmin,
         bool canUpdate,
-        bool canDelete)
+        bool canDelete,
+        bool canManageParticipants = false,
+        bool hasPendingJoinRequest = false,
+        int pendingJoinRequestCount = 0)
     {
         return new ChatInfoPageResponse
         {
@@ -117,6 +120,9 @@ public static class ChatMapper
             IsAdmin = isAdmin,
             CanUpdate = canUpdate,
             CanDelete = canDelete,
+            CanManageParticipants = canManageParticipants,
+            HasPendingJoinRequest = hasPendingJoinRequest,
+            PendingJoinRequestCount = pendingJoinRequestCount,
         };
     }
 

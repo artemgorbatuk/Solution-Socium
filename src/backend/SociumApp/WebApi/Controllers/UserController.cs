@@ -93,4 +93,13 @@ public class UserController : ApiControllerBase
         var responseInfo = await serviceUser.DisplayListPageAsync(request, cancellationToken);
         return FromResponse(responseInfo);
     }
+
+    [HttpGet("search")]
+    public async Task<IActionResult> Search(
+        [FromQuery] UserSearchRequest request,
+        CancellationToken cancellationToken)
+    {
+        var responseInfo = await serviceUser.SearchAsync(request, cancellationToken);
+        return FromResponse(responseInfo);
+    }
 }

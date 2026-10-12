@@ -81,6 +81,12 @@ public class RepositoryUser : IRepositoryUser
             query = query.Where(user => user.Login == options.Login);
         }
 
+        if (!string.IsNullOrWhiteSpace(options?.LoginContains))
+        {
+            var loginContains = options.LoginContains.Trim().ToLowerInvariant();
+            query = query.Where(user => user.Login.ToLower().Contains(loginContains));
+        }
+
         if (!string.IsNullOrWhiteSpace(options?.Email))
         {
             query = query.Where(user => user.Email == options.Email);

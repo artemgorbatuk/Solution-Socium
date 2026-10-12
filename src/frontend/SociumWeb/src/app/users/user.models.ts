@@ -10,3 +10,13 @@ export interface UserCreateRequest {
   name: string;
   password: string;
 }
+
+export interface UserSearchModel {
+  id: string;
+  login: string;
+  name: string;
+}
+
+export interface UserSearchResponse {
+  rows: UserSearchModel[];
+}

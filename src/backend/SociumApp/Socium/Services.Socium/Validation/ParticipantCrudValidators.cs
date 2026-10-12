@@ -12,10 +12,17 @@ public static class ParticipantCrudValidators
         if (request == null)
         {
             yield return ParticipantCrudTexts.Messages.Validation.RequestCannotBeNull;
+            yield break;
         }
-        else if (request.ChatId == Guid.Empty)
+
+        if (request.ChatId == Guid.Empty)
         {
             yield return ParticipantCrudTexts.Messages.Validation.ChatIdCannotBeEmpty;
+        }
+
+        if (request.UserId == Guid.Empty)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.UserIdCannotBeEmpty;
         }
     }
 
@@ -43,6 +50,22 @@ public static class ParticipantCrudValidators
         if (currentParticipant != null)
         {
             yield return ParticipantCrudTexts.Messages.Validation.AlreadyParticipant;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessGrant(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.AccessDenied;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessibilityUser(UserPortModel? user)
+    {
+        if (user == null)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.UserNotFoundById;
         }
     }
 
@@ -84,10 +107,18 @@ public static class ParticipantCrudValidators
         if (request == null)
         {
             yield return ParticipantCrudTexts.Messages.Validation.RequestCannotBeNull;
+            yield break;
         }
-        else if (request.ChatId == Guid.Empty)
+
+        var hasChatId = request.ChatId is Guid chatId && chatId != Guid.Empty;
+        var hasId = request.Id is Guid id && id != Guid.Empty;
+        if (!hasChatId && !hasId)
         {
-            yield return ParticipantCrudTexts.Messages.Validation.ChatIdCannotBeEmpty;
+            yield return ParticipantCrudTexts.Messages.Validation.DeleteTargetRequired;
+        }
+        else if (hasChatId && hasId)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.DeleteTargetAmbiguous;
         }
     }
 
@@ -100,6 +131,26 @@ public static class ParticipantCrudValidators
         else if (currentIsAdmin && adminCount <= 1)
         {
             yield return ParticipantCrudTexts.Messages.Validation.LastAdminCannotLeave;
+        }
+    }
+
+    public static IEnumerable<string> ValidateDomainKick(bool isSelf, bool targetIsAdmin, int adminCount)
+    {
+        if (isSelf)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.CannotKickSelf;
+        }
+        else if (targetIsAdmin && adminCount <= 1)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.LastAdminCannotKick;
+        }
+    }
+
+    public static IEnumerable<string> ValidateAccessKick(bool allowed)
+    {
+        if (!allowed)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.AccessDenied;
         }
     }
 

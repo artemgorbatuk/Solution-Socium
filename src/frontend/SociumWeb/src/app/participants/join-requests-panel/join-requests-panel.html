@@ -1,0 +1,50 @@
+<div class="header">
+  <h2>Заявки</h2>
+  @if (rows().length) {
+    <span class="count">{{ rows().length }}</span>
+  }
+  <button type="button" class="close" aria-label="Закрыть панель заявок" title="Закрыть" (click)="close()">×</button>
+</div>
+
+<div class="body">
+  @if (loading() && !rows().length) {
+    <p class="hint">Загрузка…</p>
+  } @else if (loadError(); as error) {
+    <p class="error" role="alert">{{ error }}</p>
+  } @else if (!rows().length) {
+    <p class="hint">Нет заявок</p>
+  } @else {
+    <ul aria-label="Заявки на вступление">
+      @for (request of rows(); track request.id) {
+        <li class="request">
+          <span class="avatar" aria-hidden="true">{{ request.name.charAt(0).toUpperCase() }}</span>
+          <span class="names">
+            <span class="name" [title]="request.name">{{ request.name }}</span>
+            <span class="login">@{{ request.login }}</span>
+          </span>
+          <span class="actions">
+            <button
+              type="button"
+              class="accept"
+              [disabled]="!!respondingId()"
+              (click)="accept(request)"
+            >
+              Принять
+            </button>
+            <button
+              type="button"
+              class="reject"
+              [disabled]="!!respondingId()"
+              (click)="reject(request)"
+            >
+              Отклонить
+            </button>
+          </span>
+        </li>
+      }
+    </ul>
+    @if (actionError(); as error) {
+      <p class="error" role="alert">{{ error }}</p>
+    }
+  }
+</div>

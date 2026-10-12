@@ -54,6 +54,24 @@ public static class UserMapper
         };
     }
 
+    public static UserSearchModel ToSearchModel(User model)
+    {
+        return new UserSearchModel
+        {
+            Id = model.Id,
+            Login = model.Login,
+            Name = model.Name,
+        };
+    }
+
+    public static UserSearchResponse ToSearchResponse(ICollection<UserSearchModel> rows)
+    {
+        return new UserSearchResponse
+        {
+            Rows = rows,
+        };
+    }
+
     public static UserDeletePageResponse ToDeletePageResponse(User model)
     {
         return new UserDeletePageResponse

@@ -74,6 +74,41 @@ namespace Datasource.Socium.Ef.Migrations
                     b.ToTable("ChatRoleAssignments", (string)null);
                 });
 
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.JoinRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RespondedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "ChatId", "Status" }, "IX_JoinRequests_ChatId_Status");
+
+                    b.HasIndex(new[] { "ChatId", "UserId" }, "UX_JoinRequests_ChatId_UserId_Pending")
+                        .IsUnique()
+                        .HasFilter("\"Status\" = 0");
+
+                    b.ToTable("JoinRequests", (string)null);
+                });
+
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Message", b =>
                 {
                     b.Property<Guid>("Id")
@@ -246,6 +281,17 @@ namespace Datasource.Socium.Ef.Migrations
                     b.Navigation("Chat");
                 });
 
+            modelBuilder.Entity("Datasource.Socium.Ef.Models.JoinRequest", b =>
+                {
+                    b.HasOne("Datasource.Socium.Ef.Models.Chat", "Chat")
+                        .WithMany("JoinRequests")
+                        .HasForeignKey("ChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Chat");
+                });
+
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Message", b =>
                 {
                     b.HasOne("Datasource.Socium.Ef.Models.Chat", "Chat")
@@ -303,6 +349,8 @@ namespace Datasource.Socium.Ef.Migrations
 
             modelBuilder.Entity("Datasource.Socium.Ef.Models.Chat", b =>
                 {
+                    b.Navigation("JoinRequests");
+
                     b.Navigation("Messages");
 
                     b.Navigation("Participants");

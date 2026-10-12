@@ -346,7 +346,10 @@ public sealed class MessageApiTests(SociumApiFixture fixture)
         var id = await CreateMessageAsync(chatId, UniqueText());
         var userId = await fixture.CreateUserAsync($"user.{Guid.NewGuid():N}", "Пётр");
         using var userClient = fixture.CreateClientAs(userId);
-        await userClient.PostAsJsonAsync("/api/participant", new ParticipantCreateRequest { ChatId = chatId }, TestContext.Current.CancellationToken);
+        await Client.PostAsJsonAsync(
+            "/api/participant",
+            new ParticipantCreateRequest { ChatId = chatId, UserId = userId },
+            TestContext.Current.CancellationToken);
 
         var response = await userClient.PutAsJsonAsync(BaseUrl, new MessageUpdateRequest { Id = id, Text = UniqueText() }, TestContext.Current.CancellationToken);
 
@@ -361,7 +364,10 @@ public sealed class MessageApiTests(SociumApiFixture fixture)
         var chatId = await CreateChatAsync(roomId);
         var peerId = await fixture.CreateUserAsync($"peer.{Guid.NewGuid():N}", "Пётр");
         using var peer = fixture.CreateClientAs(peerId);
-        await peer.PostAsJsonAsync("/api/participant", new ParticipantCreateRequest { ChatId = chatId }, TestContext.Current.CancellationToken);
+        await Client.PostAsJsonAsync(
+            "/api/participant",
+            new ParticipantCreateRequest { ChatId = chatId, UserId = peerId },
+            TestContext.Current.CancellationToken);
 
         var text = UniqueText();
         Assert.Equal(

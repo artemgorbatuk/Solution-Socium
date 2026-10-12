@@ -4,6 +4,8 @@ public class UserQueryOptions
 {
     public ICollection<Guid>? Ids { get; set; }
     public string? Login { get; set; }
+    /// <summary>Подстрока логина (без учёта регистра), для Search.</summary>
+    public string? LoginContains { get; set; }
     public string? Email { get; set; }
     public Guid? ExcludeId { get; set; }
     public bool? IsDeleted { get; set; }

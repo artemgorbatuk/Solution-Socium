@@ -3,6 +3,7 @@ namespace Services.Socium.Models;
 public class ParticipantCreateRequest
 {
     public required Guid ChatId { get; set; }
+    public required Guid UserId { get; set; }
 }
 
 /// <summary>Участие (+ роли) в текущем UoW без SaveChanges (внешняя транзакция / handler).</summary>
@@ -44,7 +45,11 @@ public class ParticipantDeletePageResponse
 
 public class ParticipantDeleteRequest
 {
-    public required Guid ChatId { get; set; }
+    /// <summary>Выход текущего пользователя из чата.</summary>
+    public Guid? ChatId { get; set; }
+
+    /// <summary>Исключение участника админом (<c>ChatParticipantRevoke</c>).</summary>
+    public Guid? Id { get; set; }
 }
 
 public class ParticipantDeleteResponse
@@ -61,7 +66,12 @@ public class ParticipantListPageResponse
 {
     public required bool RowExists { get; set; }
     public required int RowCount { get; set; }
-    public required bool CanChangeRole { get; set; }
+    /// <summary><c>ChatAdminGrant</c> — смена админ-роли участников.</summary>
+    public required bool CanChangeAdmin { get; set; }
+    /// <summary><c>ChatParticipantGrant</c> — добавление и Accept заявок.</summary>
+    public required bool CanGrantParticipant { get; set; }
+    /// <summary><c>ChatParticipantRevoke</c> — исключение другого участника.</summary>
+    public required bool CanKick { get; set; }
     public required ICollection<ParticipantListModel> Rows { get; set; } = [];
 }
 

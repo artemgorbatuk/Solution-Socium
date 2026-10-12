@@ -21,10 +21,25 @@ describe('ParticipantsPanel', () => {
     fixture.detectChanges();
   }
 
-  function flushList(rows: ParticipantListModel[], canChangeRole: boolean): void {
+  function flushList(
+    rows: ParticipantListModel[],
+    canChangeAdmin: boolean,
+    options?: { canGrantParticipant?: boolean; canKick?: boolean },
+  ): void {
+    const canGrantParticipant = options?.canGrantParticipant ?? canChangeAdmin;
+    const canKick = options?.canKick ?? canChangeAdmin;
     http
       .expectOne((request) => request.method === 'GET' && request.url === '/api/participant' && request.params.get('chatId') === 'c1')
-      .flush(successBody({ rowExists: rows.length > 0, rowCount: rows.length, canChangeRole, rows }));
+      .flush(
+        successBody({
+          rowExists: rows.length > 0,
+          rowCount: rows.length,
+          canChangeAdmin,
+          canGrantParticipant,
+          canKick,
+          rows,
+        }),
+      );
     render();
   }
 
@@ -92,6 +107,30 @@ describe('ParticipantsPanel', () => {
     expect(button('Снять роль')).toBeDefined();
     expect(button('Сделать админом')).toBeDefined();
     expect(button('Снять роль')!.disabled).toBe(false);
+    expect(button('Выгнать')!.getAttribute('aria-label')).toBe('Выгнать: Борис');
+    expect(element.querySelector('[aria-label="Выгнать: Анна"]')).toBeNull();
+  });
+
+  it('Kick_Confirm_WithOtherParticipant_ShouldDeleteByIdAndNotifyChanges', () => {
+    flushList([anna, boris], true);
+
+    button('Выгнать')!.click();
+    render();
+    expect(button('Отмена')).toBeDefined();
+    const confirm = Array.from(element.querySelectorAll('button')).find(
+      (item) => item.getAttribute('aria-label') === 'Подтвердить исключение: Борис',
+    )!;
+    confirm.click();
+
+    const request = http.expectOne(
+      (item) => item.method === 'DELETE' && item.url === '/api/participant' && item.params.get('id') === 'p2',
+    );
+    request.flush(successBody({ isDeleted: true }, 2));
+    render();
+    flushList([anna], true);
+
+    expect(TestBed.inject(ChatChanges).version()).toBe(1);
+    expect(element.textContent).not.toContain('Борис');
   });
 
   it('List_Load_WithSingleParticipant_ShouldDisableRoleButton', () => {

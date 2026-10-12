@@ -12,6 +12,46 @@
   } @else if (loadError(); as error) {
     <p class="error" role="alert">{{ error }}</p>
   } @else {
+    @if (canGrantParticipant()) {
+      <div class="search">
+        <label class="search-label" for="participant-search">Добавить по логину</label>
+        <input
+          id="participant-search"
+          type="search"
+          autocomplete="off"
+          [value]="searchLogin()"
+          (input)="onSearchInput($event)"
+          placeholder="Логин"
+        />
+        @if (searching()) {
+          <p class="hint">Поиск…</p>
+        }
+        @if (searchResults().length) {
+          <ul class="search-results" aria-label="Результаты поиска">
+            @for (user of searchResults(); track user.id) {
+              <li>
+                <span class="names">
+                  <span class="name">{{ user.name }}</span>
+                  <span class="login">@{{ user.login }}</span>
+                </span>
+                <button
+                  type="button"
+                  class="add"
+                  [disabled]="!!addingUserId()"
+                  (click)="addUser(user)"
+                >
+                  Добавить
+                </button>
+              </li>
+            }
+          </ul>
+        }
+        @if (searchError(); as error) {
+          <p class="error" role="alert">{{ error }}</p>
+        }
+      </div>
+    }
+
     <ul [attr.aria-label]="'Участники чата ' + chatName()">
       @for (participant of rows(); track participant.id) {
         <li class="participant">
@@ -27,21 +67,52 @@
           @if (participant.isAdmin) {
             <span class="badge">админ</span>
           }
-          @if (canManageRoles()) {
-            <button
-              type="button"
-              class="role"
-              [disabled]="!!updatingId() || !canChangeRole()"
-              [attr.aria-label]="(participant.isAdmin ? 'Снять роль админа: ' : 'Сделать админом: ') + participant.name"
-              (click)="setAdmin(participant, !participant.isAdmin)"
-            >
-              {{ participant.isAdmin ? 'Снять роль' : 'Сделать админом' }}
-            </button>
+          @if (canChangeAdmin() || (canKick() && participant.userId !== currentUserId())) {
+            <span class="row-actions">
+              @if (canChangeAdmin()) {
+                <button
+                  type="button"
+                  class="role"
+                  [disabled]="!!updatingId() || !!kickingId() || !canToggleAdmin()"
+                  [attr.aria-label]="(participant.isAdmin ? 'Снять роль админа: ' : 'Сделать админом: ') + participant.name"
+                  (click)="setAdmin(participant, !participant.isAdmin)"
+                >
+                  {{ participant.isAdmin ? 'Снять роль' : 'Сделать админом' }}
+                </button>
+              }
+              @if (canKick() && participant.userId !== currentUserId()) {
+                @if (kickConfirmId() === participant.id) {
+                  <button type="button" class="kick-cancel" [disabled]="!!kickingId()" (click)="resetKick()">Отмена</button>
+                  <button
+                    type="button"
+                    class="kick danger"
+                    [disabled]="!!kickingId()"
+                    [attr.aria-label]="'Подтвердить исключение: ' + participant.name"
+                    (click)="confirmKick(participant)"
+                  >
+                    Выгнать
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    class="kick"
+                    [disabled]="!!updatingId() || !!kickingId()"
+                    [attr.aria-label]="'Выгнать: ' + participant.name"
+                    (click)="requestKick(participant)"
+                  >
+                    Выгнать
+                  </button>
+                }
+              }
+            </span>
           }
         </li>
       }
     </ul>
     @if (roleError(); as error) {
+      <p class="error" role="alert">{{ error }}</p>
+    }
+    @if (kickError(); as error) {
       <p class="error" role="alert">{{ error }}</p>
     }
   }

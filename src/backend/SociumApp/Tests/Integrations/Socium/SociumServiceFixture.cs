@@ -39,9 +39,12 @@ public sealed class SociumServiceFixture : ServiceFixtureBase
         return list.Response!.Rows.Single(row => row.Text == text.Trim()).Id;
     }
 
+    /// <summary>Добавляет пользователя в чат от имени админа по умолчанию (<see cref="ServiceFixtureBase.DefaultUserId"/>).</summary>
     public async Task JoinChatAsync(Guid chatId, Guid userId)
     {
-        var created = await RunAsAsync(userId, (IServiceParticipant service) => service.CreateAsync(new ParticipantCreateRequest { ChatId = chatId }));
+        var created = await RunAsAsync(
+            DefaultUserId,
+            (IServiceParticipant service) => service.CreateAsync(new ParticipantCreateRequest { ChatId = chatId, UserId = userId }));
         EnsureSaved(created, $"участника чата {chatId}");
     }
 }

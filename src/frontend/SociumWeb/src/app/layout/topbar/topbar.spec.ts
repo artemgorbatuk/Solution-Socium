@@ -75,4 +75,24 @@ describe('Topbar', () => {
     expect(panel.open()).toBe(true);
     expect(button.getAttribute('aria-pressed')).toBe('true');
   });
+
+  it('Requests_Click_WithAvailablePanel_ShouldTogglePanelAndShowBadge', () => {
+    const fixture = TestBed.createComponent(Topbar);
+    const panel = TestBed.inject(ParticipantsPanelState);
+    TestBed.inject(TopbarTitle).text.set('Общий');
+    panel.requestsAvailable.set(true);
+    panel.pendingJoinRequestCount.set(2);
+    fixture.detectChanges();
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('[aria-label="Заявки"]');
+
+    expect(button.title).toBe('Заявки');
+    expect(button.querySelector('app-icon svg')!.getAttribute('data-icon')).toBe('inbox');
+    expect(button.querySelector('.badge')!.textContent).toBe('2');
+
+    button.click();
+    fixture.detectChanges();
+
+    expect(panel.requestsOpen()).toBe(true);
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+  });
 });
