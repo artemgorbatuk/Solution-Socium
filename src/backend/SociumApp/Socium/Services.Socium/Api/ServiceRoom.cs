@@ -5,6 +5,8 @@ using Services.Shared.Api;
 using Services.Shared.Enums;
 using Services.Shared.Events;
 using Services.Shared.Models;
+using Services.Socium.Enums;
+using Services.Socium.Events;
 using Services.Socium.Mapping;
 using Services.Socium.Models;
 using Services.Socium.Normalizers;
@@ -138,6 +140,8 @@ public class ServiceRoom : IServiceRoom
             var roomCreated = RoomMapper.ToCreatedEvent(model.Id, user!.Id);
             await domainEventPublisher.PublishAsync(roomCreated, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+            var roomChanged = RoomMapper.ToChangedEvent(RoomChangedKind.Created, model.Id, model.Name);
+            await domainEventPublisher.PublishAsync(roomChanged, cancellationToken);
 
             logger.LogInformation(RoomCrudTexts.Messages.Success.CreateCompleted);
             return ResponseInfo.Success<RoomCreatePageResponse>(MessageType.SAVED, RoomCrudTexts.Messages.Success.CreateCompleted);
@@ -248,6 +252,8 @@ public class ServiceRoom : IServiceRoom
             RoomMapper.Apply(model!, nameNormalized);
             await unitOfWork.Rooms.UpdateAsync(model!, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+            var roomChanged = RoomMapper.ToChangedEvent(RoomChangedKind.Updated, model!.Id, model.Name);
+            await domainEventPublisher.PublishAsync(roomChanged, cancellationToken);
 
             logger.LogInformation(RoomCrudTexts.Messages.Success.UpdateCompleted);
             return ResponseInfo.Success<RoomUpdatePageResponse>(MessageType.SAVED, RoomCrudTexts.Messages.Success.UpdateCompleted);
@@ -335,8 +341,12 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.NotFound<RoomDeleteResponse>(MessageType.NOT_FOUND, messageText);
             }
 
-            await unitOfWork.Rooms.DeleteAsync(model!, cancellationToken);
+            var roomId = model!.Id;
+            var roomName = model.Name;
+            await unitOfWork.Rooms.DeleteAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+            var roomChanged = RoomMapper.ToChangedEvent(RoomChangedKind.Deleted, roomId, roomName);
+            await domainEventPublisher.PublishAsync(roomChanged, cancellationToken);
 
             var response = new RoomDeleteResponse { IsDeleted = true };
             logger.LogInformation(RoomCrudTexts.Messages.Success.DeleteCompleted);

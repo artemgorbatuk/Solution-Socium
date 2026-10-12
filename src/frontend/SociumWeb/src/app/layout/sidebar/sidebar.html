@@ -60,7 +60,7 @@
       <ul>
         @for (room of filteredRooms(); track room.id) {
           <li>
-            <app-room-list-item [room]="room" (changed)="loadRooms()" (deleted)="onRoomDeleted()" />
+            <app-room-list-item [room]="room" (deleted)="onRoomDeleted()" />
           </li>
         } @empty {
           <li class="hint">{{ search().trim() ? 'Ничего не найдено' : 'Комнат пока нет' }}</li>

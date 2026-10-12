@@ -26,4 +26,9 @@ public class ChatConnection : IChatConnection
             .Group(ChatHubMethods.UserGroup(userId))
             .SendAsync(method, payload, cancellationToken);
     }
+
+    public Task SendToAllAsync(string method, object payload, CancellationToken cancellationToken = default)
+    {
+        return hubContext.Clients.All.SendAsync(method, payload, cancellationToken);
+    }
 }

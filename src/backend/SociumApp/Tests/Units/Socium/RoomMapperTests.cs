@@ -1,4 +1,6 @@
 using Datasource.Socium.Ef.Models;
+using Services.Socium.Enums;
+using Services.Socium.Events;
 using Services.Socium.Mapping;
 
 namespace Tests.Units.Socium;
@@ -88,5 +90,30 @@ public sealed class RoomMapperTests
 
         Assert.Equal(roomId, domainEvent.RoomId);
         Assert.Equal(creatorUserId, domainEvent.CreatorUserId);
+    }
+
+    [Fact]
+    public void ChangedEvent_Map_WithKindAndName_ShouldCopyFields()
+    {
+        var roomId = Guid.CreateVersion7();
+
+        var domainEvent = RoomMapper.ToChangedEvent(RoomChangedKind.Updated, roomId, "Столовая");
+
+        Assert.Equal(RoomChangedKind.Updated, domainEvent.Kind);
+        Assert.Equal(roomId, domainEvent.RoomId);
+        Assert.Equal("Столовая", domainEvent.Name);
+    }
+
+    [Fact]
+    public void NotifyRoomChanged_Map_WithChangedEvent_ShouldUseKindString()
+    {
+        var roomId = Guid.CreateVersion7();
+        var domainEvent = RoomMapper.ToChangedEvent(RoomChangedKind.Deleted, roomId, "Кухня");
+
+        var notify = RoomMapper.ToNotifyRoomChanged(domainEvent);
+
+        Assert.Equal("deleted", notify.Kind);
+        Assert.Equal(roomId, notify.RoomId);
+        Assert.Equal("Кухня", notify.Name);
     }
 }

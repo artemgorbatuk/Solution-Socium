@@ -11,4 +11,5 @@ public interface IServiceChatNotify
     Task NotifyParticipantLeftAsync(ChatParticipantLeftNotifyModel left, CancellationToken cancellationToken = default);
     Task NotifyParticipantRoleChangedAsync(ChatParticipantNotifyModel participant, CancellationToken cancellationToken = default);
     Task NotifyChatListUpdatedAsync(ChatListNotifyModel update, CancellationToken cancellationToken = default);
+    Task NotifyRoomChangedAsync(RoomChangedNotifyModel change, CancellationToken cancellationToken = default);
 }

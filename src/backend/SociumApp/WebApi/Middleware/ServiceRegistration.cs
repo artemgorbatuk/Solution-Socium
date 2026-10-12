@@ -81,6 +81,7 @@ public static class ServiceRegistration
         services.AddScoped<IUserPort, UserPort>();
         services.AddScoped<IDomainEventPublisher, DomainEventPublisher>();
         services.AddScoped<IDomainEventHandler<RoomCreatedEvent>, CreateDefaultChatOnRoomCreatedHandler>();
+        services.AddScoped<IDomainEventHandler<RoomChangedEvent>, NotifyRoomChangedOnRoomChangedHandler>();
         services.AddScoped<IServiceRoom, ServiceRoom>();
         services.AddScoped<IServiceChat, ServiceChat>();
         services.AddScoped<IServiceMessage, ServiceMessage>();

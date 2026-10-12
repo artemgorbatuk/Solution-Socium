@@ -35,6 +35,9 @@ public class ServiceChatNotify : IServiceChatNotify
     public Task NotifyChatListUpdatedAsync(ChatListNotifyModel update, CancellationToken cancellationToken = default)
         => SendToUserSafeAsync(update.TargetUserId, ChatHubMethods.ChatListUpdated, update, cancellationToken);
 
+    public Task NotifyRoomChangedAsync(RoomChangedNotifyModel change, CancellationToken cancellationToken = default)
+        => SendToAllSafeAsync(ChatHubMethods.RoomChanged, change, cancellationToken);
+
     private async Task SendSafeAsync(Guid chatId, string method, object payload, CancellationToken cancellationToken)
     {
         try
@@ -64,6 +67,22 @@ public class ServiceChatNotify : IServiceChatNotify
         catch (Exception exception)
         {
             logger.LogError(exception, "Realtime notify failed: {Method} user {UserId}", method, userId);
+        }
+    }
+
+    private async Task SendToAllSafeAsync(string method, object payload, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await connection.SendToAllAsync(method, payload, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Realtime notify failed: {Method} (all)", method);
         }
     }
 }

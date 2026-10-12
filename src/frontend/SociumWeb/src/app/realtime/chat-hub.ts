@@ -15,6 +15,7 @@ import {
   ChatParticipantNotify,
   ChatTypingStartedNotify,
   ChatTypingStoppedNotify,
+  RoomChangedNotify,
 } from './chat-hub.models';
 
 /**
@@ -35,6 +36,7 @@ export class ChatHub {
   readonly participantLeft$ = new Subject<ChatParticipantLeftNotify>();
   readonly participantRoleChanged$ = new Subject<ChatParticipantNotify>();
   readonly chatListUpdated$ = new Subject<ChatListNotify>();
+  readonly roomChanged$ = new Subject<RoomChangedNotify>();
   readonly typingStarted$ = new Subject<ChatTypingStartedNotify>();
   readonly typingStopped$ = new Subject<ChatTypingStoppedNotify>();
   /** После успешного reconnect — сбросить ленту к свежим 50. */
@@ -127,6 +129,7 @@ export class ChatHub {
         this.participantRoleChanged$.next(payload),
       );
       this.connection.on('chatListUpdated', (payload: ChatListNotify) => this.chatListUpdated$.next(payload));
+      this.connection.on('roomChanged', (payload: RoomChangedNotify) => this.roomChanged$.next(payload));
       this.connection.on('typingStarted', (payload: ChatTypingStartedNotify) => this.typingStarted$.next(payload));
       this.connection.on('typingStopped', (payload: ChatTypingStoppedNotify) => this.typingStopped$.next(payload));
 

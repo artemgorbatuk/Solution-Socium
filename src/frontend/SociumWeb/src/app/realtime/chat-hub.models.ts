@@ -42,6 +42,14 @@ export interface ChatListNotify {
   lastMessageCleared?: boolean;
 }
 
+export type RoomChangedKind = 'created' | 'updated' | 'deleted';
+
+export interface RoomChangedNotify {
+  kind: RoomChangedKind;
+  roomId: string;
+  name?: string | null;
+}
+
 export interface ChatTypingStartedNotify {
   chatId: string;
   userId: string;

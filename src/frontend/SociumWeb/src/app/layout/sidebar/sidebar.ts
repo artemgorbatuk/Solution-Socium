@@ -1,6 +1,9 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AccountMenu } from '../../account/account-menu/account-menu';
 import { ChatChanges } from '../../chats/chat-changes';
+import { ChatHub } from '../../realtime/chat-hub';
+import { RoomChangedNotify } from '../../realtime/chat-hub.models';
 import { problemDetail } from '../../shared/api/api-response';
 import { ResizeHandle } from '../../shared/resize/resize-handle';
 import { RoomApi } from '../../rooms/room-api';
@@ -25,6 +28,8 @@ export class Sidebar {
   private readonly roomApi = inject(RoomApi);
   private readonly roomExpansion = inject(RoomExpansion);
   private readonly chatChanges = inject(ChatChanges);
+  private readonly chatHub = inject(ChatHub);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly nameMaxLength = roomNameMaxLength;
 
@@ -54,8 +59,13 @@ export class Sidebar {
   protected readonly saving = signal(false);
   protected readonly createError = signal<string | null>(null);
 
+  /** Имя комнаты, которую нужно раскрыть после своего create (по событию roomChanged). */
+  private pendingExpandRoomName: string | null = null;
+
   constructor() {
     this.loadRooms();
+    void this.chatHub.ensureConnected();
+    this.chatHub.roomChanged$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((change) => this.applyRoomChanged(change));
   }
 
   protected toggleCollapsed(): void {
@@ -112,12 +122,7 @@ export class Sidebar {
       next: () => {
         this.saving.set(false);
         this.creating.set(false);
-        this.loadRooms(() => {
-          const created = this.rooms().find((room) => room.name === name);
-          if (created) {
-            this.roomExpansion.expand(created.id);
-          }
-        });
+        this.pendingExpandRoomName = name;
       },
       error: (error: unknown) => {
         this.saving.set(false);
@@ -128,7 +133,6 @@ export class Sidebar {
 
   protected onRoomDeleted(): void {
     this.chatChanges.notify();
-    this.loadRooms();
   }
 
   protected loadRooms(onLoaded?: () => void): void {
@@ -148,4 +152,43 @@ export class Sidebar {
       },
     });
   }
+
+  private applyRoomChanged(change: RoomChangedNotify): void {
+    const roomId = change.roomId;
+    if (change.kind === 'deleted') {
+      this.rooms.update((rooms) => rooms.filter((room) => room.id !== roomId));
+      this.roomExpansion.retain(this.rooms().map((room) => room.id));
+      this.chatChanges.notify();
+      return;
+    }
+
+    const name = change.name?.trim();
+    if (!name) {
+      return;
+    }
+
+    if (change.kind === 'updated') {
+      this.rooms.update((rooms) =>
+        sortRooms(rooms.map((room) => (room.id === roomId ? { ...room, name } : room))),
+      );
+      return;
+    }
+
+    if (change.kind === 'created') {
+      this.rooms.update((rooms) => {
+        if (rooms.some((room) => room.id === roomId)) {
+          return rooms;
+        }
+        return sortRooms([...rooms, { id: roomId, name }]);
+      });
+      if (this.pendingExpandRoomName === name) {
+        this.roomExpansion.expand(roomId);
+        this.pendingExpandRoomName = null;
+      }
+    }
+  }
+}
+
+function sortRooms(rooms: RoomListModel[]): RoomListModel[] {
+  return [...rooms].sort((left, right) => left.name.localeCompare(right.name, 'ru'));
 }

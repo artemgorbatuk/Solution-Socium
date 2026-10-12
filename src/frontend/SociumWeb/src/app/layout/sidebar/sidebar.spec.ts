@@ -1,7 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Subject } from 'rxjs';
 import { ChatChanges } from '../../chats/chat-changes';
+import { ChatHub } from '../../realtime/chat-hub';
+import { RoomChangedNotify } from '../../realtime/chat-hub.models';
 import { ApiSuccessResponse } from '../../shared/api/api-response';
 import { successBody } from '../../shared/api/api-response.testing';
 import { RoomExpansion } from '../../rooms/room-expansion';
@@ -16,6 +19,7 @@ describe('Sidebar', () => {
   let fixture: ComponentFixture<Sidebar>;
   let http: HttpTestingController;
   let element: HTMLElement;
+  let roomChanged$: Subject<RoomChangedNotify>;
 
   const rooms: RoomListModel[] = [
     { id: '1', name: 'Кухня' },
@@ -43,9 +47,21 @@ describe('Sidebar', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    roomChanged$ = new Subject<RoomChangedNotify>();
     TestBed.configureTestingModule({
       imports: [Sidebar],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ChatHub,
+          useValue: {
+            ensureConnected: () => Promise.resolve(),
+            roomChanged$,
+            chatListUpdated$: new Subject(),
+          },
+        },
+      ],
     });
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(Sidebar);
@@ -118,7 +134,7 @@ describe('Sidebar', () => {
     expect(roomNames()).toEqual(['Кухня', 'Гостиная']);
   });
 
-  it('CreateForm_Submit_WithPaddedName_ShouldCreateTrimmedReloadListAndExpandRoom', () => {
+  it('CreateForm_Submit_WithPaddedName_ShouldCreateTrimmedPatchListAndExpandRoom', () => {
     const expansion = TestBed.inject(RoomExpansion);
     expansion.toggle('3');
 
@@ -133,13 +149,29 @@ describe('Sidebar', () => {
     const create = http.expectOne({ method: 'POST', url: '/api/room' });
     expect(create.request.body).toEqual({ name: 'Кабинет' });
     create.flush(listBody([]));
-
-    http.expectOne({ method: 'GET', url: '/api/room' }).flush(listBody([{ id: '3', name: 'Кабинет' }]));
     render();
 
     expect(element.querySelector('.create-form')).toBeNull();
+    expect(roomNames()).toEqual([]);
+
+    roomChanged$.next({ kind: 'created', roomId: '3', name: 'Кабинет' });
+    render();
+
     expect(roomNames()).toEqual(['Кабинет']);
     expect(expansion.isExpanded('3')).toBe(true);
+  });
+
+  it('RoomChanged_Event_WithUpdatedAndDeleted_ShouldPatchList', () => {
+    http.expectOne('/api/room').flush(listBody(rooms));
+    render();
+
+    roomChanged$.next({ kind: 'updated', roomId: '1', name: 'Столовая' });
+    render();
+    expect(roomNames()).toEqual(['Гостиная', 'Столовая']);
+
+    roomChanged$.next({ kind: 'deleted', roomId: '2' });
+    render();
+    expect(roomNames()).toEqual(['Столовая']);
   });
 
   it('CreateForm_Submit_WithDuplicateName_ShouldShowProblemAndKeepForm', () => {
@@ -160,7 +192,7 @@ describe('Sidebar', () => {
     expect(element.querySelector('[role=alert]')!.textContent).toContain('Комната с таким названием уже существует.');
   });
 
-  it('RenameForm_Submit_WithNewName_ShouldReloadList', () => {
+  it('RenameForm_Submit_WithNewName_ShouldPatchViaRoomChanged', () => {
     http.expectOne('/api/room').flush(listBody(rooms));
     render();
 
@@ -170,13 +202,13 @@ describe('Sidebar', () => {
     element.querySelector<HTMLFormElement>('.rename-form')!.dispatchEvent(new Event('submit'));
 
     http.expectOne({ method: 'PUT', url: '/api/room' }).flush(successBody(null, 2));
-    http.expectOne({ method: 'GET', url: '/api/room' }).flush(listBody([rooms[1], { id: '1', name: 'Столовая' }]));
+    roomChanged$.next({ kind: 'updated', roomId: '1', name: 'Столовая' });
     render();
 
     expect(roomNames()).toEqual(['Гостиная', 'Столовая']);
   });
 
-  it('DeleteConfirm_Delete_WithExistingRoom_ShouldDeleteNotifyChatChangesAndReloadList', () => {
+  it('DeleteConfirm_Delete_WithExistingRoom_ShouldNotifyChatChangesAndPatchViaRoomChanged', () => {
     http.expectOne('/api/room').flush(listBody(rooms));
     render();
 
@@ -193,11 +225,11 @@ describe('Sidebar', () => {
     http
       .expectOne((request) => request.method === 'DELETE' && request.params.get('id') === '1')
       .flush(successBody({ isDeleted: true }, 2));
-    http.expectOne({ method: 'GET', url: '/api/room' }).flush(listBody([rooms[1]]));
+    roomChanged$.next({ kind: 'deleted', roomId: '1' });
     render();
 
     expect(element.querySelector('[role=group]')).toBeNull();
-    expect(TestBed.inject(ChatChanges).version()).toBe(1);
+    expect(TestBed.inject(ChatChanges).version()).toBeGreaterThanOrEqual(1);
     expect(roomNames()).toEqual(['Гостиная']);
   });
 

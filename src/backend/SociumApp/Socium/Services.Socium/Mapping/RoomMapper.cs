@@ -1,6 +1,8 @@
 using Datasource.Socium.Ef.Models;
+using Services.Socium.Enums;
 using Services.Socium.Events;
 using Services.Socium.Models;
+using Services.Socium.Ports;
 
 namespace Services.Socium.Mapping;
 
@@ -19,6 +21,34 @@ public static class RoomMapper
             CreatorUserId = creatorUserId,
         };
     }
+
+    public static RoomChangedEvent ToChangedEvent(RoomChangedKind kind, Guid roomId, string? name = null)
+    {
+        return new RoomChangedEvent
+        {
+            Kind = kind,
+            RoomId = roomId,
+            Name = name,
+        };
+    }
+
+    public static ChatNotifyRoomChangedModel ToNotifyRoomChanged(RoomChangedEvent domainEvent)
+    {
+        return new ChatNotifyRoomChangedModel
+        {
+            Kind = ToNotifyKind(domainEvent.Kind),
+            RoomId = domainEvent.RoomId,
+            Name = domainEvent.Name,
+        };
+    }
+
+    private static string ToNotifyKind(RoomChangedKind kind) => kind switch
+    {
+        RoomChangedKind.Created => "created",
+        RoomChangedKind.Updated => "updated",
+        RoomChangedKind.Deleted => "deleted",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
 
     public static RoomCreatePageResponse ToCreatePageResponse(Room model)
     {
