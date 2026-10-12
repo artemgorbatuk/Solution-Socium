@@ -367,11 +367,11 @@ public sealed class ChatApiTests(SociumApiFixture fixture)
         using var userClient = fixture.CreateClientAs(userId);
 
         var creator = await ReadSuccessAsync<ChatInfoPageResponse>(await Client.GetAsync($"{BaseUrl}/info?id={id}", TestContext.Current.CancellationToken));
-        var other = await ReadSuccessAsync<ChatInfoPageResponse>(await userClient.GetAsync($"{BaseUrl}/info?id={id}", TestContext.Current.CancellationToken));
+        var other = await userClient.GetAsync($"{BaseUrl}/info?id={id}", TestContext.Current.CancellationToken);
 
         Assert.True(creator.Response!.IsParticipant);
         Assert.True(creator.Response.IsAdmin);
-        Assert.False(other.Response!.IsParticipant);
-        Assert.False(other.Response.IsAdmin);
+        var problem = await ReadProblemAsync(other, HttpStatusCode.Forbidden);
+        Assert.Contains(ChatCrudTexts.Messages.Validation.AccessDenied, problem.Detail);
     }
 }

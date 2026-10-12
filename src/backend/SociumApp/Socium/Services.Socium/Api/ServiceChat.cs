@@ -4,6 +4,7 @@ using Repositories.Socium.Ef.Options;
 using Services.Security.Permissions.Catalogs;
 using Services.Shared.Api;
 using Services.Shared.Enums;
+using Services.Shared.Events;
 using Services.Shared.Models;
 using Services.Socium.Mapping;
 using Services.Socium.Models;
@@ -37,6 +38,7 @@ public class ServiceChat : IServiceChat
     private readonly IFilePort filePort;
     private readonly IChatPolicy chatPolicy;
     private readonly IRoleAssignmentProvider roleAssignmentProvider;
+    private readonly IDomainEventPublisher domainEventPublisher;
     private readonly ILogger<ServiceChat> logger;
 
     public ServiceChat(
@@ -46,6 +48,7 @@ public class ServiceChat : IServiceChat
         IFilePort filePort,
         IChatPolicy chatPolicy,
         IRoleAssignmentProvider roleAssignmentProvider,
+        IDomainEventPublisher domainEventPublisher,
         ILogger<ServiceChat> logger)
     {
         this.unitOfWork = unitOfWork;
@@ -54,6 +57,7 @@ public class ServiceChat : IServiceChat
         this.filePort = filePort;
         this.chatPolicy = chatPolicy;
         this.roleAssignmentProvider = roleAssignmentProvider;
+        this.domainEventPublisher = domainEventPublisher;
         this.logger = logger;
     }
 
@@ -233,17 +237,8 @@ public class ServiceChat : IServiceChat
             ChatMapper.Apply(model, nameNormalized);
             await unitOfWork.Chats.CreateAsync(model, cancellationToken);
 
-            var participantNewOptions = ParticipantMapper.ToGetNewOptions(model.Id, creator!.Id);
-            var participant = unitOfWork.Participants.GetNew(participantNewOptions);
-            await unitOfWork.Participants.CreateAsync(participant, cancellationToken);
-
-            var adminAssignment = unitOfWork.ChatRoleAssignments.GetNew();
-            ChatRoleAssignmentMapper.Apply(adminAssignment, creator.Id, model.Id, RoleNames.ChatAdmin);
-            await unitOfWork.ChatRoleAssignments.CreateAsync(adminAssignment, cancellationToken);
-
-            var participantAssignment = unitOfWork.ChatRoleAssignments.GetNew();
-            ChatRoleAssignmentMapper.Apply(participantAssignment, creator.Id, model.Id, RoleNames.ChatParticipant);
-            await unitOfWork.ChatRoleAssignments.CreateAsync(participantAssignment, cancellationToken);
+            var chatCreated = ChatMapper.ToCreatedEvent(model.Id, creator!.Id);
+            await domainEventPublisher.PublishAsync(chatCreated, cancellationToken);
 
             logger.LogInformation(ChatCrudTexts.Messages.Success.CreateStageCompleted);
             return ResponseInfo.Success<ChatCreatePageResponse>(MessageType.SAVED, ChatCrudTexts.Messages.Success.CreateStageCompleted);

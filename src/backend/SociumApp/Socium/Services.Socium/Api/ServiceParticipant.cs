@@ -17,6 +17,7 @@ namespace Services.Socium.Api;
 public interface IServiceParticipant
 {
     Task<ResponseInfo<ParticipantCreateResponse>> CreateAsync(ParticipantCreateRequest request, CancellationToken cancellationToken = default);
+    Task<ResponseInfo<ParticipantCreateResponse>> CreateStageAsync(ParticipantCreateStageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ParticipantUpdateResponse>> UpdateAsync(ParticipantUpdateRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ParticipantDeletePageResponse>> DisplayDeletePageAsync(ParticipantDeletePageRequest request, CancellationToken cancellationToken = default);
     Task<ResponseInfo<ParticipantDeleteResponse>> DeleteAsync(ParticipantDeleteRequest request, CancellationToken cancellationToken = default);
@@ -106,19 +107,11 @@ public class ServiceParticipant : IServiceParticipant
                 cancellationToken);
             var becameAdmin = adminCount == 0;
 
-            var newOptions = ParticipantMapper.ToGetNewOptions(request.ChatId, user!.Id);
-            var model = unitOfWork.Participants.GetNew(newOptions);
-            await unitOfWork.Participants.CreateAsync(model, cancellationToken);
-
-            var participantAssignment = unitOfWork.ChatRoleAssignments.GetNew();
-            ChatRoleAssignmentMapper.Apply(participantAssignment, user.Id, model.ChatId, RoleNames.ChatParticipant);
-            await unitOfWork.ChatRoleAssignments.CreateAsync(participantAssignment, cancellationToken);
-
-            if (becameAdmin)
+            var stageRequest = ParticipantMapper.ToCreateStageRequest(request.ChatId, user!.Id, becameAdmin);
+            var staged = await CreateStageAsync(stageRequest, cancellationToken);
+            if (staged.MessageInfo.MessageType != MessageType.SAVED)
             {
-                var adminAssignment = unitOfWork.ChatRoleAssignments.GetNew();
-                ChatRoleAssignmentMapper.Apply(adminAssignment, user.Id, model.ChatId, RoleNames.ChatAdmin);
-                await unitOfWork.ChatRoleAssignments.CreateAsync(adminAssignment, cancellationToken);
+                return staged;
             }
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -126,8 +119,8 @@ public class ServiceParticipant : IServiceParticipant
             await chatNotifyPort.NotifyParticipantJoinedAsync(
                 new ChatNotifyParticipantModel
                 {
-                    ChatId = model.ChatId,
-                    Id = model.Id,
+                    ChatId = request.ChatId,
+                    Id = staged.Response!.Id,
                     UserId = user.Id,
                     Login = user.Login,
                     Name = user.Name,
@@ -135,9 +128,8 @@ public class ServiceParticipant : IServiceParticipant
                 },
                 cancellationToken);
 
-            var response = ParticipantMapper.ToCreateResponse(model);
             logger.LogInformation(ParticipantCrudTexts.Messages.Success.CreateCompleted);
-            return ResponseInfo.Success(response, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.CreateCompleted);
+            return ResponseInfo.Success(staged.Response, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.CreateCompleted);
         }
         catch (OperationCanceledException)
         {
@@ -148,6 +140,54 @@ public class ServiceParticipant : IServiceParticipant
         {
             logger.LogError(exception, "{Message}", ParticipantCrudTexts.Messages.Error.CreateError);
             return ResponseInfo.Error<ParticipantCreateResponse>(MessageType.ERROR, ParticipantCrudTexts.Messages.Error.CreateError);
+        }
+    }
+
+    public async Task<ResponseInfo<ParticipantCreateResponse>> CreateStageAsync(
+        ParticipantCreateStageRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(ParticipantCrudTexts.Messages.Start.CreateStaging);
+
+        try
+        {
+            var primaryErrors = ParticipantCrudValidators.ValidatePrimaryCreateStageRequest(request);
+            if (primaryErrors.Any())
+            {
+                var errors = string.Join(Environment.NewLine, primaryErrors);
+                var messageText = $"{ParticipantCrudTexts.Messages.Error.CreateStageError}{Environment.NewLine}{errors}";
+                logger.LogError("{Message}: {Errors}", ParticipantCrudTexts.Messages.Error.CreateStageError, errors);
+                return ResponseInfo.BadRequest<ParticipantCreateResponse>(MessageType.BAD_REQUEST, messageText);
+            }
+
+            var newOptions = ParticipantMapper.ToGetNewOptions(request.ChatId, request.UserId);
+            var model = unitOfWork.Participants.GetNew(newOptions);
+            await unitOfWork.Participants.CreateAsync(model, cancellationToken);
+
+            var participantAssignment = unitOfWork.ChatRoleAssignments.GetNew();
+            ChatRoleAssignmentMapper.Apply(participantAssignment, request.UserId, model.ChatId, RoleNames.ChatParticipant);
+            await unitOfWork.ChatRoleAssignments.CreateAsync(participantAssignment, cancellationToken);
+
+            if (request.AssignChatAdmin)
+            {
+                var adminAssignment = unitOfWork.ChatRoleAssignments.GetNew();
+                ChatRoleAssignmentMapper.Apply(adminAssignment, request.UserId, model.ChatId, RoleNames.ChatAdmin);
+                await unitOfWork.ChatRoleAssignments.CreateAsync(adminAssignment, cancellationToken);
+            }
+
+            var response = ParticipantMapper.ToCreateResponse(model);
+            logger.LogInformation(ParticipantCrudTexts.Messages.Success.CreateStageCompleted);
+            return ResponseInfo.Success(response, MessageType.SAVED, ParticipantCrudTexts.Messages.Success.CreateStageCompleted);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation(ParticipantCrudTexts.Messages.Canceled.CreateStage);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "{Message}", ParticipantCrudTexts.Messages.Error.CreateStageError);
+            return ResponseInfo.Error<ParticipantCreateResponse>(MessageType.ERROR, ParticipantCrudTexts.Messages.Error.CreateStageError);
         }
     }
 

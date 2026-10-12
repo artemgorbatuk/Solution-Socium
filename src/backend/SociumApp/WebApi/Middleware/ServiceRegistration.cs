@@ -94,6 +94,7 @@ public static class ServiceRegistration
         services.AddScoped<IDomainEventHandler<RoomCreatedEvent>, AssignRoomAdminOnRoomCreatedHandler>();
         services.AddScoped<IDomainEventHandler<RoomCreatedEvent>, CreateDefaultChatOnRoomCreatedHandler>();
         services.AddScoped<IDomainEventHandler<RoomChangedEvent>, NotifyRoomChangedOnRoomChangedHandler>();
+        services.AddScoped<IDomainEventHandler<ChatCreatedEvent>, CreateCreatorParticipantOnChatCreatedHandler>();
         services.AddScoped<IServiceRoom, ServiceRoom>();
         services.AddScoped<IServiceChat, ServiceChat>();
         services.AddScoped<IServiceMessage, ServiceMessage>();

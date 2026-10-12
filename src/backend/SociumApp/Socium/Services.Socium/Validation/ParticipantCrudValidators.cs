@@ -19,6 +19,25 @@ public static class ParticipantCrudValidators
         }
     }
 
+    public static IEnumerable<string> ValidatePrimaryCreateStageRequest(ParticipantCreateStageRequest? request)
+    {
+        if (request == null)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.RequestCannotBeNull;
+            yield break;
+        }
+
+        if (request.ChatId == Guid.Empty)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.ChatIdCannotBeEmpty;
+        }
+
+        if (request.UserId == Guid.Empty)
+        {
+            yield return ParticipantCrudTexts.Messages.Validation.UserIdCannotBeEmpty;
+        }
+    }
+
     public static IEnumerable<string> ValidateDomainCreateRequest(Participant? currentParticipant)
     {
         if (currentParticipant != null)

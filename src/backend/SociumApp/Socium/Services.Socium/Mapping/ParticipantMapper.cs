@@ -17,6 +17,16 @@ public static class ParticipantMapper
         };
     }
 
+    public static ParticipantCreateStageRequest ToCreateStageRequest(Guid chatId, Guid userId, bool assignChatAdmin)
+    {
+        return new ParticipantCreateStageRequest
+        {
+            ChatId = chatId,
+            UserId = userId,
+            AssignChatAdmin = assignChatAdmin,
+        };
+    }
+
     public static ParticipantCreateResponse ToCreateResponse(Participant model)
     {
         return new ParticipantCreateResponse

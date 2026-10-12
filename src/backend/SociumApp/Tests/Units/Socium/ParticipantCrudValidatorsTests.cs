@@ -23,6 +23,7 @@ public sealed class ParticipantCrudValidatorsTests
         string[] expected = [ParticipantCrudTexts.Messages.Validation.RequestCannotBeNull];
 
         Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryCreateRequest(null));
+        Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryCreateStageRequest(null));
         Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryUpdateRequest(null));
         Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryDeletePageRequest(null));
         Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryDeleteRequest(null));
@@ -35,9 +36,30 @@ public sealed class ParticipantCrudValidatorsTests
         string[] expected = [ParticipantCrudTexts.Messages.Validation.ChatIdCannotBeEmpty];
 
         Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryCreateRequest(new ParticipantCreateRequest { ChatId = Guid.Empty }));
+        Assert.Equal(
+            expected,
+            ParticipantCrudValidators.ValidatePrimaryCreateStageRequest(new ParticipantCreateStageRequest
+            {
+                ChatId = Guid.Empty,
+                UserId = Guid.CreateVersion7(),
+                AssignChatAdmin = false,
+            }));
         Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryDeletePageRequest(new ParticipantDeletePageRequest { ChatId = Guid.Empty }));
         Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryDeleteRequest(new ParticipantDeleteRequest { ChatId = Guid.Empty }));
         Assert.Equal(expected, ParticipantCrudValidators.ValidatePrimaryListPageRequest(new ParticipantListPageRequest { ChatId = Guid.Empty }));
+    }
+
+    [Fact]
+    public void CreateStageRequest_ValidatePrimary_WithEmptyUserId_ShouldReturnUserIdCannotBeEmpty()
+    {
+        var errors = ParticipantCrudValidators.ValidatePrimaryCreateStageRequest(new ParticipantCreateStageRequest
+        {
+            ChatId = ChatId,
+            UserId = Guid.Empty,
+            AssignChatAdmin = true,
+        });
+
+        Assert.Equal([ParticipantCrudTexts.Messages.Validation.UserIdCannotBeEmpty], errors);
     }
 
     [Fact]
@@ -52,6 +74,12 @@ public sealed class ParticipantCrudValidatorsTests
     public void FilledRequests_ValidatePrimary_WithIds_ShouldReturnNoErrors()
     {
         Assert.Empty(ParticipantCrudValidators.ValidatePrimaryCreateRequest(new ParticipantCreateRequest { ChatId = ChatId }));
+        Assert.Empty(ParticipantCrudValidators.ValidatePrimaryCreateStageRequest(new ParticipantCreateStageRequest
+        {
+            ChatId = ChatId,
+            UserId = Guid.CreateVersion7(),
+            AssignChatAdmin = true,
+        }));
         Assert.Empty(ParticipantCrudValidators.ValidatePrimaryUpdateRequest(new ParticipantUpdateRequest { Id = Guid.CreateVersion7(), IsAdmin = false }));
         Assert.Empty(ParticipantCrudValidators.ValidatePrimaryDeletePageRequest(new ParticipantDeletePageRequest { ChatId = ChatId }));
         Assert.Empty(ParticipantCrudValidators.ValidatePrimaryDeleteRequest(new ParticipantDeleteRequest { ChatId = ChatId }));

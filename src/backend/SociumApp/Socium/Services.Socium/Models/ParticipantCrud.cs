@@ -5,6 +5,14 @@ public class ParticipantCreateRequest
     public required Guid ChatId { get; set; }
 }
 
+/// <summary>Участие (+ роли) в текущем UoW без SaveChanges (внешняя транзакция / handler).</summary>
+public class ParticipantCreateStageRequest
+{
+    public required Guid ChatId { get; set; }
+    public required Guid UserId { get; set; }
+    public required bool AssignChatAdmin { get; set; }
+}
+
 public class ParticipantCreateResponse
 {
     public required Guid Id { get; set; }

@@ -1,5 +1,6 @@
 using Datasource.Socium.Ef.Models;
 using Repositories.Socium.Ef.Options;
+using Services.Socium.Events;
 using Services.Socium.Models;
 
 namespace Services.Socium.Mapping;
@@ -18,6 +19,15 @@ public static class ChatMapper
             RoomId = roomId,
             CreatorUserId = creatorUserId,
             Name = name,
+        };
+    }
+
+    public static ChatCreatedEvent ToCreatedEvent(Guid chatId, Guid creatorUserId)
+    {
+        return new ChatCreatedEvent
+        {
+            ChatId = chatId,
+            CreatorUserId = creatorUserId,
         };
     }
 

@@ -7,6 +7,7 @@ public static class ParticipantCrudTexts
         public static class Start
         {
             public const string Creating = "Начало вступления в чат";
+            public const string CreateStaging = "Начало подготовки участия в чате (stage)";
             public const string Updating = "Начало смены роли участника чата";
             public const string DisplayDeleting = "Начало отображения страницы выхода из чата";
             public const string Deleting = "Начало выхода из чата";
@@ -16,6 +17,7 @@ public static class ParticipantCrudTexts
         public static class Success
         {
             public const string CreateCompleted = "Вы вступили в чат";
+            public const string CreateStageCompleted = "Участие в чате подготовлено";
             public const string UpdateCompleted = "Роль участника чата изменена";
             public const string DisplayDeleteCompleted = "Страница выхода из чата успешно отображена";
             public const string DeleteCompleted = "Вы покинули чат";
@@ -25,6 +27,7 @@ public static class ParticipantCrudTexts
         public static class Error
         {
             public const string CreateError = "Не удалось вступить в чат";
+            public const string CreateStageError = "Не удалось подготовить участие в чате";
             public const string UpdateError = "Не удалось изменить роль участника чата";
             public const string DisplayDeleteError = "Не удалось отобразить страницу выхода из чата";
             public const string DeleteError = "Не удалось покинуть чат";
@@ -34,6 +37,7 @@ public static class ParticipantCrudTexts
         public static class Canceled
         {
             public const string Create = "Вступление в чат отменено";
+            public const string CreateStage = "Подготовка участия в чате (stage) отменена";
             public const string Update = "Смена роли участника чата отменена";
             public const string DisplayDelete = "Отображение страницы выхода из чата отменено";
             public const string Delete = "Выход из чата отменён";
@@ -45,6 +49,7 @@ public static class ParticipantCrudTexts
             public const string RequestCannotBeNull = "Запрос не может быть пустым.";
             public const string IdCannotBeEmpty = "Идентификатор участника не может быть пустым.";
             public const string ChatIdCannotBeEmpty = "Идентификатор чата не может быть пустым.";
+            public const string UserIdCannotBeEmpty = "Идентификатор пользователя не может быть пустым.";
             public const string CurrentUserNotFound = "Текущий пользователь не выбран или не найден.";
             public const string ChatNotFoundById = "Чат не найден по указанному идентификатору.";
             public const string ParticipantNotFoundById = "Участник не найден по указанному идентификатору.";
