@@ -1,7 +1,7 @@
 import { Component, DestroyRef, ElementRef, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ChatHub } from '../../realtime/chat-hub';
-import { ChatListNotify } from '../../realtime/chat-hub.models';
+import { ChatChangedNotify, ChatListNotify } from '../../realtime/chat-hub.models';
 import { problemDetail } from '../../shared/api/api-response';
 import { CurrentUser } from '../../users/current-user';
 import { ChatApi } from '../chat-api';
@@ -81,21 +81,12 @@ export class RoomChats {
       next: () => {
         this.saving.set(false);
         this.cancelCreate();
-        this.loadChats();
       },
       error: (error: unknown) => {
         this.saving.set(false);
         this.createError.set(problemDetail(error, 'Не удалось создать чат'));
       },
     });
-  }
-
-  protected onChatRenamed(): void {
-    this.chatChanges.notify();
-  }
-
-  protected onChatDeleted(): void {
-    this.chatChanges.notify();
   }
 
   protected loadChats(): void {
@@ -120,7 +111,52 @@ export class RoomChats {
     void this.chatHub.ensureConnected().catch(() => {
       // Список остаётся на REST; realtime — best effort.
     });
-    this.hubSubscription = this.chatHub.chatListUpdated$.subscribe((update) => this.applyListUpdate(roomId, update));
+    const subscription = new Subscription();
+    subscription.add(this.chatHub.chatListUpdated$.subscribe((update) => this.applyListUpdate(roomId, update)));
+    subscription.add(this.chatHub.chatChanged$.subscribe((change) => this.applyChatChanged(roomId, change)));
+    this.hubSubscription = subscription;
+  }
+
+  private applyChatChanged(roomId: string, change: ChatChangedNotify): void {
+    if (change.roomId !== roomId) {
+      return;
+    }
+
+    const chatId = change.chatId;
+    if (change.kind === 'deleted') {
+      this.chats.update((rows) => rows.filter((row) => row.id !== chatId));
+      return;
+    }
+
+    const name = change.name?.trim();
+    if (!name) {
+      return;
+    }
+
+    if (change.kind === 'updated') {
+      this.chats.update((rows) =>
+        sortChatList(rows.map((row) => (row.id === chatId ? { ...row, name } : row))),
+      );
+      return;
+    }
+
+    if (change.kind === 'created') {
+      this.chats.update((rows) => {
+        if (rows.some((row) => row.id === chatId)) {
+          return rows;
+        }
+        return sortChatList([
+          ...rows,
+          {
+            id: chatId,
+            name,
+            canUpdate: true,
+            canDelete: true,
+            unreadCount: 0,
+          },
+        ]);
+      });
+    }
   }
 
   private applyListUpdate(roomId: string, update: ChatListNotify): void {

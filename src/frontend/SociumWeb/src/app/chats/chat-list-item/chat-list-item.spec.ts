@@ -12,8 +12,6 @@ describe('ChatListItem', () => {
   let fixture: ComponentFixture<ChatListItem>;
   let http: HttpTestingController;
   let element: HTMLElement;
-  let changed: number;
-  let deleted: number;
 
   function render(): void {
     fixture.detectChanges();
@@ -45,10 +43,6 @@ describe('ChatListItem', () => {
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(ChatListItem);
     fixture.componentRef.setInput('chat', chat);
-    changed = 0;
-    deleted = 0;
-    fixture.componentInstance.changed.subscribe(() => changed++);
-    fixture.componentInstance.deleted.subscribe(() => deleted++);
     element = fixture.nativeElement;
     render();
   });
@@ -111,7 +105,7 @@ describe('ChatListItem', () => {
     expect(element.querySelector('.actions')).toBeNull();
   });
 
-  it('RenameForm_Submit_WithPaddedName_ShouldSendTrimmedNameAndEmitChanged', () => {
+  it('RenameForm_Submit_WithPaddedName_ShouldSendTrimmedNameAndCloseForm', () => {
     startRename('  Объявления  ');
     submitRename();
 
@@ -120,7 +114,6 @@ describe('ChatListItem', () => {
     request.flush(successBody(null, 2));
     render();
 
-    expect(changed).toBe(1);
     expect(element.querySelector('.rename-form')).toBeNull();
   });
 
@@ -130,7 +123,6 @@ describe('ChatListItem', () => {
 
     http.expectNone({ method: 'PUT', url: '/api/chat' });
     expect(element.querySelector('.rename-form')).toBeNull();
-    expect(changed).toBe(0);
   });
 
   it('RenameForm_Submit_WithServerError_ShouldShowProblemAndKeepForm', () => {
@@ -144,7 +136,6 @@ describe('ChatListItem', () => {
 
     expect(element.querySelector('.rename-form')).not.toBeNull();
     expect(element.querySelector('[role=alert]')!.textContent).toContain('Чат не найден по указанному идентификатору.');
-    expect(changed).toBe(0);
   });
 
   it('RenameForm_Escape_WithDraftName_ShouldCancelRename', () => {
@@ -177,15 +168,16 @@ describe('ChatListItem', () => {
     expect(element.querySelector('app-chat-delete-confirm')!.textContent).toContain('Удалить чат «Общий»?');
   });
 
-  it('DeleteConfirm_Delete_WithExistingChat_ShouldEmitDeleted', () => {
+  it('DeleteConfirm_Delete_WithExistingChat_ShouldKeepConfirmUntilParentRemoves', () => {
     startDelete();
 
     button('Удалить').click();
     http
       .expectOne((request) => request.method === 'DELETE' && request.url === '/api/chat' && request.params.get('id') === 'c1')
       .flush(successBody({ isDeleted: true }, 2));
+    render();
 
-    expect(deleted).toBe(1);
+    expect(element.querySelector('app-chat-delete-confirm')).not.toBeNull();
   });
 
   it('DeleteConfirm_Cancel_WithOpenConfirm_ShouldRestoreRowWithoutDelete', () => {
@@ -196,6 +188,5 @@ describe('ChatListItem', () => {
 
     expect(element.querySelector('app-chat-delete-confirm')).toBeNull();
     expect(element.querySelector('.row .chat-name')!.textContent).toContain('Общий');
-    expect(deleted).toBe(0);
   });
 });

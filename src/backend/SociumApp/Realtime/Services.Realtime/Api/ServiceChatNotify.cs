@@ -13,6 +13,7 @@ public interface IServiceChatNotify
     Task NotifyParticipantRoleChangedAsync(ChatParticipantNotifyModel participant, CancellationToken cancellationToken = default);
     Task NotifyChatListUpdatedAsync(ChatListNotifyModel update, CancellationToken cancellationToken = default);
     Task NotifyRoomChangedAsync(RoomChangedNotifyModel change, CancellationToken cancellationToken = default);
+    Task NotifyChatChangedAsync(ChatChangedNotifyModel change, CancellationToken cancellationToken = default);
 }
 
 public class ServiceChatNotify : IServiceChatNotify
@@ -49,6 +50,9 @@ public class ServiceChatNotify : IServiceChatNotify
 
     public Task NotifyRoomChangedAsync(RoomChangedNotifyModel change, CancellationToken cancellationToken = default)
         => SendToAllSafeAsync(ChatHubMethods.RoomChanged, change, cancellationToken);
+
+    public Task NotifyChatChangedAsync(ChatChangedNotifyModel change, CancellationToken cancellationToken = default)
+        => SendToAllSafeAsync(ChatHubMethods.ChatChanged, change, cancellationToken);
 
     private async Task SendSafeAsync(Guid chatId, string method, object payload, CancellationToken cancellationToken)
     {

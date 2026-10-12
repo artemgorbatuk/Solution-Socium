@@ -64,6 +64,17 @@ public class ChatNotifyPort : IChatNotifyPort
             },
             cancellationToken);
 
+    public Task NotifyChatChangedAsync(ChatNotifyChatChangedModel change, CancellationToken cancellationToken = default)
+        => serviceChatNotify.NotifyChatChangedAsync(
+            new ChatChangedNotifyModel
+            {
+                Kind = change.Kind,
+                RoomId = change.RoomId,
+                ChatId = change.ChatId,
+                Name = change.Name,
+            },
+            cancellationToken);
+
     private static ChatMessageNotifyModel ToRealtime(ChatNotifyMessageModel message) => new()
     {
         ChatId = message.ChatId,

@@ -50,6 +50,15 @@ export interface RoomChangedNotify {
   name?: string | null;
 }
 
+export type ChatChangedKind = 'created' | 'updated' | 'deleted';
+
+export interface ChatChangedNotify {
+  kind: ChatChangedKind;
+  roomId: string;
+  chatId: string;
+  name?: string | null;
+}
+
 export interface ChatTypingStartedNotify {
   chatId: string;
   userId: string;

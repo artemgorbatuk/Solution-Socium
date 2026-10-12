@@ -14,6 +14,7 @@ public interface IChatNotifyPort
     Task NotifyParticipantRoleChangedAsync(ChatNotifyParticipantModel participant, CancellationToken cancellationToken = default);
     Task NotifyChatListUpdatedAsync(ChatNotifyListModel update, CancellationToken cancellationToken = default);
     Task NotifyRoomChangedAsync(ChatNotifyRoomChangedModel change, CancellationToken cancellationToken = default);
+    Task NotifyChatChangedAsync(ChatNotifyChatChangedModel change, CancellationToken cancellationToken = default);
 }
 
 public class ChatNotifyMessageModel
@@ -63,5 +64,14 @@ public class ChatNotifyRoomChangedModel
     /// <summary>created | updated | deleted</summary>
     public required string Kind { get; set; }
     public required Guid RoomId { get; set; }
+    public string? Name { get; set; }
+}
+
+public class ChatNotifyChatChangedModel
+{
+    /// <summary>created | updated | deleted</summary>
+    public required string Kind { get; set; }
+    public required Guid RoomId { get; set; }
+    public required Guid ChatId { get; set; }
     public string? Name { get; set; }
 }

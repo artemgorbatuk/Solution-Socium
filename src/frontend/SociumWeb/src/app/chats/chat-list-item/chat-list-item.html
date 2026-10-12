@@ -20,7 +20,7 @@
     }
   </form>
 } @else if (confirmingDelete()) {
-  <app-chat-delete-confirm [chatId]="chat().id" [chatName]="chat().name" (deleted)="deleted.emit()" (cancelled)="confirmingDelete.set(false)" />
+  <app-chat-delete-confirm [chatId]="chat().id" [chatName]="chat().name" (cancelled)="confirmingDelete.set(false)" />
 } @else {
   <div class="row">
     <a

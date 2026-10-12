@@ -8,6 +8,7 @@ import {
 import { Subject } from 'rxjs';
 import { Auth } from '../account/auth';
 import {
+  ChatChangedNotify,
   ChatListNotify,
   ChatMessageDeletedNotify,
   ChatMessageNotify,
@@ -37,6 +38,7 @@ export class ChatHub {
   readonly participantRoleChanged$ = new Subject<ChatParticipantNotify>();
   readonly chatListUpdated$ = new Subject<ChatListNotify>();
   readonly roomChanged$ = new Subject<RoomChangedNotify>();
+  readonly chatChanged$ = new Subject<ChatChangedNotify>();
   readonly typingStarted$ = new Subject<ChatTypingStartedNotify>();
   readonly typingStopped$ = new Subject<ChatTypingStoppedNotify>();
   /** После успешного reconnect — сбросить ленту к свежим 50. */
@@ -130,6 +132,7 @@ export class ChatHub {
       );
       this.connection.on('chatListUpdated', (payload: ChatListNotify) => this.chatListUpdated$.next(payload));
       this.connection.on('roomChanged', (payload: RoomChangedNotify) => this.roomChanged$.next(payload));
+      this.connection.on('chatChanged', (payload: ChatChangedNotify) => this.chatChanged$.next(payload));
       this.connection.on('typingStarted', (payload: ChatTypingStartedNotify) => this.typingStarted$.next(payload));
       this.connection.on('typingStopped', (payload: ChatTypingStoppedNotify) => this.typingStopped$.next(payload));
 

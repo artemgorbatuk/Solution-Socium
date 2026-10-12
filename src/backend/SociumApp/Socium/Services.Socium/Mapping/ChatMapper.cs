@@ -1,7 +1,9 @@
 using Datasource.Socium.Ef.Models;
 using Repositories.Socium.Ef.Options;
+using Services.Socium.Enums;
 using Services.Socium.Events;
 using Services.Socium.Models;
+using Services.Socium.Ports;
 
 namespace Services.Socium.Mapping;
 
@@ -31,6 +33,36 @@ public static class ChatMapper
         };
     }
 
+    public static ChatChangedEvent ToChangedEvent(ChatChangedKind kind, Guid chatId, Guid roomId, string? name = null)
+    {
+        return new ChatChangedEvent
+        {
+            Kind = kind,
+            ChatId = chatId,
+            RoomId = roomId,
+            Name = name,
+        };
+    }
+
+    public static ChatNotifyChatChangedModel ToNotifyChatChanged(ChatChangedEvent domainEvent)
+    {
+        return new ChatNotifyChatChangedModel
+        {
+            Kind = ToNotifyKind(domainEvent.Kind),
+            RoomId = domainEvent.RoomId,
+            ChatId = domainEvent.ChatId,
+            Name = domainEvent.Name,
+        };
+    }
+
+    private static string ToNotifyKind(ChatChangedKind kind) => kind switch
+    {
+        ChatChangedKind.Created => "created",
+        ChatChangedKind.Updated => "updated",
+        ChatChangedKind.Deleted => "deleted",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
+
     public static ChatGetNewOptions ToGetNewOptions(Guid roomId)
     {
         return new ChatGetNewOptions
@@ -51,6 +83,7 @@ public static class ChatMapper
     {
         return new ChatCreatePageResponse
         {
+            Id = model.Id,
             RoomId = model.RoomId,
             Name = model.Name,
             CanCreate = canCreate,

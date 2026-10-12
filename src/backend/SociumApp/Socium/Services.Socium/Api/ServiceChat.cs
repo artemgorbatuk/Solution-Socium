@@ -5,6 +5,7 @@ using Services.Shared.Api;
 using Services.Shared.Enums;
 using Services.Shared.Events;
 using Services.Shared.Models;
+using Services.Socium.Enums;
 using Services.Socium.Mapping;
 using Services.Socium.Models;
 using Services.Socium.Normalizers;
@@ -181,6 +182,10 @@ public class ServiceChat : IServiceChat
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
+            var created = staged.Response!;
+            var chatChanged = ChatMapper.ToChangedEvent(ChatChangedKind.Created, created.Id, created.RoomId, created.Name);
+            await domainEventPublisher.PublishAsync(chatChanged, cancellationToken);
+
             logger.LogInformation(ChatCrudTexts.Messages.Success.CreateCompleted);
             return ResponseInfo.Success<ChatCreatePageResponse>(MessageType.SAVED, ChatCrudTexts.Messages.Success.CreateCompleted);
         }
@@ -239,8 +244,9 @@ public class ServiceChat : IServiceChat
             var chatCreated = ChatMapper.ToCreatedEvent(model.Id, creator!.Id);
             await domainEventPublisher.PublishAsync(chatCreated, cancellationToken);
 
+            var response = ChatMapper.ToCreatePageResponse(model, canCreate: true);
             logger.LogInformation(ChatCrudTexts.Messages.Success.CreateStageCompleted);
-            return ResponseInfo.Success<ChatCreatePageResponse>(MessageType.SAVED, ChatCrudTexts.Messages.Success.CreateStageCompleted);
+            return ResponseInfo.Success(response, MessageType.SAVED, ChatCrudTexts.Messages.Success.CreateStageCompleted);
         }
         catch (OperationCanceledException)
         {
@@ -378,6 +384,9 @@ public class ServiceChat : IServiceChat
             await unitOfWork.Chats.UpdateAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
+            var chatChanged = ChatMapper.ToChangedEvent(ChatChangedKind.Updated, model.Id, model.RoomId, model.Name);
+            await domainEventPublisher.PublishAsync(chatChanged, cancellationToken);
+
             logger.LogInformation(ChatCrudTexts.Messages.Success.UpdateCompleted);
             return ResponseInfo.Success<ChatUpdatePageResponse>(MessageType.SAVED, ChatCrudTexts.Messages.Success.UpdateCompleted);
         }
@@ -503,8 +512,14 @@ public class ServiceChat : IServiceChat
                 return ResponseInfo.Forbidden<ChatDeleteResponse>(MessageType.FORBIDDEN, messageText);
             }
 
+            var chatId = model.Id;
+            var roomId = model.RoomId;
+            var chatName = model.Name;
             await unitOfWork.Chats.DeleteAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var chatChanged = ChatMapper.ToChangedEvent(ChatChangedKind.Deleted, chatId, roomId, chatName);
+            await domainEventPublisher.PublishAsync(chatChanged, cancellationToken);
 
             var response = ChatMapper.ToDeleteResponse();
             logger.LogInformation(ChatCrudTexts.Messages.Success.DeleteCompleted);

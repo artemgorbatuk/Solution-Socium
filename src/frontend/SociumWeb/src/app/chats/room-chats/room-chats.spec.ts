@@ -6,7 +6,7 @@ import { Subject } from 'rxjs';
 import { successBody } from '../../shared/api/api-response.testing';
 import { signInAs } from '../../account/auth.testing';
 import { ChatHub } from '../../realtime/chat-hub';
-import { ChatListNotify } from '../../realtime/chat-hub.models';
+import { ChatChangedNotify, ChatListNotify } from '../../realtime/chat-hub.models';
 import { ChatChanges } from '../chat-changes';
 import { ChatListModel } from '../chat.models';
 import { RoomChats } from './room-chats';
@@ -16,6 +16,7 @@ describe('RoomChats', () => {
   let http: HttpTestingController;
   let element: HTMLElement;
   let chatListUpdated$: Subject<ChatListNotify>;
+  let chatChanged$: Subject<ChatChangedNotify>;
 
   function render(): void {
     fixture.detectChanges();
@@ -37,6 +38,10 @@ describe('RoomChats', () => {
     return Array.from(element.querySelectorAll('button')).find((item) => item.textContent!.includes(text))!;
   }
 
+  function chatNames(): string[] {
+    return Array.from(element.querySelectorAll('.chat-name')).map((item) => item.textContent!.trim());
+  }
+
   function create(creating: boolean): void {
     fixture = TestBed.createComponent(RoomChats);
     fixture.componentRef.setInput('roomId', '1');
@@ -55,6 +60,7 @@ describe('RoomChats', () => {
 
   beforeEach(() => {
     chatListUpdated$ = new Subject();
+    chatChanged$ = new Subject();
     TestBed.configureTestingModule({
       imports: [RoomChats],
       providers: [
@@ -66,6 +72,7 @@ describe('RoomChats', () => {
           useValue: {
             ensureConnected: () => Promise.resolve(),
             chatListUpdated$,
+            chatChanged$,
           },
         },
       ],
@@ -85,8 +92,7 @@ describe('RoomChats', () => {
     render();
 
     // Без lastMessageAt — сортировка по Id убыв. (c2 «Общий» выше c1 «Арт»).
-    const names = Array.from(element.querySelectorAll('.chat-name')).map((item) => item.textContent!.trim());
-    expect(names).toEqual(['Общий', 'Арт']);
+    expect(chatNames()).toEqual(['Общий', 'Арт']);
     expect(element.querySelector('ul')!.getAttribute('aria-label')).toBe('Чаты комнаты Кухня');
   });
 
@@ -108,7 +114,7 @@ describe('RoomChats', () => {
     expect(element.querySelector('[role=alert]')!.textContent).toContain('Комната не найдена по указанному идентификатору.');
   });
 
-  it('CreateForm_Submit_WithPaddedName_ShouldSendTrimmedNameCloseFormAndReloadList', () => {
+  it('CreateForm_Submit_WithPaddedName_ShouldSendTrimmedNameCloseFormAndPatchViaChatChanged', () => {
     create(true);
     expectList().flush(listBody([]));
     render();
@@ -118,12 +124,16 @@ describe('RoomChats', () => {
     const request = http.expectOne({ method: 'POST', url: '/api/chat' });
     expect(request.request.body).toEqual({ roomId: '1', name: 'Общий' });
     request.flush(successBody(null, 2));
-    expectList().flush(listBody([row({ id: 'c1', name: 'Общий' })]));
     render();
 
     expect(fixture.componentInstance.creating()).toBe(false);
     expect(element.querySelector('.create-form')).toBeNull();
-    expect(element.querySelector('.chat-name')!.textContent).toContain('Общий');
+    expect(chatNames()).toEqual([]);
+
+    chatChanged$.next({ kind: 'created', roomId: '1', chatId: 'c1', name: 'Общий' });
+    render();
+
+    expect(chatNames()).toEqual(['Общий']);
   });
 
   it('CreateForm_Submit_WithServerError_ShouldShowProblemAndKeepForm', () => {
@@ -165,7 +175,7 @@ describe('RoomChats', () => {
     expect(element.querySelector('.create-form')).toBeNull();
   });
 
-  it('ChatRename_Save_WithNewName_ShouldNotifyChangesAndReloadList', () => {
+  it('ChatRename_Save_WithNewName_ShouldPatchViaChatChanged', () => {
     create(false);
     expectList().flush(listBody([row({ id: 'c1', name: 'Общий' })]));
     render();
@@ -178,14 +188,17 @@ describe('RoomChats', () => {
     element.querySelector('.rename-form')!.dispatchEvent(new Event('submit'));
     http.expectOne({ method: 'PUT', url: '/api/chat' }).flush(successBody(null, 2));
     render();
-    expectList().flush(listBody([row({ id: 'c1', name: 'Объявления' })]));
+
+    expect(chatNames()).toEqual(['Общий']);
+
+    chatChanged$.next({ kind: 'updated', roomId: '1', chatId: 'c1', name: 'Объявления' });
     render();
 
-    expect(TestBed.inject(ChatChanges).version()).toBe(1);
-    expect(element.querySelector('.chat-name')!.textContent).toContain('Объявления');
+    expect(TestBed.inject(ChatChanges).version()).toBe(0);
+    expect(chatNames()).toEqual(['Объявления']);
   });
 
-  it('ChatDelete_Confirm_WithExistingChat_ShouldDeleteNotifyChangesAndReloadList', () => {
+  it('ChatDelete_Confirm_WithExistingChat_ShouldDeleteAndPatchViaChatChanged', () => {
     create(false);
     expectList().flush(listBody([row({ id: 'c1', name: 'Общий' })]));
     render();
@@ -199,12 +212,41 @@ describe('RoomChats', () => {
     element.querySelector<HTMLButtonElement>('[role=group] .danger')!.click();
     http.expectOne({ method: 'DELETE', url: '/api/chat?id=c1' }).flush(successBody({ isDeleted: true }, 2));
     render();
-    expectList().flush(listBody([]));
+
+    expect(element.querySelector('[role=group]')).not.toBeNull();
+
+    chatChanged$.next({ kind: 'deleted', roomId: '1', chatId: 'c1' });
     render();
 
     expect(element.querySelector('[role=group]')).toBeNull();
-    expect(TestBed.inject(ChatChanges).version()).toBe(1);
+    expect(TestBed.inject(ChatChanges).version()).toBe(0);
     expect(element.textContent).toContain('Чатов пока нет');
+  });
+
+  it('ChatChanged_Event_WithUpdatedAndDeleted_ShouldPatchList', () => {
+    create(false);
+    expectList().flush(listBody([row({ id: 'c1', name: 'Общий' }), row({ id: 'c2', name: 'Арт' })]));
+    render();
+
+    chatChanged$.next({ kind: 'updated', roomId: '1', chatId: 'c1', name: 'Объявления' });
+    render();
+    expect(chatNames()).toContain('Объявления');
+
+    chatChanged$.next({ kind: 'deleted', roomId: '1', chatId: 'c2' });
+    render();
+    expect(chatNames()).toEqual(['Объявления']);
+  });
+
+  it('ChatChanged_Event_WithOtherRoom_ShouldIgnore', () => {
+    create(false);
+    expectList().flush(listBody([row({ id: 'c1', name: 'Общий' })]));
+    render();
+
+    chatChanged$.next({ kind: 'created', roomId: '2', chatId: 'c9', name: 'Чужой' });
+    chatChanged$.next({ kind: 'deleted', roomId: '2', chatId: 'c1' });
+    render();
+
+    expect(chatNames()).toEqual(['Общий']);
   });
 
   it('List_Reload_WithCurrentUserChanged_ShouldLoadAdminFlagsOfNewUser', () => {
@@ -266,8 +308,7 @@ describe('RoomChats', () => {
     });
     render();
 
-    const names = Array.from(element.querySelectorAll('.chat-name')).map((item) => item.textContent!.trim());
-    expect(names).toEqual(['Старый', 'Свежий']);
+    expect(chatNames()).toEqual(['Старый', 'Свежий']);
     expect(element.querySelector('.chat-preview')!.textContent).toContain('Анна: привет');
     expect(element.querySelector('.unread')!.textContent).toBe('2');
   });

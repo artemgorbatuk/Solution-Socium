@@ -30,7 +30,7 @@
   <ul [attr.aria-label]="'Чаты комнаты ' + roomName()">
     @for (chat of chats(); track chat.id) {
       <li>
-        <app-chat-list-item [chat]="chat" (changed)="onChatRenamed()" (deleted)="onChatDeleted()" />
+        <app-chat-list-item [chat]="chat" />
       </li>
     } @empty {
       <li class="hint">Чатов пока нет</li>

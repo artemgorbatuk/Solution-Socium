@@ -21,6 +21,7 @@ public class ChatCreateStageRequest
 
 public class ChatCreatePageResponse
 {
+    public required Guid Id { get; set; }
     public required Guid RoomId { get; set; }
     public required string Name { get; set; }
     public required bool CanCreate { get; set; }

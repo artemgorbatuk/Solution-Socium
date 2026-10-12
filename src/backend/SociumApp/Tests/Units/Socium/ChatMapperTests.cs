@@ -1,4 +1,5 @@
 using Datasource.Socium.Ef.Models;
+using Services.Socium.Enums;
 using Services.Socium.Mapping;
 
 namespace Tests.Units.Socium;
@@ -27,15 +28,45 @@ public sealed class ChatMapperTests
     }
 
     [Fact]
-    public void CreatePageResponse_Map_WithNewChat_ShouldCopyRoomIdNameAndCanCreate()
+    public void CreatePageResponse_Map_WithNewChat_ShouldCopyIdRoomIdNameAndCanCreate()
     {
         var chat = CreateChat();
 
         var response = ChatMapper.ToCreatePageResponse(chat, canCreate: true);
 
+        Assert.Equal(chat.Id, response.Id);
         Assert.Equal(chat.RoomId, response.RoomId);
         Assert.Equal(chat.Name, response.Name);
         Assert.True(response.CanCreate);
+    }
+
+    [Fact]
+    public void ChangedEvent_Map_WithKindAndName_ShouldCopyFields()
+    {
+        var chatId = Guid.CreateVersion7();
+        var roomId = Guid.CreateVersion7();
+
+        var domainEvent = ChatMapper.ToChangedEvent(ChatChangedKind.Updated, chatId, roomId, "Объявления");
+
+        Assert.Equal(ChatChangedKind.Updated, domainEvent.Kind);
+        Assert.Equal(chatId, domainEvent.ChatId);
+        Assert.Equal(roomId, domainEvent.RoomId);
+        Assert.Equal("Объявления", domainEvent.Name);
+    }
+
+    [Fact]
+    public void NotifyChatChanged_Map_WithChangedEvent_ShouldUseKindString()
+    {
+        var chatId = Guid.CreateVersion7();
+        var roomId = Guid.CreateVersion7();
+        var domainEvent = ChatMapper.ToChangedEvent(ChatChangedKind.Deleted, chatId, roomId, "Общий");
+
+        var notify = ChatMapper.ToNotifyChatChanged(domainEvent);
+
+        Assert.Equal("deleted", notify.Kind);
+        Assert.Equal(chatId, notify.ChatId);
+        Assert.Equal(roomId, notify.RoomId);
+        Assert.Equal("Общий", notify.Name);
     }
 
     [Fact]

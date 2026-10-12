@@ -1,4 +1,4 @@
-import { Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, Injector, afterNextRender, computed, inject, input, signal, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { problemDetail } from '../../shared/api/api-response';
 import { Icon } from '../../shared/icon/icon';
@@ -17,10 +17,6 @@ export class ChatListItem {
   private readonly injector = inject(Injector);
 
   readonly chat = input.required<ChatListModel>();
-  /** Чат переименован — владелец перезагружает список. */
-  readonly changed = output<void>();
-  /** Чат удалён — владелец перезагружает список. */
-  readonly deleted = output<void>();
 
   protected readonly nameMaxLength = chatNameMaxLength;
   protected readonly editing = signal(false);
@@ -77,7 +73,6 @@ export class ChatListItem {
       next: () => {
         this.saving.set(false);
         this.editing.set(false);
-        this.changed.emit();
       },
       error: (error: unknown) => {
         this.saving.set(false);
