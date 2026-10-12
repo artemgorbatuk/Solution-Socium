@@ -39,6 +39,14 @@ public static class ChatMapper
         };
     }
 
+    public static ChatQueryOptions ToQueryOptions(Guid? roomId = null)
+    {
+        return new ChatQueryOptions
+        {
+            RoomId = roomId,
+        };
+    }
+
     public static ChatCreatePageResponse ToCreatePageResponse(Chat model, bool canCreate)
     {
         return new ChatCreatePageResponse
@@ -122,6 +130,24 @@ public static class ChatMapper
             RoomId = model.RoomId,
             Name = model.Name,
             CanDelete = canDelete,
+        };
+    }
+
+    public static ChatDeleteResponse ToDeleteResponse(bool isDeleted = true)
+    {
+        return new ChatDeleteResponse
+        {
+            IsDeleted = isDeleted,
+        };
+    }
+
+    public static ChatListPageResponse ToListPageResponse(ICollection<ChatListModel> rows)
+    {
+        return new ChatListPageResponse
+        {
+            Rows = rows,
+            RowExists = rows.Count > 0,
+            RowCount = rows.Count,
         };
     }
 }

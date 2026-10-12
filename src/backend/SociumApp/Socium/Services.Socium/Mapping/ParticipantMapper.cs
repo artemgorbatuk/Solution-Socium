@@ -17,6 +17,15 @@ public static class ParticipantMapper
         };
     }
 
+    public static ParticipantQueryOptions ToQueryOptions(Guid? chatId = null, Guid? userId = null)
+    {
+        return new ParticipantQueryOptions
+        {
+            ChatId = chatId,
+            UserId = userId,
+        };
+    }
+
     public static ParticipantCreateStageRequest ToCreateStageRequest(Guid chatId, Guid userId, bool assignChatAdmin)
     {
         return new ParticipantCreateStageRequest
@@ -62,6 +71,46 @@ public static class ParticipantMapper
             UserId = model.UserId,
             Login = user?.Login ?? string.Empty,
             Name = user?.Name ?? UserPortTexts.DeletedUserName,
+            IsAdmin = isAdmin,
+        };
+    }
+
+    public static ParticipantDeleteResponse ToDeleteResponse(bool isDeleted = true)
+    {
+        return new ParticipantDeleteResponse
+        {
+            IsDeleted = isDeleted,
+        };
+    }
+
+    public static ParticipantListPageResponse ToListPageResponse(
+        ICollection<ParticipantListModel> rows,
+        bool canChangeRole)
+    {
+        return new ParticipantListPageResponse
+        {
+            Rows = rows,
+            RowExists = rows.Count > 0,
+            RowCount = rows.Count,
+            CanChangeRole = canChangeRole,
+        };
+    }
+
+    public static ChatNotifyParticipantModel ToNotifyParticipant(
+        Guid chatId,
+        Guid id,
+        Guid userId,
+        string login,
+        string name,
+        bool isAdmin)
+    {
+        return new ChatNotifyParticipantModel
+        {
+            ChatId = chatId,
+            Id = id,
+            UserId = userId,
+            Login = login,
+            Name = name,
             IsAdmin = isAdmin,
         };
     }

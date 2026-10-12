@@ -26,7 +26,7 @@
 | 0020 | Realtime: create / rename / delete комнаты у всех клиентов | Выполнена | [task-0020.md](tasks/task-0020.md) |
 | 0021 | RBAC: роли и разрешения | Выполнена | [task-0021.md](tasks/task-0021.md) |
 | 0022 | Рефакторинг: участник-админ чата через событие ChatCreated | Выполнена | [task-0022.md](tasks/task-0022.md) |
-| 0023 | Рефакторинг: QueryOptions и контракты только через Mapper | Новая | [task-0023.md](tasks/task-0023.md) |
+| 0023 | Рефакторинг: QueryOptions и контракты только через Mapper | Выполнена | [task-0023.md](tasks/task-0023.md) |
 | 0024 | Рефакторинг: интерфейс и реализация в одном файле (AGENTS) | Новая | [task-0024.md](tasks/task-0024.md) |
 | 0025 | Realtime: create / rename / delete чата у всех клиентов | Новая | [task-0025.md](tasks/task-0025.md) |
 | 0026 | Realtime: смена отображаемого имени у всех клиентов | Новая | [task-0026.md](tasks/task-0026.md) |

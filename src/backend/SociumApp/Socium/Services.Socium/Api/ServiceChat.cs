@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using Repositories.Socium.Ef.Api;
-using Repositories.Socium.Ef.Options;
 using Services.Security.Permissions.Catalogs;
 using Services.Shared.Api;
 using Services.Shared.Enums;
@@ -507,7 +506,7 @@ public class ServiceChat : IServiceChat
             await unitOfWork.Chats.DeleteAsync(model, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var response = new ChatDeleteResponse { IsDeleted = true };
+            var response = ChatMapper.ToDeleteResponse();
             logger.LogInformation(ChatCrudTexts.Messages.Success.DeleteCompleted);
             return ResponseInfo.Success(response, MessageType.SAVED, ChatCrudTexts.Messages.Success.DeleteCompleted);
         }
@@ -629,10 +628,7 @@ public class ServiceChat : IServiceChat
             }
 
             var readableChatIds = (await chatPolicy.GetReadableChatIdsAsync(user!.Id, request.RoomId, cancellationToken)).ToHashSet();
-            var chatOptions = new ChatQueryOptions
-            {
-                RoomId = request.RoomId,
-            };
+            var chatOptions = ChatMapper.ToQueryOptions(roomId: request.RoomId);
             var models = (await unitOfWork.Chats.GetListAsync(chatOptions, cancellationToken))
                 .Where(model => readableChatIds.Contains(model.Id))
                 .ToList();
@@ -683,12 +679,7 @@ public class ServiceChat : IServiceChat
                     .OrderByDescending(row => row.LastMessageAt ?? DateTime.MaxValue)
                     .ThenByDescending(row => row.Id),
             ];
-            var response = new ChatListPageResponse
-            {
-                Rows = rows,
-                RowExists = rows.Count > 0,
-                RowCount = rows.Count
-            };
+            var response = ChatMapper.ToListPageResponse(rows);
 
             logger.LogInformation(ChatCrudTexts.Messages.Success.DisplayListCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, ChatCrudTexts.Messages.Success.DisplayListCompleted);

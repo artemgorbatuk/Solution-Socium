@@ -1,7 +1,6 @@
 using Datasource.Socium.Ef.Models;
 using Microsoft.Extensions.Logging;
 using Repositories.Socium.Ef.Api;
-using Repositories.Socium.Ef.Options;
 using Services.Shared.Api;
 using Services.Shared.Enums;
 using Services.Shared.Models;
@@ -107,12 +106,10 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.Forbidden<MessageCreatePageResponse>(MessageType.FORBIDDEN, messageText);
             }
 
-            var newOptions = new MessageGetNewOptions
-            {
-                ChatId = request.ChatId,
-                CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
-                SenderUserId = user.Id,
-            };
+            var newOptions = MessageMapper.ToGetNewOptions(
+                request.ChatId,
+                timeProvider.GetUtcNow().UtcDateTime,
+                user.Id);
             var model = unitOfWork.Messages.GetNew(newOptions);
             var response = MessageMapper.ToCreatePageResponse(model);
             logger.LogInformation(MessageCrudTexts.Messages.Success.DisplayCreateCompleted);
@@ -177,10 +174,7 @@ public class ServiceMessage : IServiceMessage
                 return ResponseInfo.Forbidden<MessageCreatePageResponse>(MessageType.FORBIDDEN, messageText);
             }
 
-            var participantOptions = new ParticipantQueryOptions
-            {
-                ChatId = request.ChatId,
-            };
+            var participantOptions = ParticipantMapper.ToQueryOptions(chatId: request.ChatId);
             var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
 
             var domainErrors = MessageCrudValidators.ValidateDomainCreateRequest(request);
@@ -194,15 +188,17 @@ public class ServiceMessage : IServiceMessage
 
             var textNormalized = MessageNormalizer.Text(request.Text);
             var fileIds = (request.FileIds ?? []).Distinct().ToList();
-            var newOptions = new MessageGetNewOptions
-            {
-                ChatId = request.ChatId,
-                CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
-                SenderUserId = user!.Id,
-                RecipientUserIds = [.. participants
-                    .Where(participant => participant.UserId != user.Id)
-                    .Select(participant => participant.UserId)],
-            };
+            ICollection<Guid> recipientUserIds =
+            [
+                .. participants
+                    .Where(participant => participant.UserId != user!.Id)
+                    .Select(participant => participant.UserId),
+            ];
+            var newOptions = MessageMapper.ToGetNewOptions(
+                request.ChatId,
+                timeProvider.GetUtcNow().UtcDateTime,
+                user!.Id,
+                recipientUserIds);
             var model = unitOfWork.Messages.GetNew(newOptions);
             MessageMapper.Apply(model, textNormalized);
             await unitOfWork.Messages.CreateAsync(model, cancellationToken);
@@ -233,9 +229,8 @@ public class ServiceMessage : IServiceMessage
 
             var createdAttachments = await filePort.GetByMessageIdsAsync([model.Id], cancellationToken);
             var createdAttachmentList = createdAttachments.GetValueOrDefault(model.Id) ?? [];
-            await chatNotifyPort.NotifyMessageCreatedAsync(
-                ToNotifyMessage(model, user.Name, createdAttachmentList),
-                cancellationToken);
+            var createdNotify = MessageMapper.ToNotifyMessage(model, user.Name, createdAttachmentList);
+            await chatNotifyPort.NotifyMessageCreatedAsync(createdNotify, cancellationToken);
             var createdPreview = string.IsNullOrWhiteSpace(model.Text)
                 ? (createdAttachmentList.Count > 0 ? "Вложение" : null)
                 : ChatMapper.TruncatePreview(model.Text);
@@ -420,9 +415,8 @@ public class ServiceMessage : IServiceMessage
 
             var updatedAttachments = await filePort.GetByMessageIdsAsync([model.Id], cancellationToken);
             var updatedAttachmentList = updatedAttachments.GetValueOrDefault(model.Id) ?? [];
-            await chatNotifyPort.NotifyMessageUpdatedAsync(
-                ToNotifyMessage(model, user.Name, updatedAttachmentList),
-                cancellationToken);
+            var updatedNotify = MessageMapper.ToNotifyMessage(model, user.Name, updatedAttachmentList);
+            await chatNotifyPort.NotifyMessageUpdatedAsync(updatedNotify, cancellationToken);
             var last = (await unitOfWork.Messages.GetLastByChatIdsAsync([model.ChatId], cancellationToken))
                 .GetValueOrDefault(model.ChatId);
             if (last is not null && last.MessageId == model.Id)
@@ -635,7 +629,7 @@ public class ServiceMessage : IServiceMessage
                     cancellationToken);
             }
 
-            var response = new MessageDeleteResponse { IsDeleted = true };
+            var response = MessageMapper.ToDeleteResponse();
             logger.LogInformation(MessageCrudTexts.Messages.Success.DeleteCompleted);
             return ResponseInfo.Success(response, MessageType.SAVED, MessageCrudTexts.Messages.Success.DeleteCompleted);
         }
@@ -784,12 +778,10 @@ public class ServiceMessage : IServiceMessage
             }
 
             var roles = await messagePolicy.GetRolesForChatAsync(user.Id, chat.RoomId, chat.Id, cancellationToken);
-            var messageOptions = new MessageQueryOptions
-            {
-                ChatId = request.ChatId,
-                BeforeId = request.BeforeId,
-                Take = MessageListPaging.PageSize + 1,
-            };
+            var messageOptions = MessageMapper.ToQueryOptions(
+                chatId: request.ChatId,
+                beforeId: request.BeforeId,
+                take: MessageListPaging.PageSize + 1);
             var models = (await unitOfWork.Messages.GetListAsync(messageOptions, cancellationToken)).ToList();
             var hasOlder = models.Count > MessageListPaging.PageSize;
             if (hasOlder)
@@ -814,13 +806,7 @@ public class ServiceMessage : IServiceMessage
                         [.. attachments.Select(MessageMapper.ToAttachmentModel)]);
                 }),
             ];
-            var response = new MessageListPageResponse
-            {
-                Rows = rows,
-                RowExists = rows.Count > 0,
-                RowCount = rows.Count,
-                HasOlder = hasOlder,
-            };
+            var response = MessageMapper.ToListPageResponse(rows, hasOlder);
 
             if (request.BeforeId is null)
             {
@@ -839,15 +825,12 @@ public class ServiceMessage : IServiceMessage
                 if (markedRead > 0)
                 {
                     var unread = await unitOfWork.Recipients.GetUnreadCountAsync(user.Id, request.ChatId, cancellationToken);
-                    await chatNotifyPort.NotifyChatListUpdatedAsync(
-                        new ChatNotifyListModel
-                        {
-                            ChatId = chat!.Id,
-                            RoomId = chat.RoomId,
-                            UnreadCount = unread,
-                            TargetUserId = user.Id,
-                        },
-                        cancellationToken);
+                    var listNotify = MessageMapper.ToNotifyList(
+                        chat!.Id,
+                        chat.RoomId,
+                        user.Id,
+                        unread);
+                    await chatNotifyPort.NotifyChatListUpdatedAsync(listNotify, cancellationToken);
                 }
             }
 
@@ -896,8 +879,9 @@ public class ServiceMessage : IServiceMessage
                 timeProvider.GetUtcNow().UtcDateTime,
                 cancellationToken);
 
+            var response = MessageMapper.ToDeliveredResponse(updated);
             return ResponseInfo.Success(
-                new MessageDeliveredResponse { UpdatedCount = updated },
+                response,
                 MessageType.SAVED,
                 MessageCrudTexts.Messages.Success.DisplayListCompleted);
         }
@@ -945,19 +929,17 @@ public class ServiceMessage : IServiceMessage
             var chat = await unitOfWork.Chats.GetSingleOrDefaultAsync(request.ChatId, cancellationToken);
             if (chat is not null)
             {
-                await chatNotifyPort.NotifyChatListUpdatedAsync(
-                    new ChatNotifyListModel
-                    {
-                        ChatId = chat.Id,
-                        RoomId = chat.RoomId,
-                        UnreadCount = unread,
-                        TargetUserId = user.Id,
-                    },
-                    cancellationToken);
+                var listNotify = MessageMapper.ToNotifyList(
+                    chat.Id,
+                    chat.RoomId,
+                    user.Id,
+                    unread);
+                await chatNotifyPort.NotifyChatListUpdatedAsync(listNotify, cancellationToken);
             }
 
+            var response = MessageMapper.ToReadResponse(updated, unread);
             return ResponseInfo.Success(
-                new MessageReadResponse { UpdatedCount = updated, UnreadCount = unread },
+                response,
                 MessageType.SAVED,
                 MessageCrudTexts.Messages.Success.DisplayListCompleted);
         }
@@ -970,32 +952,6 @@ public class ServiceMessage : IServiceMessage
             logger.LogError(exception, "MarkRead failed");
             return ResponseInfo.Error<MessageReadResponse>(MessageType.ERROR, MessageCrudTexts.Messages.Error.DisplayListError);
         }
-    }
-
-    private static ChatNotifyMessageModel ToNotifyMessage(
-        Message model,
-        string senderName,
-        IReadOnlyList<FilePortAttachment> attachments)
-    {
-        return new ChatNotifyMessageModel
-        {
-            ChatId = model.ChatId,
-            Id = model.Id,
-            Text = model.Text,
-            CreatedAt = model.CreatedAt,
-            SenderUserId = model.Sender.UserId,
-            SenderName = senderName,
-            Attachments =
-            [
-                .. attachments.Select(attachment => new ChatNotifyAttachmentModel
-                {
-                    Id = attachment.Id,
-                    FileName = attachment.FileName,
-                    ContentType = attachment.ContentType,
-                    SizeBytes = attachment.SizeBytes,
-                }),
-            ],
-        };
     }
 
     private async Task NotifyChatListForParticipantsAsync(
@@ -1014,9 +970,8 @@ public class ServiceMessage : IServiceMessage
             return;
         }
 
-        var participants = await unitOfWork.Participants.GetListAsync(
-            new ParticipantQueryOptions { ChatId = chatId },
-            cancellationToken);
+        var participantOptions = ParticipantMapper.ToQueryOptions(chatId: chatId);
+        var participants = await unitOfWork.Participants.GetListAsync(participantOptions, cancellationToken);
 
         foreach (var participant in participants)
         {
@@ -1026,20 +981,17 @@ public class ServiceMessage : IServiceMessage
                 // отправителю превью обновляем, unread свой не трогаем смыслом — считаем из БД
             }
 
-            await chatNotifyPort.NotifyChatListUpdatedAsync(
-                new ChatNotifyListModel
-                {
-                    ChatId = chat.Id,
-                    RoomId = chat.RoomId,
-                    TargetUserId = participant.UserId,
-                    UnreadCount = unread,
-                    LastMessageText = lastMessageCleared ? null : lastMessageText,
-                    LastMessageAt = lastMessageCleared ? null : lastMessageAt,
-                    LastMessageSenderName = lastMessageCleared ? null : lastMessageSenderName,
-                    LastMessageHasAttachments = !lastMessageCleared && lastMessageHasAttachments,
-                    LastMessageCleared = lastMessageCleared,
-                },
-                cancellationToken);
+            var listNotify = MessageMapper.ToNotifyList(
+                chat.Id,
+                chat.RoomId,
+                participant.UserId,
+                unread,
+                lastMessageText,
+                lastMessageAt,
+                lastMessageSenderName,
+                lastMessageHasAttachments,
+                lastMessageCleared);
+            await chatNotifyPort.NotifyChatListUpdatedAsync(listNotify, cancellationToken);
         }
     }
 }

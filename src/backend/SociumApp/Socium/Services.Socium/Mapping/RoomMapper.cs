@@ -1,4 +1,5 @@
 using Datasource.Socium.Ef.Models;
+using Repositories.Socium.Ef.Options;
 using Services.Socium.Enums;
 using Services.Socium.Events;
 using Services.Socium.Models;
@@ -11,6 +12,19 @@ public static class RoomMapper
     public static void Apply(Room model, string name)
     {
         model.Name = name;
+    }
+
+    public static RoomQueryOptions ToQueryOptions(
+        string? name = null,
+        Guid? excludeId = null,
+        IReadOnlyCollection<Guid>? ids = null)
+    {
+        return new RoomQueryOptions
+        {
+            Name = name,
+            ExcludeId = excludeId,
+            Ids = ids,
+        };
     }
 
     public static RoomCreatedEvent ToCreatedEvent(Guid roomId, Guid creatorUserId)
@@ -99,6 +113,24 @@ public static class RoomMapper
             Name = model.Name,
             ChatCount = chatCount,
             CanDelete = canDelete,
+        };
+    }
+
+    public static RoomDeleteResponse ToDeleteResponse(bool isDeleted = true)
+    {
+        return new RoomDeleteResponse
+        {
+            IsDeleted = isDeleted,
+        };
+    }
+
+    public static RoomListPageResponse ToListPageResponse(ICollection<RoomListModel> rows)
+    {
+        return new RoomListPageResponse
+        {
+            Rows = rows,
+            RowExists = rows.Count > 0,
+            RowCount = rows.Count,
         };
     }
 }

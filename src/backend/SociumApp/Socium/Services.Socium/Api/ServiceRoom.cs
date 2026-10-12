@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using Repositories.Socium.Ef.Api;
-using Repositories.Socium.Ef.Options;
 using Services.Security.Permissions.Catalogs;
 using Services.Shared.Api;
 using Services.Shared.Enums;
@@ -157,10 +156,7 @@ public class ServiceRoom : IServiceRoom
             }
 
             var nameNormalized = RoomNormalizer.Name(request.Name);
-            var duplicateOptions = new RoomQueryOptions
-            {
-                Name = nameNormalized,
-            };
+            var duplicateOptions = RoomMapper.ToQueryOptions(name: nameNormalized);
             var duplicates = await unitOfWork.Rooms.GetListAsync(duplicateOptions, cancellationToken);
             var duplicateErrors = RoomCrudValidators.ValidateDuplicates(duplicates.Any());
             if (duplicateErrors.Any())
@@ -349,11 +345,7 @@ public class ServiceRoom : IServiceRoom
             }
 
             var nameNormalized = RoomNormalizer.Name(request.Name);
-            var duplicateOptions = new RoomQueryOptions
-            {
-                Name = nameNormalized,
-                ExcludeId = request.Id,
-            };
+            var duplicateOptions = RoomMapper.ToQueryOptions(name: nameNormalized, excludeId: request.Id);
             var duplicates = await unitOfWork.Rooms.GetListAsync(duplicateOptions, cancellationToken);
             var duplicateErrors = RoomCrudValidators.ValidateDuplicates(duplicates.Any());
             if (duplicateErrors.Any())
@@ -432,10 +424,7 @@ public class ServiceRoom : IServiceRoom
                 return ResponseInfo.Forbidden<RoomDeletePageResponse>(MessageType.FORBIDDEN, messageText);
             }
 
-            var chatOptions = new ChatQueryOptions
-            {
-                RoomId = model.Id,
-            };
+            var chatOptions = ChatMapper.ToQueryOptions(roomId: model.Id);
             var chatCount = await unitOfWork.Chats.CountAsync(chatOptions, cancellationToken);
             var response = RoomMapper.ToDeletePageResponse(model, chatCount, canDelete: true);
             logger.LogInformation(RoomCrudTexts.Messages.Success.DisplayDeleteCompleted);
@@ -507,7 +496,7 @@ public class ServiceRoom : IServiceRoom
             var roomChanged = RoomMapper.ToChangedEvent(RoomChangedKind.Deleted, roomId, roomName);
             await domainEventPublisher.PublishAsync(roomChanged, cancellationToken);
 
-            var response = new RoomDeleteResponse { IsDeleted = true };
+            var response = RoomMapper.ToDeleteResponse();
             logger.LogInformation(RoomCrudTexts.Messages.Success.DeleteCompleted);
             return ResponseInfo.Success(response, MessageType.SAVED, RoomCrudTexts.Messages.Success.DeleteCompleted);
         }
@@ -616,10 +605,7 @@ public class ServiceRoom : IServiceRoom
             }
 
             var readableRoomIds = await roomPolicy.GetReadableRoomIdsAsync(user!.Id, cancellationToken);
-            var roomOptions = new RoomQueryOptions
-            {
-                Ids = readableRoomIds,
-            };
+            var roomOptions = RoomMapper.ToQueryOptions(ids: readableRoomIds);
             var models = await unitOfWork.Rooms.GetListAsync(roomOptions, cancellationToken);
 
             ICollection<RoomListModel> rows = [];
@@ -630,12 +616,7 @@ public class ServiceRoom : IServiceRoom
                 rows.Add(RoomMapper.ToListModel(model, canUpdate, canDelete));
             }
 
-            var response = new RoomListPageResponse
-            {
-                Rows = rows,
-                RowExists = rows.Count > 0,
-                RowCount = rows.Count
-            };
+            var response = RoomMapper.ToListPageResponse(rows);
 
             logger.LogInformation(RoomCrudTexts.Messages.Success.DisplayListCompleted);
             return ResponseInfo.Success(response, MessageType.LOADED, RoomCrudTexts.Messages.Success.DisplayListCompleted);
